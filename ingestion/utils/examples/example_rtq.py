@@ -22,6 +22,8 @@ def main():
                         help="The Redis host ip")
     parser.add_argument('-p', '--redis-port', action='store', default='6379',
                         help="The Redis port")
+    parser.add_argument('-P', '--redis-password', action='store', default=None,
+                        help="The Redis password")
     parser.add_argument('-m', '--moderate', action='store_const', const=True,
                         default=False, help="Moderate the outbound Queue")
     parser.add_argument('-w', '--window', action='store', default=60,
@@ -40,11 +42,12 @@ def main():
     num = int(args['num_hits'])
     host = args['redis_host']
     port = args['redis_port']
+    password = args['redis_password']
     mod = args['moderate']
     queue = args['queue']
     elastic = args['elastic']
 
-    conn = redis.Redis(host=host, port=port)
+    conn = redis.Redis(host=host, port=port, password=password, decode_responses=True)
 
     q = RedisPriorityQueue(conn, queue)
     t = RedisThrottledQueue(conn, q, window, num, mod, elastic=elastic)
@@ -53,17 +56,17 @@ def main():
         for i in range(0, amount):
             t.push('item-'+str(i), i)
 
-    print "Adding", num * 2, "items for testing"
+    print("Adding", num * 2, "items for testing")
     push_items(num * 2)
 
     def read_items():
-        print "Kill when satisfied ^C"
+        print("Kill when satisfied ^C")
         ti = time.time()
         count = 0
         while True:
             item = t.pop()
             if item:
-                print "My item", item, "My time:", time.time() - ti
+                print("My item", item, "My time:", time.time() - ti)
                 count += 1
 
             if elastic:
@@ -74,7 +77,7 @@ def main():
     except KeyboardInterrupt:
         pass
     t.clear()
-    print "Finished"
+    print("Finished")
 
 if __name__ == "__main__":
     sys.exit(main())

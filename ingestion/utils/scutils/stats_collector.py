@@ -16,6 +16,7 @@ class StatsCollector(object):
     counter = StatsCollector.get_rolling_time_window(
             host='localhost',
             port=6379,
+            password=None,
             window=StatsCollector.SECONDS_1_DAY)
     counter.increment()
     print counter.value()
@@ -38,10 +39,11 @@ class StatsCollector(object):
     SECONDS_7_DAY = SECONDS_1_DAY * 7
     SECONDS_1_WEEK = SECONDS_7_DAY
     SECONDS_30_DAY = SECONDS_1_DAY * 30
+    REDIS_SOCKET_TIMEOUT = 10
 
     @classmethod
     def get_time_window(self, redis_conn=None, host='localhost', port=6379,
-                        key='time_window_counter', cycle_time=5,
+                        password=None, key='time_window_counter', cycle_time=5,
                         start_time=None, window=SECONDS_1_HOUR, roll=True,
                         keep_max=12):
         '''
@@ -51,6 +53,7 @@ class StatsCollector(object):
         @param redis_conn: A premade redis connection (overrides host and port)
         @param host: the redis host
         @param port: the redis port
+        @param password: the redis password
         @param key: the key for your stats collection
         @param cycle_time: how often to check for expiring counts
         @param start_time: the time to start valid collection
@@ -63,12 +66,13 @@ class StatsCollector(object):
         counter = TimeWindow(key=key, cycle_time=cycle_time,
                              start_time=start_time, window=window, roll=roll,
                              keep_max=keep_max)
-        counter.setup(redis_conn=redis_conn, host=host, port=port)
+        counter.setup(redis_conn=redis_conn, host=host, port=port, password=password)
         return counter
 
     @classmethod
     def get_rolling_time_window(self, redis_conn=None, host='localhost',
-                                port=6379, key='rolling_time_window_counter',
+                                port=6379, password=None,
+                                key='rolling_time_window_counter',
                                 cycle_time=5, window=SECONDS_1_HOUR):
         '''
         Generate a new RollingTimeWindow
@@ -77,18 +81,19 @@ class StatsCollector(object):
         @param redis_conn: A premade redis connection (overrides host and port)
         @param host: the redis host
         @param port: the redis port
+        @param password: the redis password
         @param key: the key for your stats collection
         @param cycle_time: how often to check for expiring counts
         @param window: the number of seconds behind now() to keep data for
         '''
         counter = RollingTimeWindow(key=key, cycle_time=cycle_time,
                                     window=window)
-        counter.setup(redis_conn=redis_conn, host=host, port=port)
+        counter.setup(redis_conn=redis_conn, host=host, port=port, password=password)
         return counter
 
     @classmethod
     def get_counter(self, redis_conn=None, host='localhost', port=6379,
-                    key='counter', cycle_time=5, start_time=None,
+                    password=None, key='counter', cycle_time=5, start_time=None,
                     window=SECONDS_1_HOUR, roll=True, keep_max=12, start_at=0):
         '''
         Generate a new Counter
@@ -97,6 +102,7 @@ class StatsCollector(object):
         @param redis_conn: A premade redis connection (overrides host and port)
         @param host: the redis host
         @param port: the redis port
+        @param password: the redis password
         @param key: the key for your stats collection
         @param cycle_time: how often to check for expiring counts
         @param start_time: the time to start valid collection
@@ -110,13 +116,14 @@ class StatsCollector(object):
         counter = Counter(key=key, cycle_time=cycle_time,
                           start_time=start_time, window=window, roll=roll,
                           keep_max=keep_max)
-        counter.setup(redis_conn=redis_conn, host=host, port=port)
+        counter.setup(redis_conn=redis_conn, host=host, port=port, password=password)
         return counter
 
     @classmethod
     def get_unique_counter(self, redis_conn=None, host='localhost', port=6379,
-                           key='unique_counter', cycle_time=5, start_time=None,
-                           window=SECONDS_1_HOUR, roll=True, keep_max=12):
+                           password=None, key='unique_counter', cycle_time=5,
+                           start_time=None, window=SECONDS_1_HOUR, roll=True,
+                           keep_max=12):
         '''
         Generate a new UniqueCounter.
         Useful for exactly counting unique objects
@@ -124,6 +131,7 @@ class StatsCollector(object):
         @param redis_conn: A premade redis connection (overrides host and port)
         @param host: the redis host
         @param port: the redis port
+        @param password: the redis password
         @param key: the key for your stats collection
         @param cycle_time: how often to check for expiring counts
         @param start_time: the time to start valid collection
@@ -136,12 +144,12 @@ class StatsCollector(object):
         counter = UniqueCounter(key=key, cycle_time=cycle_time,
                                 start_time=start_time, window=window,
                                 roll=roll, keep_max=keep_max)
-        counter.setup(redis_conn=redis_conn, host=host, port=port)
+        counter.setup(redis_conn=redis_conn, host=host, port=port, password=password)
         return counter
 
     @classmethod
     def get_hll_counter(self, redis_conn=None, host='localhost', port=6379,
-                        key='hyperloglog_counter', cycle_time=5,
+                        password=None, key='hyperloglog_counter', cycle_time=5,
                         start_time=None, window=SECONDS_1_HOUR, roll=True,
                         keep_max=12):
         '''
@@ -151,6 +159,7 @@ class StatsCollector(object):
         @param redis_conn: A premade redis connection (overrides host and port)
         @param host: the redis host
         @param port: the redis port
+        @param password: the redis password
         @param key: the key for your stats collection
         @param cycle_time: how often to check for expiring counts
         @param start_time: the time to start valid collection
@@ -163,13 +172,14 @@ class StatsCollector(object):
         counter = HyperLogLogCounter(key=key, cycle_time=cycle_time,
                                      start_time=start_time, window=window,
                                      roll=roll, keep_max=keep_max)
-        counter.setup(redis_conn=redis_conn, host=host, port=port)
+        counter.setup(redis_conn=redis_conn, host=host, port=port, password=password)
         return counter
 
     @classmethod
     def get_bitmap_counter(self, redis_conn=None, host='localhost', port=6379,
-                           key='bitmap_counter', cycle_time=5, start_time=None,
-                           window=SECONDS_1_HOUR, roll=True, keep_max=12):
+                           password=None, key='bitmap_counter', cycle_time=5,
+                           start_time=None, window=SECONDS_1_HOUR, roll=True,
+                           keep_max=12):
         '''
         Generate a new BitMapCounter
         Useful for creating different bitsets about users/items
@@ -178,6 +188,7 @@ class StatsCollector(object):
         @param redis_conn: A premade redis connection (overrides host and port)
         @param host: the redis host
         @param port: the redis port
+        @param password: the redis password
         @param key: the key for your stats collection
         @param cycle_time: how often to check for expiring counts
         @param start_time: the time to start valid collection
@@ -190,7 +201,7 @@ class StatsCollector(object):
         counter = BitMapCounter(key=key, cycle_time=cycle_time,
                                 start_time=start_time, window=window,
                                 roll=roll, keep_max=keep_max)
-        counter.setup(redis_conn=redis_conn, host=host, port=port)
+        counter.setup(redis_conn=redis_conn, host=host, port=port, password=password)
         return counter
 
 
@@ -203,16 +214,18 @@ class AbstractCounter(object):
         else:
             self.key = 'default_counter'
 
-    def setup(self, redis_conn=None, host='localhost', port=6379):
+    def setup(self, redis_conn=None, host='localhost', port=6379, password=None):
         '''
         Set up the redis connection
         '''
         if redis_conn is None:
             if host is not None and port is not None:
-                self.redis_conn = redis.Redis(host=host, port=port)
+                self.redis_conn = redis.Redis(host=host, port=port, password=password,
+                                              decode_responses=True,
+                                              socket_timeout=self.REDIS_SOCKET_TIMEOUT,
+                                              socket_connect_timeout=self.REDIS_SOCKET_TIMEOUT)
             else:
-                raise Exception("Please specify some form of connection "
-                                    "to Redis")
+                raise Exception("Please specify some form of connection to Redis")
         else:
             self.redis_conn = redis_conn
 
@@ -297,16 +310,17 @@ class ThreadedCounter(AbstractCounter):
 
         self._set_key()
 
-    def setup(self, redis_conn=None, host='localhost', port=6379):
+    def setup(self, redis_conn=None, host='localhost', port=6379, password=None):
         '''
         Set up the counting manager class
 
         @param redis_conn: A premade redis connection (overrides host and port)
         @param host: the redis host
         @param port: the redis port
+        @param password: the redis password
         '''
         AbstractCounter.setup(self, redis_conn=redis_conn, host=host,
-                              port=port)
+                              port=port, password=password)
 
         self._threaded_start()
 
@@ -319,6 +333,12 @@ class ThreadedCounter(AbstractCounter):
         self.thread.setDaemon(True)
         self.thread.start()
 
+    def deactivate(self):
+        '''
+        Call to shut down the threaded stats collector without joining; returns immediately
+        '''
+        self.active = False
+
     def stop(self):
         '''
         Call to shut down the threaded stats collector
@@ -327,17 +347,30 @@ class ThreadedCounter(AbstractCounter):
         self.thread.join()
 
     def _main_loop(self):
-        '''
-        Main loop for the stats collector
-        '''
+        """
+        Main loop for the stats collector.
+        Calls _do_thread_work that cleans up Redis sorted sets containing stats.
+        """
         while self.active:
-            self.expire()
+            self._do_thread_work()
+        self._clean_up()
+
+    def _do_thread_work(self):
+        """
+        Clean up Redis sorted sets containing stats.
+        Runs inside a thread and communicates with Redis.
+        Must be resilient to errors otherwise stats accumulate indefinitely.
+        """
+        try:  # Prevent thread from dying in case of Redis connectivity problems
+            self.expire()  # Requires operational Redis connection
             if self.roll and self.is_expired():
                 self.start_time = self.start_time + self.window
                 self._set_key()
-            self.purge_old()
+            self.purge_old()  # Requires operational Redis connection
+        except redis.RedisError:
+            pass
+        finally:
             time.sleep(self.cycle_time)
-        self._clean_up()
 
     def _clean_up(self):
         '''
@@ -399,7 +432,7 @@ class TimeWindow(ThreadedCounter):
     def increment(self):
         curr_time = self._time()
         if curr_time - self.start_time < self.window:
-            self.redis_conn.zadd(self.final_key, curr_time, curr_time)
+            self.redis_conn.zadd(self.final_key, {curr_time: curr_time})
 
     def value(self):
         return self.redis_conn.zcard(self.final_key)
@@ -428,7 +461,7 @@ class RollingTimeWindow(ThreadedCounter):
 
     def increment(self):
         now = self._time()
-        self.redis_conn.zadd(self.key, now, now)
+        self.redis_conn.zadd(self.key, {now: now})
 
     def value(self):
         return self.redis_conn.zcard(self.key)
@@ -511,7 +544,7 @@ class HyperLogLogCounter(ThreadedCounter):
 
         @param item: the potentially unique item
         '''
-        self.redis_conn.execute_command("PFADD", self.final_key, item)
+        self.redis_conn.execute_command("PFADD", self.final_key, str(item))
 
     def value(self):
         return self.redis_conn.execute_command("PFCOUNT", self.final_key)

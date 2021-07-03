@@ -59,8 +59,20 @@ class RedisMonitor(object):
                                               backups=self.settings['LOG_BACKUPS'])
 
         self.redis_conn = redis.StrictRedis(host=self.settings['REDIS_HOST'],
-                                      port=self.settings['REDIS_PORT'],
-                                      db=self.settings['REDIS_DB'])
+                                            port=self.settings['REDIS_PORT'],
+                                            db=self.settings['REDIS_DB'],
+                                            password=self.settings['REDIS_PASSWORD'],
+                                            decode_responses=True,
+                                            socket_timeout=self.settings.get('REDIS_SOCKET_TIMEOUT'),
+                                            socket_connect_timeout=self.settings.get('REDIS_SOCKET_TIMEOUT'))
+        # redis_lock needs a redis connection without setting decode_responses
+        # to True
+        self.lock_redis_conn = redis.StrictRedis(host=self.settings['REDIS_HOST'],
+                                                 port=self.settings['REDIS_PORT'],
+                                                 db=self.settings['REDIS_DB'],
+                                                 password=self.settings['REDIS_PASSWORD'],
+                                                 socket_timeout=self.settings.get('REDIS_SOCKET_TIMEOUT'),
+                                                 socket_connect_timeout=self.settings.get('REDIS_SOCKET_TIMEOUT'))
 
         try:
             self.redis_conn.info()
@@ -182,7 +194,7 @@ class RedisMonitor(object):
         '''
         Returns a lock object, split for testing
         '''
-        return redis_lock.Lock(self.redis_conn, key,
+        return redis_lock.Lock(self.lock_redis_conn, key,
                                expire=self.settings['REDIS_LOCK_EXPIRATION'],
                                auto_renewal=True)
 

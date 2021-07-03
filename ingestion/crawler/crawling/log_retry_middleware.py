@@ -61,7 +61,11 @@ class LogRetryMiddleware(object):
         if self.settings['STATS_STATUS_CODES']:
             self.redis_conn = redis.Redis(host=self.settings.get('REDIS_HOST'),
                                           port=self.settings.get('REDIS_PORT'),
-                                          db=settings.get('REDIS_DB'))
+                                          db=settings.get('REDIS_DB'),
+                                          password=self.settings.get('REDIS_PASSWORD'),
+                                          decode_responses=True,
+                                          socket_timeout=self.settings.get('REDIS_SOCKET_TIMEOUT'),
+                                          socket_connect_timeout=self.settings.get('REDIS_SOCKET_TIMEOUT'))
 
             try:
                 self.redis_conn.info()

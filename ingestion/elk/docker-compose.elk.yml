@@ -5,7 +5,7 @@ version: '2'
 
 services:
   kafka_monitor:
-    image: istresearch/scrapy-cluster:kafka-monitor-1.2.1
+    image: istresearch/scrapy-cluster:kafka-monitor-dev
     volumes:
       - logs:/usr/src/app/logs
     environment:
@@ -16,7 +16,7 @@ services:
       - redis
     restart: always
   redis_monitor:
-    image: istresearch/scrapy-cluster:redis-monitor-1.2.1
+    image: istresearch/scrapy-cluster:redis-monitor-dev
     volumes:
       - logs:/usr/src/app/logs
     environment:
@@ -28,7 +28,7 @@ services:
       - zookeeper
     restart: always
   crawler:
-    image: istresearch/scrapy-cluster:crawler-1.2.1
+    image: istresearch/scrapy-cluster:crawler-dev
     volumes:
       - logs:/usr/src/app/logs
     environment:
@@ -40,7 +40,7 @@ services:
       - zookeeper
     restart: always
   rest:
-    image: istresearch/scrapy-cluster:rest-1.2.1
+    image: istresearch/scrapy-cluster:rest-dev
     volumes:
       - logs:/usr/src/app/logs
     depends_on:
@@ -57,8 +57,9 @@ services:
     ports:
       - "6379"
     restart: always
+    # command: redis-server --requirepass redispassword
   zookeeper:
-    image: zookeeper
+    image: wurstmeister/zookeeper
     ports:
       - "2181:2181"
     restart: always
@@ -69,6 +70,7 @@ services:
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_ADVERTISED_HOST_NAME: kafka
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
@@ -80,6 +82,7 @@ services:
     ports:
       - "9200:9200"
       - "9300:9300"
+    restart: always
   logstash:
     image: logstash:5.2
     command: logstash -f /etc/logstash/conf.d/logstash.conf
@@ -91,12 +94,14 @@ services:
       - "5000:5000"
     links:
       - elasticsearch
+    restart: always
   kibana:
     image: kibana:5.2
     ports:
       - "5601:5601"
     links:
       - elasticsearch
+    restart: always
 
 volumes:
   logs:

@@ -2,6 +2,12 @@ version: '2'
 # this file is used for travis ci testing, and is built in .travis.yml
 
 services:
+  utils:
+    image: istresearch/scrapy-cluster:utils-test
+    depends_on:
+      - kafka
+      - redis
+      - zookeeper
   kafka_monitor:
     image: istresearch/scrapy-cluster:kafka-monitor-test
     depends_on:
@@ -45,6 +51,7 @@ services:
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_ADVERTISED_HOST_NAME: kafka
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:

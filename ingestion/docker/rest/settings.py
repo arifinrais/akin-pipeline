@@ -14,6 +14,8 @@ FLASK_PORT = int(os.getenv('FLASK_PORT', 5343))
 REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
 REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
 REDIS_DB = int(os.getenv('REDIS_DB', 0))
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', None)
+REDIS_SOCKET_TIMEOUT = int(os.getenv('REDIS_SOCKET_TIMEOUT', 10))
 
 # Kafka server information ------------
 KAFKA_HOSTS = [x.strip() for x in os.getenv('KAFKA_HOSTS', 'kafka:9092').split(',')]
@@ -27,7 +29,7 @@ KAFKA_CONSUMER_AUTO_COMMIT_ENABLE = True
 KAFKA_CONSUMER_FETCH_MESSAGE_MAX_BYTES = 10 * 1024 * 1024  # 10MB
 KAFKA_CONSUMER_SLEEP_TIME = 1
 
-KAFKA_INCOMING_TOPIC = os.getenv('KAFKA_INCOMING_TOPIC', 'demo.incoming')
+KAFKA_PRODUCER_TOPIC = os.getenv('KAFKA_PRODUCER_TOPIC', 'demo.incoming')
 KAFKA_PRODUCER_BATCH_LINGER_MS = 25  # 25 ms before flush
 KAFKA_PRODUCER_BUFFER_BYTES = 4 * 1024 * 1024  # 4MB before blocking
 

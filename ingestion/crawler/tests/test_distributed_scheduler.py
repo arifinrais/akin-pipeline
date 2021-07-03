@@ -7,6 +7,7 @@ import mock
 from mock import MagicMock
 from crawling.distributed_scheduler import DistributedScheduler
 from scrapy.http import Request
+from scrapy.utils.reqser import request_to_dict
 from scutils.redis_throttled_queue import RedisThrottledQueue
 
 
@@ -19,7 +20,8 @@ class ThrottleMixin(object):
     def setUp(self, u, z):
         self.scheduler = DistributedScheduler(MagicMock(), False, 60, 10, 3,
                                               MagicMock(), 10, 60, False, 60,
-                                              False, False, '.*', True, 3600)
+                                              False, False, '.*', True, 3600,
+                                              None, 600, 600)
         self.scheduler.open(MagicMock())
         self.scheduler.my_ip = 'ip'
         self.scheduler.spider.name = 'link'
@@ -42,6 +44,7 @@ class ThrottleMixin(object):
         req.meta["deny_extensions"] = None
         req.meta['curdepth'] = 0
         req.meta["maxdepth"] = 0
+        req.meta["domain_max_pages"] = None
         req.meta['priority'] = 0
         req.meta['retry_times'] = 0
         req.meta['expires'] = 0
@@ -59,13 +62,23 @@ class TestDistributedSchedulerEnqueueRequest(ThrottleMixin, TestCase):
 
         # test request already seen
         self.scheduler.dupefilter.request_seen = MagicMock(return_value=True)
-        self.assertEquals(self.scheduler.enqueue_request(self.req), None)
+        self.assertEqual(self.scheduler.enqueue_request(self.req), None)
+
+        # test global page limit reached
+        self.scheduler.global_page_per_domain_filter = MagicMock(return_value=True)
+        self.assertEqual(self.scheduler.enqueue_request(self.req), None)
+
+        # test per domain page limit reached
+        self.scheduler.domain_max_page_filter = MagicMock(return_value=True)
+        self.assertEqual(self.scheduler.enqueue_request(self.req), None)
 
         # test request not expiring and queue seen
         self.scheduler.queue_keys = ['link:ex.com:queue']
         self.extract = MagicMock(return_value={"domain": 'ex', "suffix": 'com'})
         self.scheduler.is_blacklisted = MagicMock(return_value=False)
         self.scheduler.dupefilter.request_seen = MagicMock(return_value=False)
+        self.scheduler.global_page_per_domain_filter.request_page_limit_reached = MagicMock(return_value=False)
+        self.scheduler.domain_max_page_filter.request_page_limit_reached = MagicMock(return_value=False)
         self.scheduler.queue_dict['link:ex.com:queue'] = [MagicMock(), 0]
         self.scheduler.queue_dict['link:ex.com:queue'][0].push = MagicMock(
                                                     side_effect=Exception("1"))
@@ -139,6 +152,21 @@ class TestDistributedSchedulerFindItem(ThrottleMixin, TestCase):
         self.assertEqual(self.scheduler.find_item(), None) # should also not raise exception
 
 
+class TestDistributedSchedulerRequestFromFeed(ThrottleMixin, TestCase):
+    def test_request_from_feed(self):
+        self.req = self.get_request()
+        feed = {
+            "url": "http://ex.com",
+            "crawlid": "abc123",
+            "appid": "myapp",
+            "spiderid": "link",
+        }
+        out = self.scheduler.request_from_feed(feed)
+        self.assertEqual(out.url, 'http://ex.com')
+        for key in out.meta:
+            self.assertEqual(out.meta[key], self.req.meta[key])
+
+
 class TestDistributedSchedulerNextRequest(ThrottleMixin, TestCase):
 
     @mock.patch('time.time', return_value=5)
@@ -169,20 +197,76 @@ class TestDistributedSchedulerNextRequest(ThrottleMixin, TestCase):
         except Exception as e:
             self.assertEqual(str(e), "ip")
 
-        # test got item
-        self.scheduler.find_item = MagicMock(
-                                        return_value={"url": "http://ex.com",
-                                                      "crawlid": "abc123",
-                                                      "appid": "myapp",
-                                                      "spiderid": "link"})
+        # test request from feed
+        feed = {
+            "url": "http://ex.com",
+            "crawlid": "abc123",
+            "appid": "myapp",
+            "spiderid": "link",
+        }
+        self.scheduler.find_item = MagicMock(return_value=feed)
         out = self.scheduler.next_request()
-        self.assertEquals(out.url, 'http://ex.com')
+        self.assertEqual(out.url, 'http://ex.com')
         for key in out.meta:
             self.assertEqual(out.meta[key], self.req.meta[key])
 
+        # test request from feed with cookies
+        feed = {
+            "url": "http://ex.com",
+            "crawlid": "abc123",
+            "appid": "myapp",
+            "spiderid": "link",
+            "cookie": "authenticated=true;privacy=10"
+        }
+        self.req.meta['cookie'] = "authenticated=true;privacy=10"  # add cookie to req since we are not testing this
+        self.scheduler.find_item = MagicMock(return_value=feed)
+        out = self.scheduler.next_request()
+        self.assertEqual(out.url, 'http://ex.com')
+        for key in out.meta:
+            self.assertEqual(out.meta[key], self.req.meta[key])
+        self.assertEqual(out.cookies, self.scheduler.parse_cookie(feed["cookie"]))
+        self.req.meta['cookie'] = None  # reset
+
+        # test request from serialized request
+        exist_req = Request('http://ex.com')
+        exist_req.meta["crawlid"] = "abc123"
+        exist_req.meta["appid"] = "myapp"
+        exist_req.meta["spiderid"] = "link"
+        exist_item = request_to_dict(exist_req)
+        self.scheduler.find_item = MagicMock(return_value=exist_item)
+        out = self.scheduler.next_request()
+        self.assertEqual(out.url, 'http://ex.com')
+        for key in out.meta:
+            self.assertEqual(out.meta[key], exist_req.meta[key])
+
+        # test request from serialized request with supplied cookie
+        exist_req = Request('http://ex.com', cookies={'auth':'101'})
+        exist_item = request_to_dict(exist_req)
+        self.scheduler.find_item = MagicMock(return_value=exist_item)
+        out = self.scheduler.next_request()
+        self.assertEqual(out.url, 'http://ex.com')
+        for key in out.meta:
+            self.assertEqual(out.meta[key], exist_req.meta[key])
+        self.assertEqual(out.cookies, exist_req.cookies)
+        self.req.meta['cookie'] = None  # reset
+
+        # test request from serialized request with meta cookie
+        exist_req = Request('http://ex.com')
+        exist_req.meta["crawlid"] = "abc123"
+        exist_req.meta["appid"] = "myapp"
+        exist_req.meta["spiderid"] = "link"
+        exist_req.meta["cookie"] = {'authenticated': False, 'privacy':9}
+        exist_item = request_to_dict(exist_req)
+        self.scheduler.find_item = MagicMock(return_value=exist_item)
+        out = self.scheduler.next_request()
+        self.assertEqual(out.url, 'http://ex.com')
+        for key in out.meta:
+            self.assertEqual(out.meta[key], exist_req.meta[key])
+        self.assertEqual(out.cookies, exist_req.meta['cookie'])
+
         # test didn't get item
         self.scheduler.find_item = MagicMock(return_value=None)
-        self.assertEquals(self.scheduler.next_request(), None)
+        self.assertEqual(self.scheduler.next_request(), None)
 
 
 class TestDistributedSchedulerChangeConfig(ThrottleMixin, TestCase):
@@ -190,7 +274,7 @@ class TestDistributedSchedulerChangeConfig(ThrottleMixin, TestCase):
     def test_change_config(self):
         good_string = ""\
           "domains:\n"\
-          "  dmoz.org:\n"\
+          "  dmoztools.net:\n"\
           "      window: 60\n"\
           "      hits: 60\n"\
           "      scale: 1.0\n"\

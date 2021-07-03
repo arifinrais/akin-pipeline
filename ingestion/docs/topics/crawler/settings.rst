@@ -24,6 +24,18 @@ Default: ``0``
 
 The Redis database to use when connecting to the ``REDIS_HOST``.
 
+**REDIS_PASSWORD**
+
+Default: ``None``
+
+The password to use when connecting to the ``REDIS_HOST``.
+
+**REDIS_SOCKET_TIMEOUT**
+
+Default: ``10``
+
+The number of seconds to wait while establishing a TCP connection, or to wait for a response from an existing TCP connection before timing out.
+
 Kafka
 -----
 
@@ -60,6 +72,12 @@ Default: ``False``
 Default: ``25``
 
 The time to wait between batching multiple requests into a single one sent to the Kafka cluster.
+
+**KAFKA_PRODUCER_MAX_REQUEST_SIZE**
+
+Default: ``1024 * 1024``
+
+The maximum request size the kafka producer can send to Kafka. Should be less than or equal to the Kafka Broker's ``message.max.bytes`` setting. This may need to be increased when crawling large web pages.
 
 **KAFKA_PRODUCER_BUFFER_BYTES**
 
@@ -147,6 +165,18 @@ Moderates the outbound domain request flow to evenly spread the ``QUEUE_HITS`` t
 Default: ``600``
 
 Number of seconds to keep **crawlid** specific duplication filters around after the latest crawl with that id has been conducted. Putting this setting too low may allow crawl jobs to crawl the same page due to the duplication filter being wiped out.
+
+**GLOBAL_PAGE_PER_DOMAIN_LIMIT**
+
+Default: ``None``
+
+Hard upper limit of the number of pages allowed to be scraped per **spider, domain and crawlid** used together as a composite key for all(!) crawling jobs. When not ``None``, all Crawl API requests grouped by the same **spiderid and crawlid** will impose this limit for each passed domain, individually. When this limit is reached, the scraping for this composite key is stopped until the timeout specified with **GLOBAL_PAGE_PER_DOMAIN_LIMIT_TIMEOUT** is reached. It can only be overridden downwards (ie. scrape less than this limit) by the crawler's Kafka API argument domain_max_pages. Used instead of the **domain_max_pages** Kafka Crawl API property when you want to set the same limit for all domains and all crawling jobs.
+
+**GLOBAL_PAGE_PER_DOMAIN_LIMIT_TIMEOUT**
+
+Default: ``600``
+
+Number of seconds to keep **spider, domain and crawlid** specific page limit filtering. Putting this setting too low may allow new crawl jobs to scrape more pages than the limit specified with **GLOBAL_PAGE_PER_DOMAIN_LIMIT**  due to the filter being wiped out.
 
 **SCHEDULER_IP_REFRESH**
 

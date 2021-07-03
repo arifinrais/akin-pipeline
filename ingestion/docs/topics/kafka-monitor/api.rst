@@ -10,7 +10,7 @@ Kafka Topics
 
 **Outbound Result Kafka Topics:**
 
-- ``demo.crawled_firehouse`` - A firehose topic of all resulting crawls within the system. Any single page crawled by the Scrapy Cluster is guaranteed to come out this pipe.
+- ``demo.crawled_firehose`` - A firehose topic of all resulting crawls within the system. Any single page crawled by the Scrapy Cluster is guaranteed to come out this pipe.
 
 - ``demo.crawled_<appid>`` - A special topic created for unique applications that submit crawl requests. Any application can listen to their own specific crawl results by listening to the the topic created under the ``appid`` they used to submit the request. These topics are a subset of the crawl firehose data and only contain the results that are applicable to the application who submitted it.
 
@@ -43,6 +43,8 @@ The crawl API defines the type of crawl you wish to have the cluster execute. Th
 
 - **maxdepth:** The depth at which to continue to crawl new links found on pages
 
+- **domain_max_pages:** Set the maximum number of pages to scrape per domain.
+
 - **priority:** The priority of which to given to the url to be crawled. The Spiders will crawl the highest priorities first.
 
 - **allowed_domains:** A list of domains that the crawl should stay within. For example, putting ``[ "cnn.com" ]`` will only continue to crawl links of that domain.
@@ -74,9 +76,9 @@ Kafka Request:
 
     ::
 
-        $ python kafka_monitor.py feed '{"url": "http://www.dmoz.org/", "appid":"testapp", "crawlid":"abc123", "maxdepth":2, "priority":90}'
+        $ python kafka_monitor.py feed '{"url": "http://www.dmoztools.net/", "appid":"testapp", "crawlid":"abc123", "maxdepth":2, "priority":90}'
 
-    - Submits a dmoz.org crawl spidering 2 levels deep with a high priority
+    - Submits a dmoztools.net crawl spidering 2 levels deep with a high priority
 
     ::
 
@@ -899,7 +901,7 @@ Zookeeper Request:
 
     ::
 
-        $ python kafka_monitor.py feed '{"uuid":"abc123", "appid":"madisonTest", "action":"domain-update", "domain":"dmoz.org", "hits":60, "window":60, "scale":0.9}'
+        $ python kafka_monitor.py feed '{"uuid":"abc123", "appid":"madisonTest", "action":"domain-update", "domain":"dmoztools.net", "hits":60, "window":60, "scale":0.9}'
 
 Response from Kafka:
 
@@ -907,7 +909,7 @@ Response from Kafka:
 
         {
             "action": "domain-update",
-            "domain": "dmoz.org",
+            "domain": "dmoztools.net",
             "server_time": 1464402128,
             "uuid": "abc123",
             "appid": "madisonTest"
@@ -923,7 +925,7 @@ Zookeeper Request:
 
     ::
 
-        $ python kafka_monitor.py feed '{"uuid":"abc123", "appid":"madisonTest", "action":"domain-remove", "domain":"dmoz.org"}'
+        $ python kafka_monitor.py feed '{"uuid":"abc123", "appid":"madisonTest", "action":"domain-remove", "domain":"dmoztools.net"}'
 
 Response from Kafka:
 
@@ -931,7 +933,7 @@ Response from Kafka:
 
         {
             "action": "domain-remove",
-            "domain": "dmoz.org",
+            "domain": "dmoztools.net",
             "server_time": 1464402146,
             "uuid": "abc123",
             "appid": "madisonTest"

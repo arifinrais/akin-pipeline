@@ -5,10 +5,12 @@ from __future__ import absolute_import
 # Scrapy Cluster Settings
 # ~~~~~~~~~~~~~~~~~~~~~~~
 
-# Specify the host and port to use when connecting to Redis.
+# Specify the host, port and password to use when connecting to Redis.
 REDIS_HOST = 'localhost'
 REDIS_PORT = '6379'
 REDIS_DB = 0
+REDIS_PASSWORD = None
+REDIS_SOCKET_TIMEOUT = 10
 
 # Kafka server information
 KAFKA_HOSTS = ['localhost:9092']
@@ -18,6 +20,7 @@ KAFKA_APPID_TOPICS = False
 KAFKA_BASE_64_ENCODE = False
 KAFKA_PRODUCER_BATCH_LINGER_MS = 25  # 25 ms before flush
 KAFKA_PRODUCER_BUFFER_BYTES = 4 * 1024 * 1024  # 4MB before blocking
+KAFKA_PRODUCER_MAX_REQUEST_SIZE = 1024 * 1024 # 1MB
 
 ZOOKEEPER_ASSIGN_PATH = '/scrapy-cluster/crawler/'
 ZOOKEEPER_ID = 'all'
@@ -41,6 +44,15 @@ QUEUE_MODERATED = True
 
 # how long we want the duplicate timeout queues to stick around in seconds
 DUPEFILTER_TIMEOUT = 600
+
+# how many pages to crawl for an individual domain. Cluster wide hard limit.
+GLOBAL_PAGE_PER_DOMAIN_LIMIT = None
+
+# how long should the global page limit per domain stick around in seconds
+GLOBAL_PAGE_PER_DOMAIN_LIMIT_TIMEOUT = 600
+
+# how long should the individual domain's max page limit stick around in seconds
+DOMAIN_MAX_PAGE_TIMEOUT = 600
 
 # how often to refresh the ip address of the scheduler
 SCHEDULER_IP_REFRESH = 60

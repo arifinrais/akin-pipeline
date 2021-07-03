@@ -109,9 +109,11 @@ class KafkaPipeline(object):
 
         try:
             producer = KafkaProducer(bootstrap_servers=settings['KAFKA_HOSTS'],
-                                 retries=3,
-                                 linger_ms=settings['KAFKA_PRODUCER_BATCH_LINGER_MS'],
-                                 buffer_memory=settings['KAFKA_PRODUCER_BUFFER_BYTES'])
+                                     retries=3,
+                                     linger_ms=settings['KAFKA_PRODUCER_BATCH_LINGER_MS'],
+                                     buffer_memory=settings['KAFKA_PRODUCER_BUFFER_BYTES'],
+                                     value_serializer=lambda m: m.encode('utf-8'),
+                                     max_request_size=settings['KAFKA_PRODUCER_MAX_REQUEST_SIZE'])
         except Exception as e:
                 logger.error("Unable to connect to Kafka in Pipeline"\
                     ", raising exit flag.")
@@ -148,7 +150,6 @@ class KafkaPipeline(object):
         del item_copy['status_msg']
         item_copy['action'] = 'ack'
         item_copy['logger'] = self.logger.name
-        item_copy
 
         return item_copy
 
@@ -162,12 +163,12 @@ class KafkaPipeline(object):
         self.logger.info("Sent page to Kafka", item)
 
 
-    def _kafka_failure(self, item, spider, response):
+    def _kafka_failure(self, item, spider, exception):
         '''
         Callback for failed send
         '''
         item['success'] = False
-        item['exception'] = traceback.format_exc()
+        item['exception'] = exception if exception else traceback.format_exc()
         item['spiderid'] = spider.name
         item = self._clean_item(item)
         self.logger.error("Failed to send page to Kafka", item)
@@ -180,8 +181,19 @@ class KafkaPipeline(object):
             prefix = self.topic_prefix
 
             try:
+                # Get the encoding. If it's not a key of datum, return utf-8
+                encoding = datum.get('encoding', 'utf-8')
+
                 if self.use_base64:
-                    datum['body'] = base64.b64encode(bytes(datum['body'], 'utf-8'))
+                    # When running in Python 2 datum['body'] is a string
+                    if isinstance(datum['body'], str):
+                        datum['body'] = bytes(datum['body'], encoding)
+                    # In Python 3 datum['body'] is already in byte form
+                    datum['body'] = base64.b64encode(datum['body'])
+
+                elif 'utf-8' != encoding:
+                    datum['body'] = datum['body'].decode(datum['encoding'])
+
                 message = ujson.dumps(datum, sort_keys=True)
             except:
                 message = 'json failed to parse'

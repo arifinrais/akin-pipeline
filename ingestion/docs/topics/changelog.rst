@@ -5,14 +5,63 @@ Change Log
 
 This page serves to document any changes made between releases.
 
-Scrapy Cluster 1.2.1
---------------------
+Scrapy Cluster 1.3
+------------------
 
-Date: 01/19/2018
+Date: ??/??/????
 
-- Fixes unit test syntax for link spider
+- Add Python 3 support, removed python 2 support
 
-- Fixes docker version upgrade on Travis for continuous integration tests
+- Add Redis password support
+
+- Fixed assert deprecations in unit tests
+
+- Corrected Ansible host list for zookeeper
+
+- Improve cookie handling
+
+- Minor documentation changes/updates
+
+- Added REDIS_SOCKET_TIMEOUT setting to control socket_timeout and socket_connect_timeout
+
+- Removed ansible support
+
+- Fix python package dependencies
+
+Kafka Monitor Changes
+^^^^^^^^^^^^^^^^^^^^^
+- Added REDIS_SOCKET_TIMEOUT setting
+
+Redis Monitor Changes
+^^^^^^^^^^^^^^^^^^^^^
+- Added REDIS_SOCKET_TIMEOUT setting
+
+Crawler
+^^^^^^^
+- Added REDIS_SOCKET_TIMEOUT setting
+
+- Improved request to dictionary serialization support
+
+- Updated item encoding serialization
+
+- Added ability to do per-domain crawl limits
+
+Rest
+^^^^
+- Added REDIS_SOCKET_TIMEOUT setting
+
+- Corrected Kafka environment variable
+
+Utils
+^^^^^
+- Added REDIS_SOCKET_TIMEOUT setting
+
+- Fixed LogFactory callback with correct extras dictionary
+
+- Adds quicker shutdown to ThreadedCounter object
+
+- Unpinned dependencies for new pip resolution
+
 
 Scrapy Cluster 1.2
 ------------------
@@ -127,7 +176,7 @@ Redis Monitor Changes
 - Added Stats Collection
 
 Crawler Changes
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
 
 - Upgraded Crawler to be compatible with Scrapy 1.0
 
@@ -148,7 +197,7 @@ Crawler Changes
 - Added example Wandering Spider
 
 Scrapy Cluster 1.0
----------------------
+------------------
 
 Date: 5/21/2015
 

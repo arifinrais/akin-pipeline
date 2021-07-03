@@ -10,10 +10,12 @@ def str2bool(v):
 # Scrapy Cluster Settings
 # ~~~~~~~~~~~~~~~~~~~~~~~
 
-# Specify the host and port to use when connecting to Redis.
+# Specify the host, port and password to use when connecting to Redis.
 REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
 REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
 REDIS_DB = int(os.getenv('REDIS_DB', 0))
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', None)
+REDIS_SOCKET_TIMEOUT = int(os.getenv('REDIS_SOCKET_TIMEOUT', 10))
 
 # Kafka server information
 KAFKA_HOSTS = [x.strip() for x in os.getenv('KAFKA_HOSTS', 'kafka:9092').split(',')]
@@ -22,7 +24,8 @@ KAFKA_APPID_TOPICS = str2bool(os.getenv('KAFKA_APPID_TOPICS', False))
 # base64 encode the html body to avoid json dump errors due to malformed text
 KAFKA_BASE_64_ENCODE = str2bool(os.getenv('KAFKA_BASE_64_ENCODE', False))
 KAFKA_PRODUCER_BATCH_LINGER_MS = 25  # 25 ms before flush
-KAFKA_PRODUCER_BUFFER_BYTES = 4 * 1024 * 1024  # 4MB before blocking
+KAFKA_PRODUCER_BUFFER_BYTES = int(os.getenv('KAFKA_PRODUCER_BUFFER_BYTES', 4 * 1024 * 1024))  # 4MB before blocking
+KAFKA_PRODUCER_MAX_REQUEST_SIZE = int(os.getenv('KAFKA_PRODUCER_MAX_REQUEST_SIZE', 1024 * 1024)) # 1MB
 
 ZOOKEEPER_ASSIGN_PATH = '/scrapy-cluster/crawler/'
 ZOOKEEPER_ID = 'all'
@@ -46,6 +49,15 @@ QUEUE_MODERATED = str2bool(os.getenv('QUEUE_MODERATED', True))
 
 # how long we want the duplicate timeout queues to stick around in seconds
 DUPEFILTER_TIMEOUT = int(os.getenv('DUPEFILTER_TIMEOUT', 600))
+
+# how many pages to crawl for an individual domain. Cluster wide hard limit.
+GLOBAL_PAGE_PER_DOMAIN_LIMIT = None
+
+# how long should the global page limit per domain stick around in seconds
+GLOBAL_PAGE_PER_DOMAIN_LIMIT_TIMEOUT = 600
+
+# how long should the individual domain's max page limit stick around in seconds
+DOMAIN_MAX_PAGE_TIMEOUT = 600
 
 # how often to refresh the ip address of the scheduler
 SCHEDULER_IP_REFRESH = 60
@@ -101,7 +113,7 @@ SC_LOG_LEVEL = os.getenv('SC_LOG_LEVEL', 'INFO')
 
 
 # stats setup
-STATS_STATUS_CODES = True
+STATS_STATUS_CODES = str2bool(os.getenv('STATS_STATUS_CODES', True))
 STATS_RESPONSE_CODES = [
     200,
     404,

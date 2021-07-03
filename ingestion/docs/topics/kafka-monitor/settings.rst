@@ -39,6 +39,18 @@ Default: ``0``
 
 The Redis database to use when connecting to the ``REDIS_HOST``.
 
+**REDIS_PASSWORD**
+
+Default: ``None``
+
+The password to use when connecting to the ``REDIS_HOST``.
+
+**REDIS_SOCKET_TIMEOUT**
+
+Default: ``10``
+
+The number of seconds to wait while establishing a TCP connection, or to wait for a response from an existing TCP connection before timing out.
+
 Kafka
 -----
 

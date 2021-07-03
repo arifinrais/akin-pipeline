@@ -63,7 +63,7 @@ def error_catch(f):
                                                    True,
                                                    instance.UNKNOWN_ERROR)
             log_dict = deepcopy(ret_dict)
-            log_dict['error']['cause'] = e.message
+            log_dict['error']['cause'] = ""
             log_dict['error']['exception'] = str(e)
             log_dict['error']['ex'] = traceback.format_exc()
             instance.logger.error("Uncaught Exception Thrown", log_dict)
@@ -102,7 +102,7 @@ def validate_schema(schema_name):
             instance = args[0]
             try:
                 instance.validator(instance.schemas[schema_name]).validate(request.get_json())
-            except ValidationError, e:
+            except ValidationError as e:
                 ret_dict = instance._create_ret_object(instance.FAILURE,
                                                        None, True,
                                                        instance.BAD_SCHEMA,
@@ -351,8 +351,12 @@ class RestService(object):
                 self.logger.debug("Creating redis connection to host " +
                                   str(self.settings['REDIS_HOST']))
                 self.redis_conn = redis.StrictRedis(host=self.settings['REDIS_HOST'],
-                                              port=self.settings['REDIS_PORT'],
-                                              db=self.settings['REDIS_DB'])
+                                                    port=self.settings['REDIS_PORT'],
+                                                    db=self.settings['REDIS_DB'],
+                                                    password=self.settings['REDIS_PASSWORD'],
+                                                    decode_responses=True,
+                                                    socket_timeout=self.settings.get('REDIS_SOCKET_TIMEOUT'),
+                                                    socket_connect_timeout=self.settings.get('REDIS_SOCKET_TIMEOUT'))
                 self.redis_conn.info()
                 self.redis_connected = True
                 self.logger.info("Successfully connected to redis")
@@ -423,7 +427,7 @@ class RestService(object):
 
     @retry(wait_exponential_multiplier=500, wait_exponential_max=10000)
     def _create_producer(self):
-        """Tries to establish a Kafka consumer connection"""
+        """Tries to establish a Kafka producer connection"""
         if not self.closed:
             try:
                 self.logger.debug("Creating new kafka producer using brokers: " +
@@ -543,26 +547,21 @@ class RestService(object):
         :param json_item: The json item to send
         :returns: A boolean indicating whther the data was sent successfully or not
         """
-        @MethodTimer.timeout(self.settings['KAFKA_FEED_TIMEOUT'], False)
-        def _feed(json_item):
-            try:
-                self.logger.debug("Sending json to kafka at " +
-                                  str(self.settings['KAFKA_PRODUCER_TOPIC']))
-                future = self.producer.send(self.settings['KAFKA_PRODUCER_TOPIC'],
-                                   json_item)
-                future.add_callback(self._kafka_success)
-                future.add_errback(self._kafka_failure)
+        self.logger.debug("Sending json to kafka at " +
+                          str(self.settings['KAFKA_PRODUCER_TOPIC']))
+        future = self.producer.send(self.settings['KAFKA_PRODUCER_TOPIC'],
+                           json_item)
+        future.add_callback(self._kafka_success)
+        future.add_errback(self._kafka_failure)
 
-                self.producer.flush()
+        try:
+            record_metadata = future.get(timeout=self.settings['KAFKA_FEED_TIMEOUT'])
+        except KafkaError:
+            self.logger.error("Lost connection to Kafka")
+            self._spawn_kafka_connection_thread()
+            return False
 
-                return True
-
-            except Exception as e:
-                self.logger.error("Lost connection to Kafka")
-                self._spawn_kafka_connection_thread()
-                return False
-
-        return _feed(json_item)
+        return True
 
     # Routes --------------------
 
