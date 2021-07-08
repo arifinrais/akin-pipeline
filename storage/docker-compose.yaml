@@ -33,6 +33,7 @@ services:
             /usr/bin/mc mb minio/ingested_bucket;
             /usr/bin/mc mb minio/transformed_bucket;
       "
+  '''
   downloader:
     image: test/downloader
     build:
@@ -42,5 +43,6 @@ services:
       - minio1
       - createbuckets
     restart: always
+  '''
 volumes:
   data1: # used for minio
