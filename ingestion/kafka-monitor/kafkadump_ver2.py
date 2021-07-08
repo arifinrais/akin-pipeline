@@ -3,6 +3,8 @@ from __future__ import division
 from past.utils import old_div
 from kafka import KafkaClient,KafkaConsumer
 from kafka.common import NoBrokersAvailable, KafkaUnavailableError
+from minio import Minio
+from minio.error import S3Error
 
 import json
 import sys
@@ -153,6 +155,24 @@ def main():
                             print(item['body'])
                     else:
                         print(item)
+                    try:
+                        client = Minio(
+                            "127.0.0.1:9001",
+                            access_key="minio",
+                            secret_key="minio123",
+                        )
+                        found = client.bucket_exists("test_bucket")
+                        if not found:
+                            client.make_bucket("test_bucket")
+                        else:
+                            logger.info("Bucket 'test_bucket' already exists")
+
+                        client.put_object(
+                            "test_bucket", '_'.join(map(str,item['body'][0:10].split()))+'.html', item,
+                        )
+
+                    except S3Error as mssg:
+                        logger.error(mssg)
                     num_records = num_records + 1
                     total_bytes = total_bytes + body_bytes
             except KeyboardInterrupt:
