@@ -22,7 +22,7 @@ class IngestionMonitor:
             self.settings[item]=getattr(config, item)
 
     def feed(self, jsonObj):
-        #feed to kafka
+        #feed to kafka and redis
         None
 
     def run(self):
@@ -35,11 +35,11 @@ class IngestionMonitor:
             self.consumer.close()
 
     def _setup_consumer(self):
-        #set up consumer dengerin topic ingestion
+        #set up consumer dengerin topic ingestion_stat
         None
     
     def _main_loop(self):
-        #listen to kafka topic ingestion
+        #listen to kafka topic ingestion_stat
         None
     
 def main():

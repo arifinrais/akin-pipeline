@@ -1,0 +1,7 @@
+
+jsonschema==3.2.0 # for json schema validation
+kafka-python==2.0.2  # Updated from 1.3.3
+redis==3.5.3  # redis client
+requests==2.25.1  # to give requests
+tenacity==8.0.0 # alternative to retrying, still being maintained 
+six==1.16.0  # for python 2-3 compatibility, WARNING, locally installed as 1.11.0
