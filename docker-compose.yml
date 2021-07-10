@@ -1,8 +1,8 @@
-version: '2'
+version: '1'
 
 services:
-  kafka_monitor:
-    image: istresearch/scrapy-cluster:kafka-monitor-ci-dev
+  ingestion_monitor:
+    image: arifinrais/akin-pipeline:ingestion-monitor-dev
     build:
       context: .
       dockerfile: docker/kafka-monitor/Dockerfile.py3

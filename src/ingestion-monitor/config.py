@@ -49,3 +49,7 @@ STATS_TIMES = [
 # main thread sleep time
 SLEEP_TIME = 0.01
 HEARTBEAT_TIMEOUT = 120
+
+# scraper context
+MIN_SCRAPE_YEAR = 2000
+MAX_SCRAPE_YEAR = 2018
