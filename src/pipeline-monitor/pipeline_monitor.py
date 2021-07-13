@@ -28,6 +28,7 @@ class IngestionMonitor:
     def feed(self, jsonObj):
         #feed to kafka (status fed) and redis (feed object)
         '''
+        HARUSNYA KAFKA STATUS NESTED DI REDIS ABIS FEED OBJECT ATAU BENERAN JADIIN WEBAPP AJA
         @MethodTimer.timeout(self.settings['KAFKA_FEED_TIMEOUT'], False)
         def _feed(json_item):
             producer = self._create_producer()
