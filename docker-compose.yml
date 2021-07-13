@@ -1,27 +1,18 @@
 version: '1'
 
 services:
-  ingestion_monitor:
-    image: arifinrais/akin-pipeline:ingestion-monitor-dev
+  pipeline_monitor:
+    image: arifinrais/akin-pipeline:pipeline-monitor-dev
     build:
       context: .
-      dockerfile: docker/kafka-monitor/Dockerfile.py3
-    depends_on:
-      - kafka
-      - redis
-    restart: always
-  redis_monitor:
-    image: istresearch/scrapy-cluster:redis-monitor-ci-dev
-    build:
-      context: .
-      dockerfile: docker/redis-monitor/Dockerfile.py3
+      dockerfile: src/pipeline-monitor/Dockerfile.py3
     depends_on:
       - kafka
       - redis
       - zookeeper
     restart: always
   crawler:
-    image: istresearch/scrapy-cluster:crawler-ci-dev
+    image: arifinrais/scrapy-cluster:crawler-ci-dev
     build:
       context: .
       dockerfile: docker/crawler/Dockerfile.py3

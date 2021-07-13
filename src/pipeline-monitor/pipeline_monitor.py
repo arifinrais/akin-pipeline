@@ -27,7 +27,33 @@ class IngestionMonitor:
 
     def feed(self, jsonObj):
         #feed to kafka (status fed) and redis (feed object)
-        None
+        '''
+        @MethodTimer.timeout(self.settings['KAFKA_FEED_TIMEOUT'], False)
+        def _feed(json_item):
+            producer = self._create_producer()
+            topic = self.settings['KAFKA_INCOMING_TOPIC']
+            if not self.logger.json:
+                self.logger.info('Feeding JSON into {0}\n{1}'.format(
+                    topic, json.dumps(json_item, indent=4)))
+            else:
+                self.logger.info('Feeding JSON into {0}\n'.format(topic),
+                                 extra={'value': json_item})
+
+            if producer is not None:
+                producer.send(topic, json_item)
+                producer.flush()
+                producer.close(timeout=10)
+                return True
+            else:
+                return False
+
+        result = _feed(json_item)
+
+        if result:
+            self.logger.info("Successfully fed item to Kafka")
+        else:
+            self.logger.error("Failed to feed item into Kafka")
+        '''
 
     def run(self):
         self._setup_consumer()
@@ -45,7 +71,7 @@ class IngestionMonitor:
         None
 
     def _setup_qmonitor(self):
-        #dengerin proses queue
+        #dengerin queue_stat
         None
     
     def _main_loop(self):
@@ -65,8 +91,8 @@ class IngestionMonitor:
     
 def main():
     # Handle two types of command: run and feed
-    # Run command is used to monitor the ingestion process
-    # Feed command is used to feed a context to be scraped
+    # Run command is used to monitor jobs execution
+    # Feed command is used to feed a context to be ingested
     ing_monitor=IngestionMonitor()
     try:
         command = sys.argv[1]
