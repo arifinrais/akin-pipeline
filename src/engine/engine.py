@@ -8,7 +8,7 @@ import traceback
 from redis import Redis
 from tenacity import retry
 from jsonschema import validate
-from abc import ABC, abstractmethod
+#from abc import ABC, abstractmethod
 import redis_lock
 import time
 

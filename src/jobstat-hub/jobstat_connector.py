@@ -4,7 +4,7 @@ import json
 import traceback
 from jsonschema import validate
 
-class JobstatConnector:
+class JobstatHub:
 
     def __init__(self):
         # Load settings from local config.py file
