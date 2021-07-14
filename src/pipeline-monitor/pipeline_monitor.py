@@ -15,11 +15,22 @@ class IngestionMonitor:
             self.settings={}
             for item in configs:
                 self.settings[item]=getattr(config, item)
-            self.feedSchema = {
+            self.schemas={}
+            self.schemas['FEED'] = {
                 "type": "object",
                 "properties": {
                     "dimension": {"type": "string", "pattern": "^ptn|pub|trd|patent|publication|trademark$"},
                     "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']}
+                }
+            }
+            self.schemas['ERROR'] = {
+                "type": "object",
+                "properties": {
+                    "dimension": {"type": "string", "pattern": "^ptn|pub|trd|patent|publication|trademark$"},
+                    "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']},
+                    "ip_address": {"type": "ipv4"},
+                    "timestamp": {"type": "date-time"},
+                    "errormsg": {"type": "string"}
                 }
             }
         except:
@@ -99,7 +110,7 @@ def main():
         command = sys.argv[1]
         if command=='feed':
             body = json.loads(sys.argv[2])
-            validate(body, ing_monitor.feedSchema)
+            validate(body, ing_monitor.schemas['FEED'])
         elif command=='run':
             ing_monitor.run()
         else:
