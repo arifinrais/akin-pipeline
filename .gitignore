@@ -3,3 +3,7 @@
 # resources
 /res
 /utils
+
+# examples
+/pipeline-monitor/distributed_scheduler_EXAMPLE.py
+/pipeline-monitor/kafka_monitor.py
