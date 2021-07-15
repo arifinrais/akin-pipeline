@@ -156,25 +156,85 @@ class Ingestor(Engine):
             # in the meantime error message is just its value
             errormsg, b, c = sys.exc_info()
             return False, errormsg
-
+    
     @classmethod
     def _generate_url(self, dimension, year):
         req_list=[]
         req_item={}
         if dimension=='ptn' or dimension=='trd':
-            req_item['url']="api pdki blahblah"
-            req_item['header']={
-                #setup header
-            }
-            req_item['query']={}
-            query_base='/'+str(year) #perlu dibenerin formatnya
-            # fill query according to dimension
-            req_item['body']
+            #source: PDKI
+            base_url="https://pdki-indonesia-api.dgip.go.id/api/"
+            param_type, param_keywords, param_dates = self._generate_parameters(dimension,year)
+            for keyword in param_keywords:
+                for date in param_dates:
+                    req_item['url']=base_url+param_type\
+                        +"/search?keyword="+keyword\
+                        +"&start_tanggal_dimulai_perlindungan="+date[0]\
+                        +"&end_tanggal_dimulai_perlindungan="+date[1]\
+                        +"&type="+param_type\
+                        +"&order_state=asc&page=1"
+                    req_item['header']= self._generate_header
+                    #req_item['body']= if needed
         elif dimension=='pub':
+            #source: SINTA
+            #SHOULD BE DEPARTMENTAL APPROACH, DEPARTMENT IS ALREADY A SUBJECT
+            #https://sinta.ristekbrin.go.id/departments/detail?page=1&afil=379&id=46001&view=documentsscopus
+            #loop for every afil
+                #loop for every id
+                    #filter based on year?
             None
-        #enlist jobs according to datasource (dimension)
         return req_list
         
+    @classmethod
+    def _generate_parameters(self, dimension, year):
+        param_type=''
+        param_keywords=[]
+        param_dates=[]
+        _year=str(year)
+        if dimension=='ptn':
+            param_type='patent'
+            param_keywords=['DID','D00','J00','K00','M00','R00','V00']
+        elif dimension=='trd':
+            param_type='trademark'
+            param_keywords=['PID','P00','S00','W00']
+        for i in range(len(param_keywords)):
+            param_keywords[i]=param_keywords[i]+_year
+        month_28=[2]
+        month_30=[1,3,5,7,8,10,12]
+        month_31=[4,6,9,11]
+        for i in range(12):
+            _month=str(i+1)
+            if i+1<10: _month='0'+_month
+            date_base=_year+'-'+_month+'-'
+            if i+1 in month_28:
+                param_dates.append([date_base+'01',date_base+'28'])
+            if i+1 in month_30:
+                param_dates.append([date_base+'01',date_base+'30'])
+            if i+1 in month_31:
+                param_dates.append([date_base+'01',date_base+'31'])
+        return param_type, param_keywords, param_dates
+
+    @classmethod
+    def _generate_header(self):
+        header = {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Cache-Control': 'max-age=0',
+            'Connection': 'keep-alive',
+            'Host': 'pdki-indonesia-api.dgip.go.id',
+            'sec-ch-ua': '" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"',
+            'sec-ch-ua-mobile': '?0',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36'
+        }
+        # if pair key needed it can be implemented here
+        return header
+
     @classmethod #can be upgraded to async?
     def _fetch_and_save(self, item):
         #try
