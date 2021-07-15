@@ -1,12 +1,20 @@
 # This file houses all default settings for the Kafka Monitor
 # to override please use a custom localsettings.py file
 
-# Job-Mntr redis host information
+# job-enqueuer redis host information
 JOB_REDIS_HOST = 'localhost'
-JOB_REDIS_PORT = 6389
+JOB_REDIS_PORT = 6379
 JOB_REDIS_DB = 0
 JOB_REDIS_PASSWORD = None
 JOB_REDIS_SOCKET_TIMEOUT = 10
+
+
+# rq redis host information
+RQ_REDIS_HOST = 'localhost'
+RQ_REDIS_PORT = 6389
+RQ_REDIS_DB = 0
+RQ_REDIS_PASSWORD = None
+RQ_REDIS_SOCKET_TIMEOUT = 10
 
 # stats setup
 STATS_TOTAL = True

@@ -2,6 +2,7 @@ from os import stat
 import sys
 
 import redis
+from rq.queue import Queue
 import config
 import json
 import traceback
@@ -11,6 +12,10 @@ from jsonschema import validate
 #from abc import ABC, abstractmethod
 import redis_lock
 import time
+# for ingestion
+from rq import Queue 
+from rq.job import Job 
+import requests
 
 class Engine(object):
     def __init__(self):
@@ -104,9 +109,10 @@ class Engine(object):
         None
 
 class Ingestor(Engine):
-    def __init__(self):
+    def __init__(self, wait_cycle=5):
         Engine.__init__(self)
         self.job = self.settings['JOB_INGEST']
+        self.wait_cycle = wait_cycle
     
     @classmethod
     def _ingest(self):
@@ -114,22 +120,63 @@ class Ingestor(Engine):
         key, dimension, year = self._redis_update_stat_before(self.job)
         success, errormsg = self._ingest_records(dimension, year)
         self._redis_update_stat_after(key, self.job, success, errormsg)
-    
+
+    @classmethod
+    def _setup_rq(self):
+        self.rq_conn = Redis(host=self.settings['RQ_REDIS_HOST'], 
+                            port=self.settings['RQ_REDIS_PORT'], 
+                            password=self.settings['RQ_REDIS_PASSWORD'],
+                            db=self.settings['RQ_REDIS_DB'],
+                            decode_responses=True,
+                            socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
+                            socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
+        self.ingest_queue = Queue(self.rq_conn)
+
     @classmethod
     def _ingest_records(self, dimension, year):
-        #enlist jobs according to datasource (dimension)
-        #for every job
-            #assign _fetch_and_save to rq
-            #yield every output
-
-        #if all jobs success
-            #return True, None
-        #else
-            #return False, errormsg
-        None
+        try:
+            req_list = self._generate_url(dimension, year)
+            job_id = []
+            for req_item in req_list:
+                job = Job.create(self._fetch_and_save, req_item) #can set the id if you want
+                job_id.append(job.id)
+                self.ingest_queue.enqueue(job)
+            while True:
+                job_done = True
+                for id in job_id:
+                    job = Job.fetch(id, self.rq_conn)
+                    if job.get_status()!='finished':
+                        job_done=False
+                        break
+                if job_done:
+                    break
+                time.sleep(self.wait_cycle)
+            return True, None
+        except:
+            # in the meantime error message is just its value
+            errormsg, b, c = sys.exc_info()
+            return False, errormsg
 
     @classmethod
-    def _fetch_and_save(self, url, header, body, query):
+    def _generate_url(self, dimension, year):
+        req_list=[]
+        req_item={}
+        if dimension=='ptn' or dimension=='trd':
+            req_item['url']="api pdki blahblah"
+            req_item['header']={
+                #setup header
+            }
+            req_item['query']={}
+            query_base='/'+str(year) #perlu dibenerin formatnya
+            # fill query according to dimension
+            req_item['body']
+        elif dimension=='pub':
+            None
+        #enlist jobs according to datasource (dimension)
+        return req_list
+        
+    @classmethod #can be upgraded to async?
+    def _fetch_and_save(self, item):
         #try
             #fetch record
             #save record to minio
@@ -139,6 +186,7 @@ class Ingestor(Engine):
         None
 
     def start(self):
+        self._setup_rq()
         while True:
             self._ingest_records()
             time.sleep(self.settings['SLEEP_TIME'])
