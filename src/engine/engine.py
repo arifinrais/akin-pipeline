@@ -44,12 +44,14 @@ class Engine(object):
 
     @classmethod
     def _get_lock_name(self, job):
+        if job==self.settings['JOB_INGEST']: return self.settings['LOCK_INGEST']
         if job==self.settings['JOB_AGGREGATE']: return self.settings['LOCK_AGGREGATE']
         if job==self.settings['JOB_TRANSFORM']: return self.settings['LOCK_TRANSFORM']
         if job==self.settings['JOB_ANALYZE']: return self.settings['LOCK_ANALYZE']
 
     @classmethod
     def _get_after_job(self, job):
+        if job==self.settings['JOB_INGEST']: return self.settings['JOB_AGGREGATE']
         if job==self.settings['JOB_AGGREGATE']: return self.settings['JOB_TRANSFORM']
         if job==self.settings['JOB_TRANSFORM']: return self.settings['JOB_ANALYZE']
         if job==self.settings['JOB_ANALYZE']: return self.settings['JOB_ANALYZE']
@@ -98,8 +100,48 @@ class Engine(object):
 
     @staticmethod
     def error_handler():
-        #logging(?)
+        #logging utils(?)
         None
+
+class Ingestor(Engine):
+    def __init__(self):
+        Engine.__init__(self)
+        self.job = self.settings['JOB_INGEST']
+    
+    @classmethod
+    def _ingest(self):
+        self._setup_redis_conn()
+        key, dimension, year = self._redis_update_stat_before(self.job)
+        success, errormsg = self._ingest_records(dimension, year)
+        self._redis_update_stat_after(key, self.job, success, errormsg)
+    
+    @classmethod
+    def _ingest_records(self, dimension, year):
+        #enlist jobs according to datasource (dimension)
+        #for every job
+            #assign _fetch_and_save to rq
+            #yield every output
+
+        #if all jobs success
+            #return True, None
+        #else
+            #return False, errormsg
+        None
+
+    @classmethod
+    def _fetch_and_save(self, url, header, body, query):
+        #try
+            #fetch record
+            #save record to minio
+            #return True, None
+        #except
+            #return False, errormsg
+        None
+
+    def start(self):
+        while True:
+            self._ingest_records()
+            time.sleep(self.settings['SLEEP_TIME'])
 
 class Aggregator(Engine):
     def __init__(self):
@@ -188,7 +230,10 @@ class Analytics(Engine):
 def main():
     try:
         command = sys.argv[1]
-        if command=='aggregate':
+        if command=='ingest':
+            engine = Ingestor()
+            engine.start()
+        elif command=='aggregate':
             engine = Aggregator()
             engine.start()
         elif command=='transform':

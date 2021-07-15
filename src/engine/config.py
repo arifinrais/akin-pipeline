@@ -22,9 +22,11 @@ STATS_TIMES = [
     'SECONDS_1_DAY',
     'SECONDS_1_WEEK',
 ]
+JOB_INGEST = 'ing'
 JOB_AGGREGATE = 'agg'
 JOB_TRANSFORM = 'tfm'
 JOB_ANALYZE = 'anl'
+LOCK_INGEST = 'ingest_lock'
 LOCK_AGGREGATE = 'aggregate_lock'
 LOCK_TRANSFORM = 'transform_lock'
 LOCK_ANALYZE = 'analyze_lock'

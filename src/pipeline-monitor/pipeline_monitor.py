@@ -23,14 +23,60 @@ class IngestionMonitor:
                     "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']}
                 }
             }
-            self.schemas['ERROR'] = {
+            self.schemas['JOB'] = {
                 "type": "object",
                 "properties": {
-                    "dimension": {"type": "string", "pattern": "^ptn|pub|trd|patent|publication|trademark$"},
+                    "dimension": {"type": "string", "pattern": "^ptn|pub|trd$"},
                     "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']},
-                    "ip_address": {"type": "ipv4"},
+                    "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
+                    "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
                     "timestamp": {"type": "date-time"},
                     "errormsg": {"type": "string"}
+                }
+            }
+            self.schemas['JOBSTAT']={
+                "type": "object",
+                "properties": {
+                    "timestamp": {"type": "date-time"},
+                    "patent": {
+                        "type": "array",
+                        "years": {
+                            "type": "object",
+                            "properties": {
+                                "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']},
+                                "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
+                                "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
+                                "timestamp": {"type": "date-time"},
+                                "errormsg": {"type": "string"}
+                            }
+                        }
+                    },
+                    "trademark": {
+                        "type": "array",
+                        "years": {
+                            "type": "object",
+                            "properties": {
+                                "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']},
+                                "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
+                                "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
+                                "timestamp": {"type": "date-time"},
+                                "errormsg": {"type": "string"}
+                            }
+                        }
+                    },
+                    "publication": {
+                        "type": "array",
+                        "years": {
+                            "type": "object",
+                            "properties": {
+                                "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']},
+                                "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
+                                "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
+                                "timestamp": {"type": "date-time"},
+                                "errormsg": {"type": "string"}
+                            }
+                        }
+                    }
                 }
             }
         except:
