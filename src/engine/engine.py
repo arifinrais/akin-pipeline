@@ -18,7 +18,9 @@ from rq.job import Job
 import requests as req
 from minio import Minio
 from minio.error import S3Error
-from io import BytesIO
+from io import BytesIO, StringIO
+from copy import deepcopy
+import csv
 
 class Engine(object):
     def __init__(self):
@@ -49,6 +51,14 @@ class Engine(object):
                             decode_responses=True,
                             socket_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'])
+
+    @classmethod
+    def _setup_minio_client(self):
+        self.minio_client = Minio(
+            self.settings['MINIO_HOST']+':'+self.settings['MINIO_PORT'],
+            access_key=self.settings['MINIO_ACCESS_KEY'],
+            secret_key=self.settings['MINIO_SECRET_KEY'],
+        )
 
     @classmethod
     def _get_lock_name(self, job):
@@ -133,27 +143,18 @@ class Ingestor(Engine):
                             socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
         self.ingest_queue = Queue(self.rq_conn)
-    
-    @classmethod
-    def _setup_minio(self):
-        self.minio_client = Minio(
-            self.settings['MINIO_HOST']+':'+self.settings['MINIO_PORT'],
-            access_key=self.settings['MINIO_ACCESS_KEY'],
-            secret_key=self.settings['MINIO_SECRET_KEY'],
-        )
 
     @classmethod
     def _ingest_records(self, dimension, year):
         try:
             req_list = EngineHelper.generate_req_list(dimension, year)
             job_id = []
-            _id = 1
+            file_id = 1
             for req_item in req_list:
-                file_id = EngineHelper.generate_file_id(_id)
                 job = Job.create(self._fetch_and_save, (req_item, dimension, year, file_id)) #can set the id if you want
                 job_id.append(job.id)
                 self.ingest_queue.enqueue(job)
-                _id+=1
+                file_id+=1
             while True:
                 job_done = True
                 for id in job_id:
@@ -171,19 +172,19 @@ class Ingestor(Engine):
             return False, errormsg
     
     @classmethod #can be upgraded to async?
-    def _fetch_and_save(self, args):
-        req_item, dimension, year, file_id = args
-        bucket_name="raw/"+dimension+str(year)
+    def _fetch_and_save(self, arguments):
+        req_item, dimension, year, file_id = arguments
+        bucket_name=self.settings['MINIO_INGESTED_IDENTIFIER']
         if not self.minio_client.bucket_exist(bucket_name):
             self.minio_client.make_bucket(bucket_name)
         if EngineHelper.check_dimension_source('PDKI', dimension):
-            file_name=EngineHelper.generate_file_name('raw',dimension,year,file_id,'_json')
+            file_name=EngineHelper.generate_file_name(self.settings['MINIO_INGESTED_IDENTIFIER'],dimension,year,'_json',file_id)
             resp=req.get(req_item['url'])
             resp_dict = resp.json()
             content = json.dumps(resp_dict['hits']['hits'], ensure_ascii=False).encode('utf-8') # convert dict to bytes
             self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=1024*1024, content_type='application/json') #assuming maximum json filesize 1MB
         elif EngineHelper.check_dimension_source('SINTA', dimension):
-            file_name=EngineHelper.generate_file_name('raw',dimension,year,file_id,'_html')
+            file_name=EngineHelper.generate_file_name(self.settings['MINIO_INGESTED_IDENTIFIER'],dimension,year,'_html',file_id)
             resp=req.get(req_item['url'])
             content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
             self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=1024*1024, content_type='text/html') #assuming maximum html filesize 1MB
@@ -191,6 +192,7 @@ class Ingestor(Engine):
     def start(self):
         self._setup_rq()
         self._setup_redis_conn()
+        self._setup_minio_client()
         while True:
             self._ingest()
             time.sleep(self.settings['SLEEP_TIME'])
@@ -208,18 +210,63 @@ class Aggregator(Engine):
     
     @classmethod
     def _aggregate_records(self, dimension, year):
+        bucket_name=self.settings['MINIO_INGESTED_IDENTIFIER']
         try:
             #load the objects from minio
-            #parse and aggregate, uniquify
-            #save the aggregated file to minio
-            #return True, None
-            None
+            filenames = self.minio_client.list_objects(bucket_name) #can add prefix or recursive
+            parsed_lines = []
+            #parse and aggregate
+            for filename in filenames:
+                #assuming list_objects return the name of the object
+                try:
+                    resp = self.minio_client.get_object(bucket_name, filename)
+                    resp_utf = resp.decode('utf-8')
+                    lines = self._parse_object(resp_utf, dimension,year)
+                    for line in lines:
+                        parsed_lines.append(deepcopy(line))
+                finally:
+                    resp.close()
+                    resp.release_conn()
+            unique_lines=self._uniquify(parsed_lines)
+            csv_file=self._convert_lines_to_csv(unique_lines)
+            bucket_name=self.settings['MINIO_AGGREGATED_IDENTIFIER']
+            file_name=EngineHelper.generate_file_name(self.settings['MINIO_AGGREGATED_IDENTIFIER'],dimension,year,'.csv')
+            content = csv_file.read().encode('utf-8')
+            self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=56*1024, content_type='application/csv') #assuming maximum csv filesize 50kb
+            return True, None
         except:
             errormsg, b, c = sys.exc_info()
             return False, errormsg
 
+    @classmethod
+    def _parse_object(self, resp, dimension, year):
+        lines = []
+        #for every json object
+            #parse and make a csv line with \t delimiter
+            #append to lines
+        return lines
+            
+    @classmethod
+    def _uniquify(self, lines):
+        unique_lines=[]
+        seen = set()
+        for line in lines:
+            if line in seen: continue
+            seen.add(line)
+            unique_lines.append(line)
+        return unique_lines
+
+    @classmethod
+    def _convert_lines_to_csv(self, lines):
+        csv_file = StringIO()
+        wr=csv.writer(csv_file, quoting=csv.QUOTE_NONE)
+        for line in lines:
+            wr.writerow(line)
+        return csv_file
+
     def start(self):
         self._setup_redis_conn()
+        self._setup_minio_client()
         while True:
             self._aggregate()
             time.sleep(self.settings['SLEEP_TIME'])
@@ -382,10 +429,14 @@ class EngineHelper():
             return '0'+str(file_id)
         else:
             return str(file_id)
-
+    
     @staticmethod
-    def generate_file_name(bucket_base, dimension, year, file_id, extension):
-        return bucket_base+'_'+dimension+'_'+str(year)+'_'+file_id+extension
+    def generate_file_name(bucket_base, dimension, year, extension, file_id=None):    
+        if file_id:
+            EngineHelper.generate_file_id(file_id)
+            return dimension+'/'+str(year)+'/'+bucket_base+'_'+dimension+'_'+str(year)+'_'+file_id+extension       
+        else:
+            return dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+extension
 
 def main():
     try:
