@@ -18,6 +18,7 @@ from rq.job import Job
 import requests as req
 from minio import Minio
 from minio.error import S3Error
+from io import BytesIO
 
 class Engine(object):
     def __init__(self):
@@ -70,12 +71,12 @@ class Engine(object):
         while True:
             if lock.acquire(blocking=False):
                 for _key in self.redis_conn.scan_iter():
-                    temp=self.redis_conn.get(_key)
-                    if temp['job']==job and temp['status']==self.settings['STAT_WAIT']:
-                        temp = self.redis_conn.get(_key)
-                        temp['status'] = self.settings['STAT_WIP'] #update job status
-                        self.redis_conn.set(_key, temp)
-                        key, dimension, year = _key, temp['dimension'], temp['year']
+                    _job=self.redis_conn.get(_key)
+                    if _job['job']==job and _job['status']==self.settings['STAT_WAIT']:
+                        _job = self.redis_conn.get(_key)
+                        _job['status'] = self.settings['STAT_WIP'] #update job status
+                        self.redis_conn.set(_key, _job)
+                        key, dimension, year = _key, _job['dimension'], _job['year']
                         break
                 lock.release()
                 break
@@ -89,13 +90,13 @@ class Engine(object):
         while True:
             if lock.acquire(blocking=False):
                 if success:
-                    temp = self.redis_conn.get(key)
-                    temp['job'], temp['status'] = self._get_after_job(self, job), self.settings['STAT_WAIT']
-                    self.redis_conn.set(key, temp)
+                    _job = self.redis_conn.get(key)
+                    _job['job'], _job['status'] = self._get_after_job(self, job), self.settings['STAT_WAIT']
+                    self.redis_conn.set(key, _job)
                 else:
-                    temp = self.redis_conn.get(key)
-                    temp['job'], temp['status'], temp['errormsg'] = job, self.settings['STAT_ERROR'], errormsg
-                    self.redis_conn.set(key, temp)
+                    _job = self.redis_conn.get(key)
+                    _job['job'], _job['status'], _job['errormsg'] = job, self.settings['STAT_ERROR'], errormsg
+                    self.redis_conn.set(key, _job)
                 lock.release()
                 break
             else:
@@ -144,11 +145,11 @@ class Ingestor(Engine):
     @classmethod
     def _ingest_records(self, dimension, year):
         try:
-            req_list = self._generate_req_list(dimension, year)
+            req_list = EngineHelper.generate_req_list(dimension, year)
             job_id = []
             _id = 1
             for req_item in req_list:
-                file_id = self._generate_file_id(_id)
+                file_id = EngineHelper.generate_file_id(_id)
                 job = Job.create(self._fetch_and_save, (req_item, dimension, year, file_id)) #can set the id if you want
                 job_id.append(job.id)
                 self.ingest_queue.enqueue(job)
@@ -169,127 +170,23 @@ class Ingestor(Engine):
             errormsg, b, c = sys.exc_info()
             return False, errormsg
     
-    @classmethod
-    def _generate_req_list(self, dimension, year):
-        req_list=[]
-        req_item={}
-        if self._check_dimension_source('PDKI', dimension):
-            #source: PDKI
-            base_url="https://pdki-indonesia-api.dgip.go.id/api/"
-            param_type, param_keywords, param_dates = self._generate_parameters(dimension, year)
-            for keyword in param_keywords:
-                for date in param_dates:
-                    req_item['url']=base_url+param_type\
-                        +"/search?keyword="+keyword\
-                        +"&start_tanggal_dimulai_perlindungan="+date[0]\
-                        +"&end_tanggal_dimulai_perlindungan="+date[1]\
-                        +"&type="+param_type\
-                        +"&order_state=asc&page=1"
-                    req_item['header']= self._generate_header(dimension)
-                    #req_item['body']= if needed
-        elif self._check_dimension_source('SINTA', dimension):
-            #source: SINTA
-            #SHOULD BE DEPARTMENTAL APPROACH, DEPARTMENT IS ALREADY A SUBJECT
-            #https://sinta.ristekbrin.go.id/departments/detail?page=1&afil=379&id=46001&view=documentsscopus
-            #loop for every afil
-                #loop for every id
-                    #filter based on year?
-            None
-        return req_list
-
-    @classmethod
-    def _generate_parameters(self, dimension, year):
-        if self._check_dimension_source('PDKI', dimension):
-            param_type=''
-            param_keywords=[]
-            param_dates=[]
-            _year=str(year)
-            if dimension=='ptn':
-                param_type='patent'
-                param_keywords=['DID','D00','J00','K00','M00','R00','V00']
-            elif dimension=='trd':
-                param_type='trademark'
-                param_keywords=['PID','P00','S00','W00']
-            for i in range(len(param_keywords)):
-                param_keywords[i]=param_keywords[i]+_year
-            month_28=[2]
-            month_30=[1,3,5,7,8,10,12]
-            month_31=[4,6,9,11]
-            for i in range(12):
-                _month=str(i+1)
-                if i+1<10: _month='0'+_month
-                date_base=_year+'-'+_month+'-'
-                if i+1 in month_28:
-                    param_dates.append([date_base+'01',date_base+'28'])
-                if i+1 in month_30:
-                    param_dates.append([date_base+'01',date_base+'30'])
-                if i+1 in month_31:
-                    param_dates.append([date_base+'01',date_base+'31'])
-            return param_type, param_keywords, param_dates
-        elif self._check_dimension_source('SINTA', dimension):
-            #add parameters for SINTA here
-            return None
-
-    @classmethod
-    def _generate_header(self, dimension):
-        if self._check_dimension_source('PDKI', dimension):
-            # if pairKey needed it can be implemented here
-            header = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Cache-Control': 'max-age=0',
-                'Connection': 'keep-alive',
-                'Host': 'pdki-indonesia-api.dgip.go.id',
-                'sec-ch-ua': '" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"',
-                'sec-ch-ua-mobile': '?0',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Sec-Fetch-User': '?1',
-                'Upgrade-Insecure-Requests': '1',
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36'
-            }
-        elif self._check_dimension_source('PDKI', dimension):
-            #add header for SINTA here
-            None
-        return header
-
-    @classmethod
-    def _check_dimension_source(self, source, dimension):
-        if source=='PDKI':
-            return dimension=='ptn' or dimension=='trd'
-        elif source=='SINTA':
-            return dimension=='pub'    
-    
-    @classmethod
-    def _generate_file_id(self, file_id):
-        if file_id<10:
-            return '00'+str(file_id)
-        elif file_id<100:
-            return '0'+str(file_id)
-        else:
-            return str(file_id)
-
-    @classmethod
-    def _generate_file_name(self, bucket_base, dimension, year, file_id, extension):
-        file_name=bucket_base+'_'+dimension+'_'+str(year)+'_'+file_id+extension
-
     @classmethod #can be upgraded to async?
     def _fetch_and_save(self, args):
         req_item, dimension, year, file_id = args
         bucket_name="raw/"+dimension+str(year)
         if not self.minio_client.bucket_exist(bucket_name):
             self.minio_client.make_bucket(bucket_name)
-
-        if self._check_dimension_source('PDKI', dimension):
+        if EngineHelper.check_dimension_source('PDKI', dimension):
+            file_name=EngineHelper.generate_file_name('raw',dimension,year,file_id,'_json')
             resp=req.get(req_item['url'])
-            file_name=self._generate_file_name('raw',dimension,year,file_id,'.json')
-            raw_file = resp.json()
-        elif self._check_dimension_source('SINTA', dimension):
-            file_name=self._generate_file_name('raw',dimension,year,file_id,'.html')
+            resp_dict = resp.json()
+            content = json.dumps(resp_dict['hits']['hits'], ensure_ascii=False).encode('utf-8') # convert dict to bytes
+            self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=1024*1024, content_type='application/json') #assuming maximum json filesize 1MB
+        elif EngineHelper.check_dimension_source('SINTA', dimension):
+            file_name=EngineHelper.generate_file_name('raw',dimension,year,file_id,'_html')
             resp=req.get(req_item['url'])
-            # convert to html, dump to minio
+            content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
+            self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=1024*1024, content_type='text/html') #assuming maximum html filesize 1MB
 
     def start(self):
         self._setup_rq()
@@ -311,14 +208,15 @@ class Aggregator(Engine):
     
     @classmethod
     def _aggregate_records(self, dimension, year):
-        #try
+        try:
             #load the objects from minio
             #parse and aggregate, uniquify
             #save the aggregated file to minio
             #return True, None
-        #except 
-            #return False, errormsg
-        None
+            None
+        except:
+            errormsg, b, c = sys.exc_info()
+            return False, errormsg
 
     def start(self):
         self._setup_redis_conn()
@@ -339,14 +237,14 @@ class Preparator(Engine):
     
     @classmethod
     def _transform_file(self, dimension, year):
-        #try
+        try:
             #load the file from minio
             #submit cleaning, pattern-matching(?), geocoding, encoding job to SPARK
             #save the result file to minio
-            #return True, None
-        #except
-            #return False, errormsg
-        None
+            return True, None
+        except:
+            errormsg, b, c = sys.exc_info()
+            return False, errormsg
     
     def start(self):
         self._setup_redis_conn()
@@ -367,14 +265,14 @@ class Analytics(Engine):
     
     @classmethod
     def _analyze_file(self, dimension, year):
-        #try
+        try:
             #load the file from minio
             #analyze
             #save the analyses to mongodb
-            #return True, None
-        #except
-            #return False, errormsg
-        None
+            return True, None
+        except:
+            errormsg, b, c = sys.exc_info()
+            return False, errormsg
     
     def start(self):
         self._setup_redis_conn()
@@ -384,13 +282,13 @@ class Analytics(Engine):
 
 class EngineHelper():
     @staticmethod
-    def _generate_req_list(dimension, year):
+    def generate_req_list(dimension, year):
         req_list=[]
         req_item={}
-        if EngineHelper._check_dimension_source('PDKI', dimension):
+        if EngineHelper.check_dimension_source('PDKI', dimension):
             #source: PDKI
             base_url="https://pdki-indonesia-api.dgip.go.id/api/"
-            param_type, param_keywords, param_dates = EngineHelper._generate_parameters(dimension, year)
+            param_type, param_keywords, param_dates = EngineHelper.generate_parameters(dimension, year)
             for keyword in param_keywords:
                 for date in param_dates:
                     req_item['url']=base_url+param_type\
@@ -399,9 +297,9 @@ class EngineHelper():
                         +"&end_tanggal_dimulai_perlindungan="+date[1]\
                         +"&type="+param_type\
                         +"&order_state=asc&page=1"
-                    req_item['header']= self._generate_header(dimension)
+                    req_item['header']= EngineHelper.generate_header(dimension)
                     #req_item['body']= if needed
-        elif EngineHelper._check_dimension_source('SINTA', dimension):
+        elif EngineHelper.check_dimension_source('SINTA', dimension):
             #source: SINTA
             #SHOULD BE DEPARTMENTAL APPROACH, DEPARTMENT IS ALREADY A SUBJECT
             #https://sinta.ristekbrin.go.id/departments/detail?page=1&afil=379&id=46001&view=documentsscopus
@@ -412,8 +310,8 @@ class EngineHelper():
         return req_list
 
     @staticmethod
-    def _generate_parameters(dimension, year):
-        if EngineHelper._check_dimension_source('PDKI', dimension):
+    def generate_parameters(dimension, year):
+        if EngineHelper.check_dimension_source('PDKI', dimension):
             param_type=''
             param_keywords=[]
             param_dates=[]
@@ -440,13 +338,13 @@ class EngineHelper():
                 if i+1 in month_31:
                     param_dates.append([date_base+'01',date_base+'31'])
             return param_type, param_keywords, param_dates
-        elif EngineHelper._check_dimension_source('SINTA', dimension):
+        elif EngineHelper.check_dimension_source('SINTA', dimension):
             #add parameters for SINTA here
             return None
 
     @staticmethod
-    def _generate_header(self, dimension):
-        if EngineHelper._check_dimension_source('PDKI', dimension):
+    def generate_header(dimension):
+        if EngineHelper.check_dimension_source('PDKI', dimension):
             # if pairKey needed it can be implemented here
             header = {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
@@ -464,20 +362,20 @@ class EngineHelper():
                 'Upgrade-Insecure-Requests': '1',
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36'
             }
-        elif self._check_dimension_source('PDKI', dimension):
+        elif EngineHelper.check_dimension_source('PDKI', dimension):
             #add header for SINTA here
             None
         return header
 
     @staticmethod
-    def _check_dimension_source(self, source, dimension):
+    def check_dimension_source(source, dimension):
         if source=='PDKI':
             return dimension=='ptn' or dimension=='trd'
         elif source=='SINTA':
             return dimension=='pub'    
     
     @staticmethod
-    def _generate_file_id(self, file_id):
+    def generate_file_id(file_id):
         if file_id<10:
             return '00'+str(file_id)
         elif file_id<100:
@@ -486,7 +384,7 @@ class EngineHelper():
             return str(file_id)
 
     @staticmethod
-    def _generate_file_name(self, bucket_base, dimension, year, file_id, extension):
+    def generate_file_name(bucket_base, dimension, year, file_id, extension):
         return bucket_base+'_'+dimension+'_'+str(year)+'_'+file_id+extension
 
 def main():
