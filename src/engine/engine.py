@@ -112,6 +112,60 @@ class Engine(object):
             else:
                 time.sleep(self.settings['SLEEP_TIME'])
     
+    @classmethod
+    def _check_dimension_source(self, source, dimension):
+        if source=='PDKI':
+            return dimension=='ptn' or dimension=='trd'
+        elif source=='SINTA':
+            return dimension=='pub'    
+    
+    @classmethod
+    def _generate_file_id(self, file_id):
+        if file_id<10:
+            return '00'+str(file_id)
+        elif file_id<100:
+            return '0'+str(file_id)
+        else:
+            return str(file_id)
+ 
+    @classmethod
+    def _generate_file_name(self, bucket_base, dimension, year, extension, file_id=None):    
+        if file_id:
+            self._generate_file_id(file_id)
+            return dimension+'/'+str(year)+'/'+bucket_base+'_'+dimension+'_'+str(year)+'_'+file_id+extension       
+        else:
+            return dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+extension
+   
+    @classmethod
+    def _convert_lines_to_csv(self, lines):
+        csv_file = StringIO()
+        wr=csv.writer(csv_file, quoting=csv.QUOTE_NONE)
+        for line in lines:
+            wr.writerow(line)
+        return csv_file
+
+    @classmethod
+    def _create_csv_line(self, fields, delimiter="\t"):
+        line = ""
+        for i in range(len(fields)):
+            if i<len(fields)-1:
+                line=line+fields[i]+delimiter
+            else:
+                line=line+fields[i]
+        return line
+
+    @classmethod
+    def _parse_csv_line(self, line, delimiter="\t"):
+        return line.strip().split(delimiter)
+
+    @classmethod
+    def _save_lines_to_minio_in_csv(self, lines, bucket_identifier, dimension, year):
+        csv_file=self._convert_lines_to_csv(lines)
+        bucket_name=bucket_identifier
+        file_name=self._generate_file_name(bucket_identifier, dimension, year,'.csv')
+        content = csv_file.read().encode('utf-8')
+        self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=56*1024, content_type='application/csv') #assuming maximum csv filesize 50kb
+            
     @staticmethod
     def wrong_input():
         None
@@ -147,7 +201,7 @@ class Ingestor(Engine):
     @classmethod
     def _ingest_records(self, dimension, year):
         try:
-            req_list = EngineHelper.generate_req_list(dimension, year)
+            req_list = self._generate_req_list(dimension, year)
             job_id = []
             file_id = 1
             for req_item in req_list:
@@ -177,17 +231,93 @@ class Ingestor(Engine):
         bucket_name=self.settings['MINIO_INGESTED_IDENTIFIER']
         if not self.minio_client.bucket_exist(bucket_name):
             self.minio_client.make_bucket(bucket_name)
-        if EngineHelper.check_dimension_source('PDKI', dimension):
-            file_name=EngineHelper.generate_file_name(self.settings['MINIO_INGESTED_IDENTIFIER'],dimension,year,'_json',file_id)
+        if self._check_dimension_source('PDKI', dimension):
+            file_name=self._generate_file_name(self.settings['MINIO_INGESTED_IDENTIFIER'],dimension,year,'_json',file_id)
             resp=req.get(req_item['url'])
             resp_dict = resp.json()
             content = json.dumps(resp_dict['hits']['hits'], ensure_ascii=False).encode('utf-8') # convert dict to bytes
             self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=1024*1024, content_type='application/json') #assuming maximum json filesize 1MB
-        elif EngineHelper.check_dimension_source('SINTA', dimension):
-            file_name=EngineHelper.generate_file_name(self.settings['MINIO_INGESTED_IDENTIFIER'],dimension,year,'_html',file_id)
+        elif self._check_dimension_source('SINTA', dimension):
+            file_name=self._generate_file_name(self.settings['MINIO_INGESTED_IDENTIFIER'],dimension,year,'_html',file_id)
             resp=req.get(req_item['url'])
             content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
             self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=1024*1024, content_type='text/html') #assuming maximum html filesize 1MB
+
+    @classmethod
+    def _generate_req_list(self, dimension, year):
+        req_list=[]
+        req_item={}
+        if self._check_dimension_source('PDKI', dimension):
+            #source: PDKI
+            base_url="https://pdki-indonesia-api.dgip.go.id/api/"
+            param_type, param_keywords, param_dates = self._generate_parameters(dimension, year)
+            for keyword in param_keywords:
+                for date in param_dates:
+                    req_item['url']=base_url+param_type\
+                        +"/search?keyword="+keyword\
+                        +"&start_tanggal_dimulai_perlindungan="+date[0]\
+                        +"&end_tanggal_dimulai_perlindungan="+date[1]\
+                        +"&type="+param_type\
+                        +"&order_state=asc&page=1"
+                    req_item['header']= self._generate_header(dimension)
+
+    @classmethod
+    def _generate_parameters(self, dimension, year):
+        if self._check_dimension_source('PDKI', dimension):
+            param_type=''
+            param_keywords=[]
+            param_dates=[]
+            _year=str(year)
+            if dimension=='ptn':
+                param_type='patent'
+                param_keywords=['DID','D00','J00','K00','M00','R00','V00']
+            elif dimension=='trd':
+                param_type='trademark'
+                param_keywords=['PID','P00','S00','W00']
+            for i in range(len(param_keywords)):
+                param_keywords[i]=param_keywords[i]+_year
+            month_28=[2]
+            month_30=[1,3,5,7,8,10,12]
+            month_31=[4,6,9,11]
+            for i in range(12):
+                _month=str(i+1)
+                if i+1<10: _month='0'+_month
+                date_base=_year+'-'+_month+'-'
+                if i+1 in month_28:
+                    param_dates.append([date_base+'01',date_base+'28'])
+                if i+1 in month_30:
+                    param_dates.append([date_base+'01',date_base+'30'])
+                if i+1 in month_31:
+                    param_dates.append([date_base+'01',date_base+'31'])
+            return param_type, param_keywords, param_dates
+        elif self._check_dimension_source('SINTA', dimension):
+            #add parameters for SINTA here
+            return None
+
+    @classmethod
+    def _generate_header(self, dimension):
+        if self._check_dimension_source('PDKI', dimension):
+            # if pairKey needed it can be implemented here
+            header = {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Cache-Control': 'max-age=0',
+                'Connection': 'keep-alive',
+                'Host': 'pdki-indonesia-api.dgip.go.id',
+                'sec-ch-ua': '" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"',
+                'sec-ch-ua-mobile': '?0',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Upgrade-Insecure-Requests': '1',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36'
+            }
+        elif self._check_dimension_source('PDKI', dimension):
+            #add header for SINTA here
+            None
+        return header
 
     def start(self):
         self._setup_rq()
@@ -221,18 +351,14 @@ class Aggregator(Engine):
                 try:
                     resp = self.minio_client.get_object(bucket_name, filename)
                     resp_utf = resp.decode('utf-8')
-                    lines = self._parse_object(resp_utf, dimension,year)
+                    lines = self._parse_object(resp_utf, dimension, year)
                     for line in lines:
                         parsed_lines.append(deepcopy(line))
                 finally:
                     resp.close()
                     resp.release_conn()
             unique_lines=self._uniquify(parsed_lines)
-            csv_file=self._convert_lines_to_csv(unique_lines)
-            bucket_name=self.settings['MINIO_AGGREGATED_IDENTIFIER']
-            file_name=EngineHelper.generate_file_name(self.settings['MINIO_AGGREGATED_IDENTIFIER'],dimension,year,'.csv')
-            content = csv_file.read().encode('utf-8')
-            self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=56*1024, content_type='application/csv') #assuming maximum csv filesize 50kb
+            self._save_lines_to_minio_in_csv(unique_lines, self.settings['MINIO_AGGREGATED_IDENTIFIER'], dimension, year)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
@@ -241,9 +367,31 @@ class Aggregator(Engine):
     @classmethod
     def _parse_object(self, resp, dimension, year):
         lines = []
-        #for every json object
-            #parse and make a csv line with \t delimiter
-            #append to lines
+        if self._check_dimension_source('PDKI', dimension):
+            records = resp.json()['hits']['hits']
+            for record in records:
+                id_application, id_certificate, status, date_begin, date_end = \
+                    record['_source']['id'], \
+                    record['_source']['nomor_sertifikat'], \
+                    record['_source']['status_permohonan'], \
+                    record['_source']['tanggal_dimulai_perlindungan'], \
+                    record['_source']['tanggal_berakhir_perlindungan']
+                classes = [i['ipc_full'] for i in record['_source']['ipc']]
+                address = None; inventor_address = None; owner_address = None
+                try:
+                    owner_address = next(i['alamat_pemegang'] for i in record['_source']['owner'] if i['alamat_pemegang'] != '-')
+                    inventor_address = next(i['alamat_inventor'] for i in record['_source']['inventor'] if i['alamat_inventor'] != '-')
+                finally:
+                    if inventor_address:
+                        address = inventor_address
+                    elif owner_address:
+                        address = owner_address
+                lines.append(self._create_csv_line([id_application,id_certificate,status, date_begin, date_end, classes, address]))
+        elif self._check_dimension_source('SINTA', dimension):
+            #for every html (soup) object
+                #parse and make a csv line with \t delimiter
+                #append to lines
+            None     
         return lines
             
     @classmethod
@@ -255,14 +403,6 @@ class Aggregator(Engine):
             seen.add(line)
             unique_lines.append(line)
         return unique_lines
-
-    @classmethod
-    def _convert_lines_to_csv(self, lines):
-        csv_file = StringIO()
-        wr=csv.writer(csv_file, quoting=csv.QUOTE_NONE)
-        for line in lines:
-            wr.writerow(line)
-        return csv_file
 
     def start(self):
         self._setup_redis_conn()
@@ -284,17 +424,38 @@ class Preparator(Engine):
     
     @classmethod
     def _transform_file(self, dimension, year):
+        bucket_name=self.settings['MINIO_AGGREGATED_IDENTIFIER']
+        file_name=self._generate_file_name(bucket_name, dimension, year, '.csv')
         try:
             #load the file from minio
-            #submit cleaning, pattern-matching(?), geocoding, encoding job to SPARK
+            resp = self.minio_client.get_object(bucket_name, file_name)
+            lines=[]            
+            try:
+                resp = self.minio_client.get_object(bucket_name, file_name)
+                resp_utf = resp.decode('utf-8')
+                records = resp_utf.split("\n")
+                for record in records:
+                    #submit cleaning, pattern-matching(?), geocoding, encoding job to SPARK
+                    line = self._transform_record(record, dimension, year)
+                    lines.append(deepcopy(line))
+            finally:
+                resp.close()
+                resp.release_conn()
             #save the result file to minio
+            self._save_lines_to_minio_in_csv(lines, self.settings['MINIO_TRANSFORMED_IDENTIFIER'], dimension, year)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
             return False, errormsg
     
+    @classmethod
+    def _transform_record(self, record, dimension, year):
+        #submit cleaning, pattern-matching(?), geocoding, encoding job to SPARK
+        None
+
     def start(self):
         self._setup_redis_conn()
+        self._setup_minio_client()
         while True:
             self._transform()
             time.sleep(self.settings['SLEEP_TIME'])
@@ -323,120 +484,10 @@ class Analytics(Engine):
     
     def start(self):
         self._setup_redis_conn()
+        self._setup_minio_client()
         while True:
-            self._transform()
+            self._analyze()
             time.sleep(self.settings['SLEEP_TIME'])
-
-class EngineHelper():
-    @staticmethod
-    def generate_req_list(dimension, year):
-        req_list=[]
-        req_item={}
-        if EngineHelper.check_dimension_source('PDKI', dimension):
-            #source: PDKI
-            base_url="https://pdki-indonesia-api.dgip.go.id/api/"
-            param_type, param_keywords, param_dates = EngineHelper.generate_parameters(dimension, year)
-            for keyword in param_keywords:
-                for date in param_dates:
-                    req_item['url']=base_url+param_type\
-                        +"/search?keyword="+keyword\
-                        +"&start_tanggal_dimulai_perlindungan="+date[0]\
-                        +"&end_tanggal_dimulai_perlindungan="+date[1]\
-                        +"&type="+param_type\
-                        +"&order_state=asc&page=1"
-                    req_item['header']= EngineHelper.generate_header(dimension)
-                    #req_item['body']= if needed
-        elif EngineHelper.check_dimension_source('SINTA', dimension):
-            #source: SINTA
-            #SHOULD BE DEPARTMENTAL APPROACH, DEPARTMENT IS ALREADY A SUBJECT
-            #https://sinta.ristekbrin.go.id/departments/detail?page=1&afil=379&id=46001&view=documentsscopus
-            #loop for every afil
-                #loop for every id
-                    #filter based on year?
-            None
-        return req_list
-
-    @staticmethod
-    def generate_parameters(dimension, year):
-        if EngineHelper.check_dimension_source('PDKI', dimension):
-            param_type=''
-            param_keywords=[]
-            param_dates=[]
-            _year=str(year)
-            if dimension=='ptn':
-                param_type='patent'
-                param_keywords=['DID','D00','J00','K00','M00','R00','V00']
-            elif dimension=='trd':
-                param_type='trademark'
-                param_keywords=['PID','P00','S00','W00']
-            for i in range(len(param_keywords)):
-                param_keywords[i]=param_keywords[i]+_year
-            month_28=[2]
-            month_30=[1,3,5,7,8,10,12]
-            month_31=[4,6,9,11]
-            for i in range(12):
-                _month=str(i+1)
-                if i+1<10: _month='0'+_month
-                date_base=_year+'-'+_month+'-'
-                if i+1 in month_28:
-                    param_dates.append([date_base+'01',date_base+'28'])
-                if i+1 in month_30:
-                    param_dates.append([date_base+'01',date_base+'30'])
-                if i+1 in month_31:
-                    param_dates.append([date_base+'01',date_base+'31'])
-            return param_type, param_keywords, param_dates
-        elif EngineHelper.check_dimension_source('SINTA', dimension):
-            #add parameters for SINTA here
-            return None
-
-    @staticmethod
-    def generate_header(dimension):
-        if EngineHelper.check_dimension_source('PDKI', dimension):
-            # if pairKey needed it can be implemented here
-            header = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Cache-Control': 'max-age=0',
-                'Connection': 'keep-alive',
-                'Host': 'pdki-indonesia-api.dgip.go.id',
-                'sec-ch-ua': '" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"',
-                'sec-ch-ua-mobile': '?0',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Sec-Fetch-User': '?1',
-                'Upgrade-Insecure-Requests': '1',
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36'
-            }
-        elif EngineHelper.check_dimension_source('PDKI', dimension):
-            #add header for SINTA here
-            None
-        return header
-
-    @staticmethod
-    def check_dimension_source(source, dimension):
-        if source=='PDKI':
-            return dimension=='ptn' or dimension=='trd'
-        elif source=='SINTA':
-            return dimension=='pub'    
-    
-    @staticmethod
-    def generate_file_id(file_id):
-        if file_id<10:
-            return '00'+str(file_id)
-        elif file_id<100:
-            return '0'+str(file_id)
-        else:
-            return str(file_id)
-    
-    @staticmethod
-    def generate_file_name(bucket_base, dimension, year, extension, file_id=None):    
-        if file_id:
-            EngineHelper.generate_file_id(file_id)
-            return dimension+'/'+str(year)+'/'+bucket_base+'_'+dimension+'_'+str(year)+'_'+file_id+extension       
-        else:
-            return dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+extension
 
 def main():
     try:
