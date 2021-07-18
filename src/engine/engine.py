@@ -22,6 +22,7 @@ from copy import deepcopy
 import csv
 from pyspark.conf import SparkConf
 from pyspark import sql
+from pymongo import MongoClient
 
 class Engine(object):
     def __init__(self):
@@ -462,7 +463,6 @@ class Preparator(Engine):
     def _transform_in_spark(self, resp, dimension, year):
         #submit cleaning, pattern-matching(?), geocoding, encoding job to SPARK
         resp_stream = StringIO(resp)
-        self._setup_spark()
         spark_session = sql.SparkSession.builder.config(conf=self.spark_conf).getOrCreate()
         spark_context = spark_session.sparkContext
         spark_reader = spark_session.read
@@ -481,10 +481,10 @@ class Preparator(Engine):
         return 1
         #https://github.com/bitnami/bitnami-docker-spark/issues/18
         
-
     def start(self):
         self._setup_redis_conn()
         self._setup_minio_client()
+        self._setup_spark()
         while True:
             self._transform()
             time.sleep(self.settings['SLEEP_TIME'])
@@ -493,7 +493,12 @@ class Analytics(Engine):
     def __init__(self):
         Engine.__init__(self)
         self.job = self.settings['JOB_ANALYZE']
-    
+
+    @classmethod
+    def _setup_mongo_database(self):
+        self.mongo_client = MongoClient(self.settings['MONGODB_URI'])
+        self.mongo_database = self.mongo_client[self.settings['MONGODB_DATABASE']]
+
     @classmethod
     def _analyze(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
@@ -502,18 +507,35 @@ class Analytics(Engine):
     
     @classmethod
     def _analyze_file(self, dimension, year):
+        bucket_name=self.settings['MINIO_TRANSFORMED_IDENTIFIER']
+        file_name=self._generate_file_name(bucket_name, dimension, year, '.csv')
         try:
-            #load the file from minio
-            #analyze
-            #save the analyses to mongodb
+            try:
+                resp = self.minio_client.get_object(bucket_name, file_name)
+                resp_utf = resp.decode('utf-8')
+                analyses = self._complexity_analysis(resp_utf, dimension, year)
+            finally:
+                resp.close()
+                resp.release_conn()
+            self._save_to_mongodb(resp_utf, analyses, dimension, year)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
             return False, errormsg
     
+    @classmethod
+    def _complexity_analysis(self, resp, dimension, year):
+        None
+
+    @classmethod
+    def _save_to_mongodb(self, resp, analyses, year):
+        complexity_collection = self.mongo_database[self.settings['MONGODB_COLLECTION_REGIONAL_PATENT']]
+        None
+
     def start(self):
         self._setup_redis_conn()
         self._setup_minio_client()
+        self._setup_mongo_client()
         while True:
             self._analyze()
             time.sleep(self.settings['SLEEP_TIME'])
