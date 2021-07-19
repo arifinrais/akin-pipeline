@@ -1,66 +1,66 @@
 version: '2'
 
 services:
-  pipeline_monitor:
+  pipeline-monitor:
     image: arifinrais/akin-pipeline:pipeline-monitor-dev
     build:
       context: .
       dockerfile: docker/pipeline-monitor/Dockerfile.py3
     depends_on:
       - kafka
-      - job_enqueuer
+      - job-enqueuer
       - zookeeper
     restart: always
-  ingestor_engine:
+  ingestor-engine:
     image: arifinrais/akin-pipeline:engine-ingestor-dev
     build:
       context: .
       dockerfile: docker/engine-ingestor/Dockerfile.py3
     depends_on:
       - minio
-      - job_enqueuer
+      - job-enqueuer
       - rq_server
     restart: always
-  aggregator_engine:
+  aggregator-engine:
     image: arifinrais/akin-pipeline:engine-aggregator-dev
     build:
       context: .
       dockerfile: docker/engine-aggregator/Dockerfile.py3
     depends_on:
       - minio
-      - job_enqueuer
+      - job-enqueuer
     restart: always
-  preparator_engine:
+  preparator-engine:
     image: arifinrais/akin-pipeline:engine-preparator-dev
     build:
       context: .
       dockerfile: docker/engine-preparator/Dockerfile.py3
     depends_on:
       - minio
-      - job_enqueuer
+      - job-enqueuer
       - spark
     restart: always
-  analytics_engine:
+  analytics-engine:
     image: arifinrais/akin-pipeline:engine-analytics-dev
     build:
       context: .
       dockerfile: docker/engine-analytics/Dockerfile.py3
     depends_on:
       - minio
-      - job_enqueuer
+      - job-enqueuer
       - mongodb
     restart: always
-  jobstat_hub:
+  jobstat-hub:
     image: arifinrais/akin-pipeline:jobstat-hub-dev
     build:
       context: .
       dockerfile: docker/jobstat-hub/Dockerfile.py3
     depends_on:
       - kafka
-      - job_enqueuer
+      - job-enqueuer
       - zookeeper
     restart: always
-  data_server:
+  data-server:
     image: arifinrais/akin-pipeline:data-server-dev
     build:
       context: .
@@ -83,17 +83,23 @@ services:
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
     command: server /export
-  job_enqueuer:
-    image: redis
+  job-enqueuer:
+    image: redis:alpine
     # command: redis-server --requirepass redispassword
     ports:
       - "6379:6379"
     restart: always
-  rq_server:
-    image: redis
+  rq-server:
+    image: redis:alpine
     # command: redis-server --requirepass redispassword
     ports:
       - "6389:6389"
+    restart: always
+  rq_worker:
+    image: arifinrais/akin-pipeline:rq-worker
+    command: rq worker -u redis://rq-server:6389 high normal low
+    deploy:
+      replicas: 3
     restart: always
   mongodb:
     image: mongo

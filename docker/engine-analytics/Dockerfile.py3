@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python:3.9-slim
 LABEL author="Arifin Rais"
 LABEL affiliation="Institut Teknologi Bandung"
 
