@@ -1,70 +1,73 @@
-version: '2'
+version: '1'
 
 services:
   pipeline_monitor:
     image: arifinrais/akin-pipeline:pipeline-monitor-dev
     build:
       context: .
-      dockerfile: docker/pipeline-monitor/Dockerfile.py3
+      dockerfile: src/pipeline-monitor/Dockerfile.py3
     depends_on:
       - kafka
       - job_enqueuer
       - zookeeper
     restart: always
   ingestor_engine:
-    image: arifinrais/akin-pipeline:engine-ingestor-dev
+    image: arifinrais/akin-pipeline:ingestor-engine-dev
     build:
       context: .
-      dockerfile: docker/engine-ingestor/Dockerfile.py3
+      dockerfile: src/docker/engine-ingestor/Dockerfile.py3
     depends_on:
       - minio
       - job_enqueuer
+      - create_buckets
+    restart: always
+  aggregator:
+    image: arifinrais/akin-pipeline:engine-dev
+    build:
+      context: .
+      dockerfile: src/engine/docker-aggregator/Dockerfile.py3
+    depends_on:
+      - minio
       - rq_server
+      - create_buckets
     restart: always
-  aggregator_engine:
-    image: arifinrais/akin-pipeline:engine-aggregator-dev
+  preparator:
+    image: arifinrais/akin-pipeline:engine-dev
     build:
       context: .
-      dockerfile: docker/engine-aggregator/Dockerfile.py3
+      dockerfile: src/engine/docker-preparator/Dockerfile.py3
     depends_on:
       - minio
-      - job_enqueuer
-    restart: always
-  preparator_engine:
-    image: arifinrais/akin-pipeline:engine-preparator-dev
-    build:
-      context: .
-      dockerfile: docker/engine-preparator/Dockerfile.py3
-    depends_on:
-      - minio
-      - job_enqueuer
+      - rq_server
+      - create_buckets
       - spark
     restart: always
-  analytics_engine:
-    image: arifinrais/akin-pipeline:engine-analytics-dev
+  analytics:
+    image: arifinrais/akin-pipeline:engine-dev
     build:
       context: .
-      dockerfile: docker/engine-analytics/Dockerfile.py3
+      dockerfile: src/engine/docker-preparator/Dockerfile.py3
     depends_on:
       - minio
-      - job_enqueuer
+      - rq_server
+      - create_buckets
       - mongodb
     restart: always
   jobstat_hub:
     image: arifinrais/akin-pipeline:jobstat-hub-dev
     build:
       context: .
-      dockerfile: docker/jobstat-hub/Dockerfile.py3
+      dockerfile: src/jobstat-hub/Dockerfile.py3
     depends_on:
       - kafka
-      - job_enqueuer
+      - rq_server
       - zookeeper
     restart: always
   data_server:
     image: arifinrais/akin-pipeline:data-server-dev
     build:
       context: .
-      dockerfile: docker/data-server/Dockerfile.py3
+      dockerfile: src/data-server/Dockerfile.py3
     depends_on:
       - mongodb
     restart: always
@@ -72,7 +75,7 @@ services:
       - "3001:3001"
   minio:
     # viewable at http://127.0.0.1:9001/
-    image: minio/minio:RELEASE.2021-07-15T22-27-34Z
+    image: minio/minio:RELEASE.2020-03-14T02-21-58Z
     container_name: minio
     restart: always
     volumes:
@@ -83,6 +86,22 @@ services:
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
     command: server /export
+  create_buckets:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+        echo Waiting for minio service to start...;
+            while ! nc -z minio 9000;
+            do
+              sleep 3;
+            done;
+            /usr/bin/mc config host add minio http://minio:9000 minio minio123;
+            /usr/bin/mc mb minio/raw;
+            /usr/bin/mc mb minio/aggregated;
+            /usr/bin/mc mb minio/transformed;
+      "
   job_enqueuer:
     image: redis
     # command: redis-server --requirepass redispassword
@@ -95,12 +114,6 @@ services:
     ports:
       - "6389:6389"
     restart: always
-  mongodb:
-    image: mongo
-    restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: mongo123
   zookeeper:
     image: wurstmeister/zookeeper
     ports:
@@ -123,34 +136,34 @@ services:
   spark:
     image: docker.io/bitnami/spark:3
     environment:
-      - SPARK_MODE=master
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
+      SPARK_MODE: master
+      SPARK_RPC_AUTHENTICATION_ENABLED: no
+      SPARK_RPC_ENCRYPTION_ENABLED: no
+      SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED: no
+      SPARK_SSL_ENABLED: no
     ports:
       - "8080:8080"
   spark-worker-1:
     image: docker.io/bitnami/spark:3
     environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark:7077
-      - SPARK_WORKER_MEMORY=1G
-      - SPARK_WORKER_CORES=1
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark:7077
+      SPARK_WORKER_MEMORY: 1G
+      SPARK_WORKER_CORES: 1
+      SPARK_RPC_AUTHENTICATION_ENABLED: no
+      SPARK_RPC_ENCRYPTION_ENABLED: no
+      SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED: no
+      SPARK_SSL_ENABLED: no
   spark-worker-2:
     image: docker.io/bitnami/spark:3
     environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark:7077
-      - SPARK_WORKER_MEMORY=1G
-      - SPARK_WORKER_CORES=1
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark:7077
+      SPARK_WORKER_MEMORY: 1G
+      SPARK_WORKER_CORES: 1
+      SPARK_RPC_AUTHENTICATION_ENABLED: no
+      SPARK_RPC_ENCRYPTION_ENABLED: no
+      SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED: no
+      SPARK_SSL_ENABLED: no
 volumes:
   minio_data: # used for minio
