@@ -20,6 +20,7 @@ from minio.error import S3Error
 from io import BytesIO, StringIO
 from copy import deepcopy
 import csv
+import logging
 from pyspark.conf import SparkConf
 from pyspark import sql
 from pymongo import MongoClient
@@ -78,12 +79,14 @@ class Engine(object):
     #@retry
     def _redis_update_stat_before(self, job):
         lock = redis_lock.Lock(self.redis_conn, self._get_lock_name(job))
+        #https://readthedocs.org/projects/python-redis-lock/downloads/pdf/latest/ search for logg
+        #https://docs.python.org/3/library/logging.html
+        logging.getLogger("redis_lock").setLevel(logging.ERROR)
         key, dimension, year = '', '', 0
         while True:
             if lock.acquire(blocking=False):
                 for _key in self.redis_conn.scan_iter():
                     _job=self.redis_conn.get(_key)
-                    print(_key)
                     if _job['job']==job and _job['status']==self.settings['STAT_WAIT']:
                         _job = self.redis_conn.get(_key)
                         _job['status'] = self.settings['STAT_WIP'] #update job status
@@ -98,7 +101,8 @@ class Engine(object):
         
     #@retry
     def _redis_update_stat_after(self, key, job, success, errormsg):
-        lock = redis_lock.Lock(self.redis_conn, "aggregate_lock")
+        lock = redis_lock.Lock(self.redis_conn, self._get_lock_name(job))
+        logging.getLogger("redis_lock").setLevel(logging.ERROR)
         while True:
             if lock.acquire(blocking=False):
                 if success:
@@ -544,7 +548,6 @@ class Analytics(Engine):
 def main():
     try:
         command = sys.argv[1]
-        print(command)
         if command=='ingest':
             engine = Ingestor()
             engine.start()
