@@ -35,8 +35,7 @@ services:
       MINIO_SECRET_KEY: minio123
     command: server /export
   job-enqueuer:
-    image: redis:alpine
-    # command: redis-server --requirepass redispassword
+    image: redislabs/rejson:latest
     ports:
       - "6379:6379"
     restart: always
@@ -70,6 +69,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ADVERTISED_PORT: 9092
       KAFKA_MESSAGE_MAX_BYTES: 2000000
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

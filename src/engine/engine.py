@@ -6,10 +6,10 @@ import localsettings as config
 import json
 import traceback
 from redis import Redis
+from rejson import Client, Path
 from tenacity import retry
 from jsonschema import validate
 #from abc import ABC, abstractmethod
-import redis_lock
 import time
 # for ingestion
 from rq import Queue 
@@ -47,7 +47,7 @@ class Engine(object):
             self.error_handler(sys.exc_info())
     
     def _setup_redis_conn(self):
-        self.redis_conn = Redis(host=self.settings['JOB_REDIS_HOST'], 
+        self.redis_conn = Client(host=self.settings['JOB_REDIS_HOST'], 
                             port=self.settings['JOB_REDIS_PORT'], 
                             password=self.settings['JOB_REDIS_PASSWORD'],
                             db=self.settings['JOB_REDIS_DB'],
@@ -78,45 +78,39 @@ class Engine(object):
 
     #@retry
     def _redis_update_stat_before(self, job):
-        lock = redis_lock.Lock(self.redis_conn, self._get_lock_name(job))
-        #https://readthedocs.org/projects/python-redis-lock/downloads/pdf/latest/ search for logg
-        #https://docs.python.org/3/library/logging.html
-        logging.getLogger("redis_lock").setLevel(logging.ERROR)
         key, dimension, year = '', '', 0
         while True:
-            if lock.acquire(blocking=False):
-                for _key in self.redis_conn.scan_iter():
-                    _job=self.redis_conn.get(_key)
-                    if _job['job']==job and _job['status']==self.settings['STAT_WAIT']:
-                        _job = self.redis_conn.get(_key)
-                        _job['status'] = self.settings['STAT_WIP'] #update job status
-                        self.redis_conn.set(_key, _job)
-                        key, dimension, year = _key, _job['dimension'], _job['year']
-                        break
-                lock.release()
-                break
-            else:
-                time.sleep(self.settings['SLEEP_TIME'])
+            updated = False
+            try:
+                with self.redis_conn.lock(self._get_lock_name(job), blocking_timeout=5) as lock:
+                    for _key in self.redis_conn.scan_iter():
+                        _job=json.loads(self.redis_conn.jsonget(_key, Path('.')))
+                        if _job['job']==job and _job['status']==self.settings['STAT_WAIT']:
+                            _job['status'] = self.settings['STAT_WIP']
+                            self.redis_conn.jsonset(_key, Path.rootPath(), json.dumps(_job))
+                            key, dimension, year = _key, _job['dimension'], _job['year']
+                            updated=True
+                            break
+                if updated:
+                    break
+            except:
+                time.sleep(1)#self.settings['SLEEP_TIME'])
         return key, dimension, year
         
     #@retry
     def _redis_update_stat_after(self, key, job, success, errormsg):
-        lock = redis_lock.Lock(self.redis_conn, self._get_lock_name(job))
-        logging.getLogger("redis_lock").setLevel(logging.ERROR)
         while True:
-            if lock.acquire(blocking=False):
-                if success:
-                    _job = self.redis_conn.get(key)
-                    _job['job'], _job['status'] = self._get_after_job(self, job), self.settings['STAT_WAIT']
-                    self.redis_conn.set(key, _job)
-                else:
-                    _job = self.redis_conn.get(key)
-                    _job['job'], _job['status'], _job['errormsg'] = job, self.settings['STAT_ERROR'], errormsg
-                    self.redis_conn.set(key, _job)
-                lock.release()
-                break
-            else:
-                time.sleep(self.settings['SLEEP_TIME'])
+            try:
+                with self.redis_conn.lock(self._get_lock_name(job), blocking_timeout=5) as lock:       
+                    _job=json.loads(self.redis_conn.jsonget(key, Path('.')))
+                    if success:
+                        _job['job'], _job['status'] = self._get_after_job(job), self.settings['STAT_WAIT']
+                    else:
+                        _job['status'], _job['errormsg'] = self.settings['STAT_ERROR'], errormsg
+                    self.redis_conn.jsonset(key, Path.rootPath(), json.dumps(_job))
+                    break
+            except:
+                time.sleep(1)#self.settings['SLEEP_TIME'])
     
     
     def _check_dimension_source(self, source, dimension):

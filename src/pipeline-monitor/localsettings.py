@@ -12,15 +12,16 @@ ENQ_REDIS_SOCKET_TIMEOUT = 10
 
 # Job-Mntr redis host information
 JOB_REDIS_HOST = 'localhost'
-JOB_REDIS_PORT = 6389
+JOB_REDIS_PORT = 6379
 JOB_REDIS_DB = 0
 JOB_REDIS_PASSWORD = None
 JOB_REDIS_SOCKET_TIMEOUT = 10
 
 # Kafka server information
-KAFKA_HOSTS = ['localhost:9092']
-KAFKA_INCOMING_TOPIC = 'demo.incoming' #ingestion
-KAFKA_GROUP = 'demo-group' #akin
+KAFKA_HOST = 'localhost'
+KAFKA_PORT = 9092
+KAFKA_INCOMING_TOPIC = 'job_stat' #ingestion
+KAFKA_GROUP = 'akin-pipeline' #akin
 KAFKA_FEED_TIMEOUT = 10
 KAFKA_CONSUMER_AUTO_OFFSET_RESET = 'earliest'
 KAFKA_CONSUMER_TIMEOUT = 50
@@ -54,6 +55,14 @@ STATS_TIMES = [
     'SECONDS_1_DAY',
     'SECONDS_1_WEEK',
 ]
+JOB_INGEST = 'ing'
+JOB_AGGREGATE = 'agg'
+JOB_TRANSFORM = 'tfm'
+JOB_ANALYZE = 'anl'
+STAT_WAIT = 'wait'
+STAT_WIP = 'wip'
+STAT_DONE = 'done'
+STAT_ERROR = 'err'
 
 # main thread sleep time
 SLEEP_TIME = 0.01
