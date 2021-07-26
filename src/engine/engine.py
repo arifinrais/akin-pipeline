@@ -2,7 +2,7 @@
 import sys#, os
 
 from rq.queue import Queue
-import config
+import localsettings as config
 import json
 import traceback
 from redis import Redis
