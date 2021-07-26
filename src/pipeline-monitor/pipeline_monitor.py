@@ -1,5 +1,5 @@
 import sys
-import config
+import localsettings as config
 import json
 import traceback
 from jsonschema import validate

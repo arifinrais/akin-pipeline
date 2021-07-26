@@ -24,6 +24,10 @@ MINIO_INGESTED_IDENTIFIER = 'raw'
 MINIO_AGGREGATED_IDENTIFIER = 'agg'
 MINIO_TRANSFORMED_IDENTIFIER = 'tfm'
 
+# ingestion settings
+MAX_INGEST_YEAR = 2018
+MIN_INGEST_YEAR = 2000
+
 # spark settings
 SPARK_MASTER = 'spark://172.17.0.6:7077'
 SPARK_APP_NAME = 'preparator'
@@ -62,5 +66,5 @@ STAT_DONE = 'done'
 STAT_ERROR = 'err'
 
 # main thread sleep time
-SLEEP_TIME = 0.01
+SLEEP_TIME = 1
 HEARTBEAT_TIMEOUT = 120

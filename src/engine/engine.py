@@ -35,7 +35,7 @@ class Engine(object):
                 "type": "object",
                 "properties": {
                     "dimension": {"type": "string", "pattern": "^ptn|pub|trd$"},
-                    "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']},
+                    "year": {"type": "integer", "minimum": self.settings['MIN_INGEST_YEAR'], "maximum": self.settings['MAX_INGEST_YEAR']},
                     "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
                     "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
                     "timestamp": {"type": "date-time"},
@@ -54,22 +54,21 @@ class Engine(object):
                             socket_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'])
 
-    @classmethod
     def _setup_minio_client(self):
         self.minio_client = Minio(
-            self.settings['MINIO_HOST']+':'+self.settings['MINIO_PORT'],
+            self.settings['MINIO_HOST']+':'+str(self.settings['MINIO_PORT']),
             access_key=self.settings['MINIO_ACCESS_KEY'],
             secret_key=self.settings['MINIO_SECRET_KEY'],
         )
 
-    @classmethod
+    
     def _get_lock_name(self, job):
         if job==self.settings['JOB_INGEST']: return self.settings['LOCK_INGEST']
         if job==self.settings['JOB_AGGREGATE']: return self.settings['LOCK_AGGREGATE']
         if job==self.settings['JOB_TRANSFORM']: return self.settings['LOCK_TRANSFORM']
         if job==self.settings['JOB_ANALYZE']: return self.settings['LOCK_ANALYZE']
 
-    @classmethod
+    
     def _get_after_job(self, job):
         if job==self.settings['JOB_INGEST']: return self.settings['JOB_AGGREGATE']
         if job==self.settings['JOB_AGGREGATE']: return self.settings['JOB_TRANSFORM']
@@ -84,6 +83,7 @@ class Engine(object):
             if lock.acquire(blocking=False):
                 for _key in self.redis_conn.scan_iter():
                     _job=self.redis_conn.get(_key)
+                    print(_key)
                     if _job['job']==job and _job['status']==self.settings['STAT_WAIT']:
                         _job = self.redis_conn.get(_key)
                         _job['status'] = self.settings['STAT_WIP'] #update job status
@@ -114,14 +114,14 @@ class Engine(object):
             else:
                 time.sleep(self.settings['SLEEP_TIME'])
     
-    @classmethod
+    
     def _check_dimension_source(self, source, dimension):
         if source=='PDKI':
             return dimension=='ptn' or dimension=='trd'
         elif source=='SINTA':
             return dimension=='pub'    
     
-    @classmethod
+    
     def _generate_file_id(self, file_id):
         if file_id<10:
             return '00'+str(file_id)
@@ -130,7 +130,7 @@ class Engine(object):
         else:
             return str(file_id)
  
-    @classmethod
+    
     def _generate_file_name(self, bucket_base, dimension, year, extension, file_id=None):    
         if file_id:
             self._generate_file_id(file_id)
@@ -138,7 +138,7 @@ class Engine(object):
         else:
             return dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+extension
    
-    @classmethod
+    
     def _convert_lines_to_csv(self, lines):
         csv_file = StringIO()
         wr=csv.writer(csv_file, quoting=csv.QUOTE_NONE)
@@ -146,7 +146,7 @@ class Engine(object):
             wr.writerow(line)
         return csv_file
 
-    @classmethod
+    
     def _create_csv_line(self, fields, delimiter="\t"):
         line = ""
         for i in range(len(fields)):
@@ -156,11 +156,11 @@ class Engine(object):
                 line=line+fields[i]
         return line
 
-    @classmethod
+    
     def _parse_csv_line(self, line, delimiter="\t"):
         return line.strip().split(delimiter)
 
-    @classmethod
+    
     def _save_lines_to_minio_in_csv(self, lines, bucket_identifier, dimension, year):
         csv_file=self._convert_lines_to_csv(lines)
         bucket_name=bucket_identifier
@@ -169,9 +169,15 @@ class Engine(object):
         self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=56*1024, content_type='application/csv') #assuming maximum csv filesize 50kb
             
     @staticmethod
-    def wrong_input():
-        None
-
+    def wrong_input(err):
+        exc_type, exc_value, exc_traceback = err
+        trace_back = traceback.extract_tb(exc_traceback)
+        print(" >Exception Type: %s" % exc_type.__name__)
+        print(" >Exception Message: %s" % exc_value)
+        print(" >Stack Trace:")
+        for trace in trace_back:
+            print("  >file: %s, line: %d, funcName: %s, message: %s" % (trace[0], trace[1], trace[2], trace[3]))
+    
     @staticmethod
     def error_handler():
         #logging utils(?)
@@ -182,14 +188,12 @@ class Ingestor(Engine):
         Engine.__init__(self)
         self.job = self.settings['JOB_INGEST']
         self.wait_ingest_cycle = wait_ingest_cycle
-    
-    @classmethod
+
     def _ingest(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
         success, errormsg = self._ingest_records(dimension, year)
         self._redis_update_stat_after(key, self.job, success, errormsg)
-
-    @classmethod
+  
     def _setup_rq(self):
         self.rq_conn = Redis(host=self.settings['RQ_REDIS_HOST'], 
                             port=self.settings['RQ_REDIS_PORT'], 
@@ -198,9 +202,8 @@ class Ingestor(Engine):
                             decode_responses=True,
                             socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
-        self.ingest_queue = Queue(self.rq_conn)
-
-    @classmethod
+        self.ingest_queue = Queue(connection=self.rq_conn)
+ 
     def _ingest_records(self, dimension, year):
         try:
             req_list = self._generate_req_list(dimension, year)
@@ -227,7 +230,8 @@ class Ingestor(Engine):
             errormsg, b, c = sys.exc_info()
             return False, errormsg
     
-    @classmethod #can be upgraded to async?
+     #can be upgraded to async?
+    
     def _fetch_and_save(self, arguments):
         req_item, dimension, year, file_id = arguments
         bucket_name=self.settings['MINIO_INGESTED_IDENTIFIER']
@@ -245,7 +249,6 @@ class Ingestor(Engine):
             content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
             self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=1024*1024, content_type='text/html') #assuming maximum html filesize 1MB
 
-    @classmethod
     def _generate_req_list(self, dimension, year):
         req_list=[]
         req_item={}
@@ -263,7 +266,6 @@ class Ingestor(Engine):
                         +"&order_state=asc&page=1"
                     req_item['header']= self._generate_header(dimension)
 
-    @classmethod
     def _generate_parameters(self, dimension, year):
         if self._check_dimension_source('PDKI', dimension):
             param_type=''
@@ -296,7 +298,6 @@ class Ingestor(Engine):
             #add parameters for SINTA here
             return None
 
-    @classmethod
     def _generate_header(self, dimension):
         if self._check_dimension_source('PDKI', dimension):
             # if pairKey needed it can be implemented here
@@ -334,13 +335,13 @@ class Aggregator(Engine):
         Engine.__init__(self)
         self.job = self.settings['JOB_AGGREGATE']
     
-    @classmethod
+    
     def _aggregate(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
         success, errormsg = self._aggregate_records(dimension, year)
         self._redis_update_stat_after(key, self.job, success, errormsg)
     
-    @classmethod
+    
     def _aggregate_records(self, dimension, year):
         bucket_name=self.settings['MINIO_INGESTED_IDENTIFIER']
         try:
@@ -366,7 +367,7 @@ class Aggregator(Engine):
             errormsg, b, c = sys.exc_info()
             return False, errormsg
 
-    @classmethod
+    
     def _parse_object(self, resp, dimension, year):
         lines = []
         if self._check_dimension_source('PDKI', dimension):
@@ -396,7 +397,7 @@ class Aggregator(Engine):
             None     
         return lines
             
-    @classmethod
+    
     def _uniquify(self, lines):
         unique_lines=[]
         seen = set()
@@ -431,13 +432,13 @@ class Preparator(Engine):
             ('spark.driver.host', self.settings['SPARK_DRIVER_HOST']),# <--- this host is the resolvable IP for the host that is running the driver and it must be reachable by the master and master must be able to reach it (in our case the IP of the container where we are running pyspark
         ])
 
-    @classmethod
+    
     def _transform(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
         success, errormsg = self._transform_file(dimension, year)
         self._redis_update_stat_after(key, self.job, success, errormsg)
     
-    @classmethod
+    
     def _transform_file(self, dimension, year):
         bucket_name=self.settings['MINIO_AGGREGATED_IDENTIFIER']
         file_name=self._generate_file_name(bucket_name, dimension, year, '.csv')
@@ -459,7 +460,7 @@ class Preparator(Engine):
             errormsg, b, c = sys.exc_info()
             return False, errormsg
     
-    @classmethod
+    
     def _transform_in_spark(self, resp, dimension, year):
         #submit cleaning, pattern-matching(?), geocoding, encoding job to SPARK
         resp_stream = StringIO(resp)
@@ -494,18 +495,18 @@ class Analytics(Engine):
         Engine.__init__(self)
         self.job = self.settings['JOB_ANALYZE']
 
-    @classmethod
+    
     def _setup_mongo_database(self):
         self.mongo_client = MongoClient(self.settings['MONGODB_URI'])
         self.mongo_database = self.mongo_client[self.settings['MONGODB_DATABASE']]
 
-    @classmethod
+    
     def _analyze(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
         success, errormsg = self._analyze_file(dimension, year)
         self._redis_update_stat_after(key, self.job, success, errormsg)
     
-    @classmethod
+    
     def _analyze_file(self, dimension, year):
         bucket_name=self.settings['MINIO_TRANSFORMED_IDENTIFIER']
         file_name=self._generate_file_name(bucket_name, dimension, year, '.csv')
@@ -523,11 +524,11 @@ class Analytics(Engine):
             errormsg, b, c = sys.exc_info()
             return False, errormsg
     
-    @classmethod
+    
     def _complexity_analysis(self, resp, dimension, year):
         None
 
-    @classmethod
+    
     def _save_to_mongodb(self, resp, analyses, year):
         complexity_collection = self.mongo_database[self.settings['MONGODB_COLLECTION_REGIONAL_PATENT']]
         None
@@ -543,6 +544,7 @@ class Analytics(Engine):
 def main():
     try:
         command = sys.argv[1]
+        print(command)
         if command=='ingest':
             engine = Ingestor()
             engine.start()
@@ -561,6 +563,7 @@ def main():
         print("Turning Off The Engine...")
     except:
         Engine.wrong_input(sys.exc_info())
+        None
 
 if __name__ == "__main__":
     sys.exit(main())
