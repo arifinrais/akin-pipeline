@@ -205,6 +205,7 @@ class Ingestor(Engine):
     def _ingest_records(self, dimension, year):
         try:
             req_list = self._generate_req_list(dimension, year)
+            print(req_list[0]['url'])
             job_id = []
             file_id = 1
             for req_item in req_list:
@@ -249,13 +250,13 @@ class Ingestor(Engine):
 
     def _generate_req_list(self, dimension, year):
         req_list=[]
-        req_item={}
         if self._check_dimension_source('PDKI', dimension):
             #source: PDKI
             base_url="https://pdki-indonesia-api.dgip.go.id/api/"
             param_type, param_keywords, param_dates = self._generate_parameters(dimension, year)
             for keyword in param_keywords:
                 for date in param_dates:
+                    req_item={}
                     req_item['url']=base_url+param_type\
                         +"/search?keyword="+keyword\
                         +"&start_tanggal_dimulai_perlindungan="+date[0]\
@@ -263,6 +264,8 @@ class Ingestor(Engine):
                         +"&type="+param_type\
                         +"&order_state=asc&page=1"
                     req_item['header']= self._generate_header(dimension)
+                    req_list.append(req_item)
+        return req_list
 
     def _generate_parameters(self, dimension, year):
         if self._check_dimension_source('PDKI', dimension):
