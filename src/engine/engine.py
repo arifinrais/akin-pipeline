@@ -202,9 +202,12 @@ class Ingestor(Engine):
                     job = Job.create(self._fetch_and_save, args=(req_item, dimension, year, file_id)) #can set the id if you want
                     print(job)
                     job_id.append(job.id)
-                    if dimension==self.settings['DIMENSION_PATENT']: self.ptn_queue.enqueue_job(job)
-                    if dimension==self.settings['DIMENSION_TRADEMARK']: self.trd_queue.enqueue_job(job)
-                    if dimension==self.settings['DIMENSION_PUBLICATION']: self.pub_queue.enqueue_job(job)
+                    try:
+                        if dimension==self.settings['DIMENSION_PATENT']: self.ptn_queue.enqueue_job(job)
+                        if dimension==self.settings['DIMENSION_TRADEMARK']: self.trd_queue.enqueue_job(job)
+                        if dimension==self.settings['DIMENSION_PUBLICATION']: self.pub_queue.enqueue_job(job)
+                    except:
+                        print(sys.exc_info())
                 '''
                 try:
                     if dimension==self.settings['DIMENSION_PATENT']: self.ptn_queue.enqueue_job(job)
