@@ -25,4 +25,3 @@ COPY src/engine /usr/src/app
 # set up environment variables
 
 # run command
-CMD ["python", "main.py", "ingest"]

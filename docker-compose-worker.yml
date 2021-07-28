@@ -13,7 +13,7 @@ services:
       - zookeeper
     restart: always
   ingestor-engine:
-    image: arifinrais/akin-pipeline:engine-dev
+    image: arifinrais/akin-pipeline:engine-ingestor-dev
     container_name: ingestor
     build:
       context: .
@@ -50,17 +50,16 @@ services:
       - "6389:6389"
     restart: always
   rq-worker:
-    image: arifinrais/akin-pipeline:engine-dev
-    container_name: ingestor
-    build:
+    image: arifinrais/akin-pipeline:rq-worker-dev
+    command: rq worker -u redis://rq-server:6389 ptn trd pub
+    build: 
       context: .
-      dockerfile: docker/engine/Dockerfile.py3
+      dockerfile: docker/rq-worker/Dockerfile.py3
     depends_on:
       - rq-server
     deploy:
       replicas: 3
-    command: python main.py scrape
-    restart: unless-stopped
+    restart: always
   zookeeper:
     image: wurstmeister/zookeeper
     ports:
