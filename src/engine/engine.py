@@ -8,6 +8,7 @@ import requests as req
 from datetime import datetime
 from redis import Redis
 from rejson import Client, Path
+from rq import Connection as RedisQueueConnection
 from rq.queue import Queue
 from rq.job import Job 
 from minio import Minio
@@ -73,7 +74,7 @@ class Engine(object):
         while True:
             updated = False
             try:
-                with self.redis_conn.lock(self._get_lock_name(job), blocking_timeout=5) as lock:
+                with self.redis_conn.lock(self._get_lock_name(job), blocking_timeout=5):
                     for _key in self.redis_conn.scan_iter():
                         _job=json.loads(self.redis_conn.jsonget(_key, Path('.')))
                         if _job['job']==job and _job['status']==self.settings['STAT_WAIT']:
@@ -174,6 +175,7 @@ class Ingestor(Engine):
 
     def _ingest(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
+        #print(key, dimension, year)
         self._ingest_records(key, dimension, year)
   
     def _setup_rq(self):
@@ -184,6 +186,7 @@ class Ingestor(Engine):
                             decode_responses=True,
                             socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
+        #self.rq_queue = Queue(self.settings['DIMENSION_PATENT'], connection=self.rq_conn)
         self.ptn_queue = Queue(self.settings['DIMENSION_PATENT'], connection=self.rq_conn)
         self.trd_queue = Queue(self.settings['DIMENSION_TRADEMARK'], connection=self.rq_conn)
         self.pub_queue = Queue(self.settings['DIMENSION_PUBLICATION'], connection=self.rq_conn)
@@ -191,18 +194,28 @@ class Ingestor(Engine):
     def _ingest_records(self, key, dimension, year):
         try:
             req_list = self._generate_req_list(dimension, year)
-            print(req_list[0]['url'])
+            #print(req_list[0]['url'])
             job_id = []
             file_id = 1
             for req_item in req_list:
-                print(req_item, dimension, year, file_id)
-                job = Job.create(self._fetch_and_save, (req_item, dimension, year, file_id)) #can set the id if you want
-                print('whatevs')
-                job_id.append(job.id)
-                if dimension==self.settings['DIMENSION_PATENT']: self.ptn_queue.enqueue(job)
-                if dimension==self.settings['DIMENSION_TRADEMARK']: self.trd_queue.enqueue(job)
-                if dimension==self.settings['DIMENSION_PUBLICATION']: self.pub_queue.enqueue(job)
+                with RedisQueueConnection():
+                    job = Job.create(self._fetch_and_save, args=(req_item, dimension, year, file_id)) #can set the id if you want
+                    print(job)
+                    job_id.append(job.id)
+                    if dimension==self.settings['DIMENSION_PATENT']: self.ptn_queue.enqueue_job(job)
+                    if dimension==self.settings['DIMENSION_TRADEMARK']: self.trd_queue.enqueue_job(job)
+                    if dimension==self.settings['DIMENSION_PUBLICATION']: self.pub_queue.enqueue_job(job)
+                '''
+                try:
+                    if dimension==self.settings['DIMENSION_PATENT']: self.ptn_queue.enqueue_job(job)
+                    if dimension==self.settings['DIMENSION_TRADEMARK']: self.trd_queue.enqueue_job(job)
+                    if dimension==self.settings['DIMENSION_PUBLICATION']: self.pub_queue.enqueue_job(job)
+                except:
+                    print(sys.exc_info())
+                '''
                 file_id+=1
+                time.sleep(self.wait_ingest_cycle)
+            print(job_id)
             while True:
                 job_done = True
                 for id in job_id:
@@ -221,8 +234,8 @@ class Ingestor(Engine):
             self._redis_update_stat_after(key, self.job, False, errormsg)
     
     #can be upgraded to async? @async/retry/classmethod
-    def _fetch_and_save(self, arguments):
-        req_item, dimension, year, file_id = arguments
+    def _fetch_and_save(self, req_item, dimension, year, file_id):
+        #req_item, dimension, year, file_id = arguments
         bucket_name=self.settings['MINIO_INGESTED_IDENTIFIER']
         if not self.minio_client.bucket_exist(bucket_name):
             self.minio_client.make_bucket(bucket_name)
