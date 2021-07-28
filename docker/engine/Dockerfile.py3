@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # move codebase over
 COPY src/engine /usr/src/app/engine
+COPY docker/engine/config.py /usr/src/app/engine
 COPY src/engine/main.py /usr/src/app
 
 # override settings via config.py

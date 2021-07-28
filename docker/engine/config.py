@@ -8,7 +8,7 @@ JOB_REDIS_PASSWORD = None
 JOB_REDIS_SOCKET_TIMEOUT = 10
 
 # rq redis host information
-RQ_REDIS_HOST = 'localhost' #rq-server for docker koentji
+RQ_REDIS_HOST = 'rq-server' #rq-server for docker
 RQ_REDIS_PORT = 6389
 RQ_REDIS_DB = 0
 RQ_REDIS_PASSWORD = None
