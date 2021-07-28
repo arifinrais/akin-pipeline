@@ -64,6 +64,9 @@ STAT_WAIT = 'wait'
 STAT_WIP = 'wip'
 STAT_DONE = 'done'
 STAT_ERROR = 'err'
+DIMENSION_PATENT = 'ptn'
+DIMENSION_TRADEMARK = 'trd'
+DIMENSION_PUBLICATION = 'pub'
 
 # main thread sleep time
 SLEEP_TIME = 1

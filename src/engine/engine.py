@@ -106,9 +106,9 @@ class Engine(object):
      
     def _check_dimension_source(self, source, dimension):
         if source=='PDKI':
-            return dimension=='ptn' or dimension=='trd'
+            return dimension==self.settings['DIMENSION_PATENT'] or dimension==self.settings['DIMENSION_TRADEMARK']
         elif source=='SINTA':
-            return dimension=='pub'    
+            return dimension==self.settings['DIMENSION_PUBLICATION']
     
     def _generate_file_id(self, file_id):
         if file_id<10:
@@ -174,8 +174,7 @@ class Ingestor(Engine):
 
     def _ingest(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
-        success, errormsg = self._ingest_records(dimension, year)
-        self._redis_update_stat_after(key, self.job, success, errormsg)
+        self._ingest_records(key, dimension, year)
   
     def _setup_rq(self):
         self.rq_conn = Redis(host=self.settings['RQ_REDIS_HOST'], 
@@ -185,18 +184,24 @@ class Ingestor(Engine):
                             decode_responses=True,
                             socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
-        self.ingest_queue = Queue(connection=self.rq_conn)
+        self.ptn_queue = Queue(self.settings['DIMENSION_PATENT'], connection=self.rq_conn)
+        self.trd_queue = Queue(self.settings['DIMENSION_TRADEMARK'], connection=self.rq_conn)
+        self.pub_queue = Queue(self.settings['DIMENSION_PUBLICATION'], connection=self.rq_conn)
  
-    def _ingest_records(self, dimension, year):
+    def _ingest_records(self, key, dimension, year):
         try:
             req_list = self._generate_req_list(dimension, year)
             print(req_list[0]['url'])
             job_id = []
             file_id = 1
             for req_item in req_list:
+                print(req_item, dimension, year, file_id)
                 job = Job.create(self._fetch_and_save, (req_item, dimension, year, file_id)) #can set the id if you want
+                print('whatevs')
                 job_id.append(job.id)
-                self.ingest_queue.enqueue(job)
+                if dimension==self.settings['DIMENSION_PATENT']: self.ptn_queue.enqueue(job)
+                if dimension==self.settings['DIMENSION_TRADEMARK']: self.trd_queue.enqueue(job)
+                if dimension==self.settings['DIMENSION_PUBLICATION']: self.pub_queue.enqueue(job)
                 file_id+=1
             while True:
                 job_done = True
@@ -208,11 +213,12 @@ class Ingestor(Engine):
                 if job_done:
                     break
                 time.sleep(self.wait_ingest_cycle)
-            return True, None
+                print("still doing the job")
+            self._redis_update_stat_after(key, self.job, True, None)
         except:
             # in the meantime error message is just its value
             errormsg, b, c = sys.exc_info()
-            return False, errormsg
+            self._redis_update_stat_after(key, self.job, False, errormsg)
     
     #can be upgraded to async? @async/retry/classmethod
     def _fetch_and_save(self, arguments):
@@ -257,10 +263,10 @@ class Ingestor(Engine):
             param_keywords=[]
             param_dates=[]
             _year=str(year)
-            if dimension=='ptn':
+            if dimension==self.settings['DIMENSION_PATENT']:
                 param_type='patent'
                 param_keywords=['DID','D00','J00','K00','M00','R00','V00']
-            elif dimension=='trd':
+            elif dimension==self.settings['DIMENSION_TRADEMARK']:
                 param_type='trademark'
                 param_keywords=['PID','P00','S00','W00']
             for i in range(len(param_keywords)):

@@ -47,7 +47,7 @@ services:
     restart: always
   rq-worker:
     image: arifinrais/akin-pipeline:rq-worker-dev
-    command: rq worker -u redis://rq-server:6389 high normal low
+    command: rq worker -u redis://rq-server:6389 ptn trd pub
     build: 
       context: .
       dockerfile: docker/rq-worker/Dockerfile.py3
