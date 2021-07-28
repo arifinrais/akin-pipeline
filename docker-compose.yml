@@ -24,34 +24,8 @@ services:
       - rq-server
     command: python main.py ingest
     restart: unless-stopped
-  minio:
-    # viewable at http://127.0.0.1:9001/
-    image: minio/minio
-    container_name: minio
-    restart: always
-    volumes:
-      - minio-data:/data
-    ports:
-      - "9000:9001"
-    environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: minio123
-    command: server /export --console-address ":9001"
-  job-enqueuer:
-    image: redislabs/rejson:latest
-    container_name: job-enqueuer
-    ports:
-      - "6379:6379"
-    restart: always
-  rq-server:
-    image: redis:alpine
-    command: redis-server --port 6389
-    ports:
-      - "6389:6389"
-    restart: always
-  rq-worker:
+  scraper:
     image: arifinrais/akin-pipeline:engine-dev
-    container_name: ingestor
     build:
       context: .
       dockerfile: docker/engine/Dockerfile.py3
@@ -61,13 +35,43 @@ services:
       replicas: 3
     command: python main.py scrape
     restart: unless-stopped
+  minio:
+    # viewable at http://127.0.0.1:9001/
+    image: minio/minio
+    container_name: minio
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    command: server /export --console-address ":9001"
+    restart: always
+  job-enqueuer:
+    image: redislabs/rejson:latest
+    container_name: job-enqueuer
+    ports:
+      - "6379:6379"
+    restart: always
+  rq-server:
+    image: redis:alpine
+    command: redis-server --port 6389
+    container_name: rq-server
+    ports:
+      - "6389:6389"
+    restart: always
   zookeeper:
     image: wurstmeister/zookeeper
+    container_name: zookeeper
     ports:
       - "2181:2181"
     restart: always
   kafka:
     image: wurstmeister/kafka
+    container_name: kafka
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "9092:9092"
     environment:
@@ -76,8 +80,6 @@ services:
       KAFKA_ADVERTISED_HOST_NAME: kafka
       KAFKA_ADVERTISED_PORT: 9092
       KAFKA_MESSAGE_MAX_BYTES: 2000000
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - zookeeper
     restart: always
