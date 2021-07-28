@@ -61,8 +61,9 @@ class Engine(object):
         while True:
             updated = False
             try:
-                with self.redis_conn.lock(self._get_lock_name(job), blocking_timeout=5):
+                with self.redis_conn.lock(self._get_lock_name(job), blocking_timeout=5) as lock:
                     for _key in self.redis_conn.scan_iter():
+                        if _key==self._get_lock_name(job): continue #koentji
                         _job=json.loads(self.redis_conn.jsonget(_key, Path('.')))
                         if _job['job']==job and _job['status']==self.settings['STAT_WAIT']:
                             _job['status'] = self.settings['STAT_WIP']
@@ -73,14 +74,14 @@ class Engine(object):
                 if updated:
                     break
             except:
-                time.sleep(1)#self.settings['SLEEP_TIME'])
+                time.sleep(2)#self.settings['SLEEP_TIME'])
         return key, dimension, year
         
     #@retry
     def _redis_update_stat_after(self, key, job, success, errormsg):
         while True:
             try:
-                with self.redis_conn.lock(self._get_lock_name(job), blocking_timeout=5) as lock:       
+                with self.redis_conn.lock(self._get_lock_name(job), blocking_timeout=5) as lock:    
                     _job=json.loads(self.redis_conn.jsonget(key, Path('.')))
                     _job['timestamp'] = datetime.utcnow().isoformat()
                     if success:

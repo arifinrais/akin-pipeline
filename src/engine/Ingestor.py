@@ -9,9 +9,9 @@ from engine.Engine import Engine
 from datetime import datetime
 from io import BytesIO, StringIO
 from copy import deepcopy
-from redis import Redis
+from redis import Redis, StrictRedis
 from rejson import Client, Path
-from rq import Connection as RedisQueueConnection
+from rq import Connection, Worker
 from rq.queue import Queue
 from rq.job import Job 
 from minio import Minio
@@ -32,7 +32,7 @@ class Ingestor(Engine):
         self._ingest_records(key, dimension, year)
   
     def _setup_rq(self):
-        self.rq_conn = Redis(host=self.settings['RQ_REDIS_HOST'], 
+        self.rq_conn = StrictRedis(host=self.settings['RQ_REDIS_HOST'], 
                             port=self.settings['RQ_REDIS_PORT'], 
                             password=self.settings['RQ_REDIS_PASSWORD'],
                             db=self.settings['RQ_REDIS_DB'],
@@ -91,18 +91,22 @@ class Ingestor(Engine):
             job_id = []; file_id = 1
             for req_item in req_list:
                 with Connection():
-                    job = Job.create(self._fetch_and_save, args=(req_item, dimension, year, minio_settings, file_id)) #can set the id if you want
+                    #job = Job.create(self._fetch_and_save, args=(req_item, dimension, year, minio_settings, file_id)) #can set the id if you want
                     #job = Job.create(self._test_rq_enqueue, args=(req_item, dimension, year, file_id))
-                    print(job)
+                    job = self.ptn_queue.enqueue(self._test_rq_enqueue, args=(req_item, dimension, year, minio_settings, file_id))
+                    
+                    #job = self.ptn_queue.enqueue(self._fetch_and_save, args=(req_item, dimension, year, minio_settings, file_id))
+                    print(job.id)
                     job_id.append(job.id)
                     try:
-                        if dimension==self.settings['DIMENSION_PATENT']: self.ptn_queue.enqueue_job(job)
-                        if dimension==self.settings['DIMENSION_TRADEMARK']: self.trd_queue.enqueue_job(job)
-                        if dimension==self.settings['DIMENSION_PUBLICATION']: self.pub_queue.enqueue_job(job)
+                        #if dimension==self.settings['DIMENSION_PATENT']: temp=self.ptn_queue.enqueue_job(job)
+                        #if dimension==self.settings['DIMENSION_TRADEMARK']: temp=self.trd_queue.enqueue_job(job)
+                        #if dimension==self.settings['DIMENSION_PUBLICATION']: temp=self.pub_queue.enqueue_job(job)
+                        print(job.get_status())
                     except:
                         print(sys.exc_info())
-                file_id+=1
-                time.sleep(self.wait_ingest_cycle)
+                    file_id+=1
+                    time.sleep(10)
             print(job_id)
             while True:
                 job_done = True
@@ -224,6 +228,7 @@ class Ingestor(Engine):
 
     def scrape(self):
         self._setup_rq()
+        print(self.rq_conn)
         with Connection():
             worker = Worker([self.ptn_queue, self.trd_queue, self.pub_queue], connection=self.rq_conn)
             worker.work()

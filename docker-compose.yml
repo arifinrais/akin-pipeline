@@ -11,7 +11,7 @@ services:
       - job-enqueuer
       - kafka
       - zookeeper
-    restart: always
+    restart: unless-stopped
   ingestor-engine:
     image: arifinrais/akin-pipeline:engine-dev
     container_name: ingestor
