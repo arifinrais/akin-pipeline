@@ -93,7 +93,7 @@ class Ingestor(Engine):
                 with Connection():
                     #job = Job.create(self._fetch_and_save, args=(req_item, dimension, year, minio_settings, file_id)) #can set the id if you want
                     #job = Job.create(self._test_rq_enqueue, args=(req_item, dimension, year, file_id))
-                    job = self.ptn_queue.enqueue(self._test_rq_enqueue, args=(req_item, dimension, year, minio_settings, file_id))
+                    job = self.ptn_queue.enqueue(self._test_rq_enqueue, args=(req_item, dimension, year, file_id))
                     
                     #job = self.ptn_queue.enqueue(self._fetch_and_save, args=(req_item, dimension, year, minio_settings, file_id))
                     print(job.id)
