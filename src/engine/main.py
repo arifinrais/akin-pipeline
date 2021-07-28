@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-from engine import Engine, Ingestor, Aggregator, Preparator, Analytics
+from engine import Engine, Ingestor, Aggregator, Preparator, Analytics#, Scraper
 import sys
 
 def main():
     try:
         command = sys.argv[1]
-        if command=='ingest':
+        if command=='scrape':
+            engine = Ingestor.Ingestor()
+            engine.scrape()
+        elif command=='ingest':
             engine = Ingestor.Ingestor()
             engine.start()
         elif command=='aggregate':

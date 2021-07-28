@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-import sys, time, json, csv, traceback #, os, logging
+from os import stat
+import sys, time, json
 from engine.Engine import Engine
 import requests as req
 from redis import Redis
-from rq import Connection as RedisQueueConnection
+from rq import Worker, Connection
 from rq.queue import Queue
 from rq.job import Job 
 from minio import Minio
@@ -33,7 +34,6 @@ class Ingestor(Engine):
                             decode_responses=True,
                             socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
-        #self.rq_queue = Queue(self.settings['DIMENSION_PATENT'], connection=self.rq_conn)
         self.ptn_queue = Queue(self.settings['DIMENSION_PATENT'], connection=self.rq_conn)
         self.trd_queue = Queue(self.settings['DIMENSION_TRADEMARK'], connection=self.rq_conn)
         self.pub_queue = Queue(self.settings['DIMENSION_PUBLICATION'], connection=self.rq_conn)
@@ -43,16 +43,51 @@ class Ingestor(Engine):
         return any1['url']+any2+str(any3)+str(any4)
         #still not working because AttributeError: module '__main__' has no attribute 'Ingestor'
 
+    @staticmethod
+    def _fetch_and_save(req_item, dimension, year, minio_settings, file_id):
+        BUCKET_NAME='raw'
+        MC = Minio(
+            minio_settings['MINIO_HOST']+':'+str(minio_settings['MINIO_PORT']),
+            access_key=minio_settings['MINIO_ROOT_USER'],
+            secret_key=minio_settings['MINIO_ROOT_PASSWORD'],
+        )
+        if not MC.bucket_exists(BUCKET_NAME):
+            MC.make_bucket(BUCKET_NAME)    
+        FILE_NAME=dimension+'/'+str(year)+'/'+BUCKET_NAME+'_'+dimension+'_'+str(year)
+        if file_id:
+            _file_id='00' if file_id<10 else '0' if file_id<100 else ''
+            _file_id=_file_id+str(_file_id)
+            FILE_NAME=FILE_NAME+'_'+_file_id
+        resp=req.get(req_item['url'])
+        if dimension == 'ptn' or dimension=='trd':
+            FILE_NAME=FILE_NAME+'_json'
+            resp_dict = resp.json()
+            content = json.dumps(resp_dict['hits']['hits'], ensure_ascii=False).encode('utf-8') # convert dict to bytes
+            _content_type='application/json' 
+        elif dimension=='pub':       
+            FILE_NAME=FILE_NAME+'_html'
+            content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
+            _content_type='text/html'
+        MC.put_object(BUCKET_NAME, FILE_NAME, BytesIO(content), length=-1, part_size=1024*1024, content_type=_content_type) #assuming maximum json filesize 1MB
+
+    def _get_minio_settings(self):
+        minio_settings={}
+        minio_settings['MINIO_HOST']=self.settings['MINIO_HOST']
+        minio_settings['MINIO_PORT']=self.settings['MINIO_PORT']
+        minio_settings['MINIO_ROOT_USER']=self.settings['MINIO_ROOT_USER']
+        minio_settings['MINIO_ROOT_PASSWORD']=self.settings['MINIO_ROOT_PASSWORD']
+        return minio_settings
+
     def _ingest_records(self, key, dimension, year):
         try:
+            minio_settings=self._get_minio_settings()
             req_list = self._generate_req_list(dimension, year)
             #print(req_list[0]['url'])
-            job_id = []
-            file_id = 1
+            job_id = []; file_id = 1
             for req_item in req_list:
-                with RedisQueueConnection():
-                    #job = Job.create(self._fetch_and_save, args=(req_item, dimension, year, file_id)) #can set the id if you want
-                    job = Job.create(self._test_rq_enqueue, args=(req_item, dimension, year, file_id))
+                with Connection():
+                    job = Job.create(self._fetch_and_save, args=(req_item, dimension, year, minio_settings, file_id)) #can set the id if you want
+                    #job = Job.create(self._test_rq_enqueue, args=(req_item, dimension, year, file_id))
                     print(job)
                     job_id.append(job.id)
                     try:
@@ -61,14 +96,6 @@ class Ingestor(Engine):
                         if dimension==self.settings['DIMENSION_PUBLICATION']: self.pub_queue.enqueue_job(job)
                     except:
                         print(sys.exc_info())
-                '''
-                try:
-                    if dimension==self.settings['DIMENSION_PATENT']: self.ptn_queue.enqueue_job(job)
-                    if dimension==self.settings['DIMENSION_TRADEMARK']: self.trd_queue.enqueue_job(job)
-                    if dimension==self.settings['DIMENSION_PUBLICATION']: self.pub_queue.enqueue_job(job)
-                except:
-                    print(sys.exc_info())
-                '''
                 file_id+=1
                 time.sleep(self.wait_ingest_cycle)
             print(job_id)
@@ -90,7 +117,7 @@ class Ingestor(Engine):
             self._redis_update_stat_after(key, self.job, False, errormsg)
     
     #can be upgraded to async? @async/retry/classmethod
-    def _fetch_and_save(self, req_item, dimension, year, file_id):
+    def __fetch_and_save(self, req_item, dimension, year, file_id):
         #req_item, dimension, year, file_id = arguments
         bucket_name=self.settings['MINIO_INGESTED_IDENTIFIER']
         if not self.minio_client.bucket_exist(bucket_name):
@@ -189,3 +216,13 @@ class Ingestor(Engine):
         while True:
             self._ingest()
             time.sleep(self.settings['SLEEP_TIME'])
+
+    def scrape(self):
+        self._setup_rq()
+        with Connection():
+            worker = Worker([self.ptn_queue, self.trd_queue, self.pub_queue], connection=self.rq_conn)
+            worker.work()
+            while True:
+                if not worker.work():
+                    worker.work()
+

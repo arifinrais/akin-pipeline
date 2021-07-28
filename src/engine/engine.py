@@ -39,8 +39,8 @@ class Engine(object):
     def _setup_minio_client(self):
         self.minio_client = Minio(
             self.settings['MINIO_HOST']+':'+str(self.settings['MINIO_PORT']),
-            access_key=self.settings['MINIO_ACCESS_KEY'],
-            secret_key=self.settings['MINIO_SECRET_KEY'],
+            access_key=self.settings['MINIO_ROOT_USER'],
+            secret_key=self.settings['MINIO_ROOT_PASSWORD'],
         )
    
     def _get_lock_name(self, job):

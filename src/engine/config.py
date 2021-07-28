@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# This file houses all default settings for the Kafka Monitor
-# to override please use a custom localsettings.py file
 
 # job-enqueuer redis host information
 JOB_REDIS_HOST = 'localhost'
@@ -14,13 +12,13 @@ RQ_REDIS_HOST = 'localhost'
 RQ_REDIS_PORT = 6389
 RQ_REDIS_DB = 0
 RQ_REDIS_PASSWORD = None
-RQ_REDIS_SOCKET_TIMEOUT = 10
+RQ_REDIS_SOCKET_TIMEOUT = 300
 
 # minio host information
 MINIO_HOST = 'localhost'
 MINIO_PORT = 9000
-MINIO_ACCESS_KEY = 'minio'
-MINIO_SECRET_KEY = 'minio123'
+MINIO_ROOT_USER = 'minio'
+MINIO_ROOT_PASSWORD = 'minio123'
 MINIO_INGESTED_IDENTIFIER = 'raw'
 MINIO_AGGREGATED_IDENTIFIER = 'agg'
 MINIO_TRANSFORMED_IDENTIFIER = 'tfm'
