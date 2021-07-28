@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # This file houses all default settings for the Kafka Monitor
 # to override please use a custom localsettings.py file
 
