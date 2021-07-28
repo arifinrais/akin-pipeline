@@ -8,13 +8,15 @@ RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
 
 # install requirements
+# actually requirements included in codebase
 #COPY src/utils /usr/src/utils
-COPY src/engine/requirements.txt /usr/src/app/
+#COPY src/engine/requirements.txt /usr/src/app/
+COPY src/engine /usr/src/app
 RUN pip install --no-cache-dir -r requirements.txt
 #RUN rm -rf /usr/src/utils
 
 # move codebase over
-COPY src/engine /usr/src/app
+#COPY src/engine /usr/src/app
 
 # override settings via config.py
 # COPY src/engine/localsettings.py /usr/src/app/localsettings.py

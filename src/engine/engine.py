@@ -190,7 +190,12 @@ class Ingestor(Engine):
         self.ptn_queue = Queue(self.settings['DIMENSION_PATENT'], connection=self.rq_conn)
         self.trd_queue = Queue(self.settings['DIMENSION_TRADEMARK'], connection=self.rq_conn)
         self.pub_queue = Queue(self.settings['DIMENSION_PUBLICATION'], connection=self.rq_conn)
- 
+    
+    @staticmethod
+    def _test_rq_enqueue(any1, any2, any3, any4):
+        return any1['url']+any2+str(any3)+str(any4)
+        #still not working because AttributeError: module '__main__' has no attribute 'Ingestor'
+
     def _ingest_records(self, key, dimension, year):
         try:
             req_list = self._generate_req_list(dimension, year)
@@ -199,7 +204,8 @@ class Ingestor(Engine):
             file_id = 1
             for req_item in req_list:
                 with RedisQueueConnection():
-                    job = Job.create(self._fetch_and_save, args=(req_item, dimension, year, file_id)) #can set the id if you want
+                    #job = Job.create(self._fetch_and_save, args=(req_item, dimension, year, file_id)) #can set the id if you want
+                    job = Job.create(self._test_rq_enqueue, args=(req_item, dimension, year, file_id))
                     print(job)
                     job_id.append(job.id)
                     try:
