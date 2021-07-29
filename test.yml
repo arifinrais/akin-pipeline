@@ -28,6 +28,17 @@ services:
     ports:
       - "6389:6389"
     restart: always
+  rq-scraper:
+    image: arifinrais/akin-pipeline:engine-dev
+    build:
+      context: .
+      dockerfile: docker/engine/Dockerfile.py3
+    depends_on:
+      - rq-server
+    deploy:
+      replicas: 3
+    command: python main.py scrape
+    restart: unless-stopped
   zookeeper:
     image: wurstmeister/zookeeper
     container_name: zookeeper

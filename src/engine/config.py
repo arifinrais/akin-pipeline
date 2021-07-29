@@ -15,7 +15,7 @@ RQ_REDIS_PASSWORD = None
 RQ_REDIS_SOCKET_TIMEOUT = 300
 
 # minio host information
-MINIO_HOST = 'localhost'
+MINIO_HOST = 'localhost' #minio for docker
 MINIO_PORT = 9000
 MINIO_ROOT_USER = 'minio'
 MINIO_ROOT_PASSWORD = 'minio123'
