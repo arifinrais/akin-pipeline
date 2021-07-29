@@ -38,7 +38,7 @@ class Ingestor(Engine):
                             socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
         self.queue={}
-        self.queue[self.settings['DIMENSION_PATENT']] = Queue(self.settings['DIMENSION_PATENT'],connection=self.rq_conn)
+        self.queue[self.settings['DIMENSION_PATENT']] = Queue(self.settings['DIMENSION_PATENT'], is_async=False,connection=self.rq_conn)
         self.queue[self.settings['DIMENSION_TRADEMARK']]= Queue(self.settings['DIMENSION_TRADEMARK'], connection=self.rq_conn)
         self.queue[self.settings['DIMENSION_PUBLICATION']] = Queue(self.settings['DIMENSION_PUBLICATION'], connection=self.rq_conn)
     
@@ -112,11 +112,12 @@ class Ingestor(Engine):
                     #workers = Worker.all(queue=self.queue[dimension])
                     #for worker in workers:
                     #    print(worker.state)
-            print(job_id)
+            #print(job_id)
             while True:
                 job_done = True
                 for id in job_id:
                     job = Job.fetch(id, self.rq_conn)
+                    print(job.result)
                     if job.get_status()!='finished':
                         job_done=False
                         break
