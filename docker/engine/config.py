@@ -8,7 +8,7 @@ JOB_REDIS_PASSWORD = None
 JOB_REDIS_SOCKET_TIMEOUT = 10
 
 # rq redis host information
-RQ_REDIS_HOST = 'rq-server' #rq-server for docker
+RQ_REDIS_HOST = 'rq-server' #rq-server for docker koentji
 RQ_REDIS_PORT = 6389
 RQ_REDIS_DB = 0
 RQ_REDIS_PASSWORD = None
@@ -19,9 +19,9 @@ MINIO_HOST = 'minio' #minio for docker
 MINIO_PORT = 9000
 MINIO_ROOT_USER = 'minio'
 MINIO_ROOT_PASSWORD = 'minio123'
-MINIO_INGESTED_IDENTIFIER = 'raw'
-MINIO_AGGREGATED_IDENTIFIER = 'agg'
-MINIO_TRANSFORMED_IDENTIFIER = 'tfm'
+MINIO_BUCKET_INGESTED = 'raw'
+MINIO_BUCKET_AGGREGATED = 'agg'
+MINIO_BUCKET_TRANSFORMED = 'tfm'
 
 # ingestion settings
 MAX_INGEST_YEAR = 2018
