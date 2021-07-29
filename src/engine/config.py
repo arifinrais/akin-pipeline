@@ -69,4 +69,5 @@ DIMENSION_PUBLICATION = 'pub'
 
 # main thread sleep time
 SLEEP_TIME = 1
+ENGINE_LOOP_TIME = 5 #to change sleep
 HEARTBEAT_TIMEOUT = 120

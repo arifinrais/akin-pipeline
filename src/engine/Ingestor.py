@@ -24,11 +24,11 @@ from pymongo import MongoClient
 from engine.EngineHelper import Scrape
 
 class Ingestor(Engine):
-    def __init__(self, wait_ingest_cycle=5):
+    def __init__(self, scrape_wait_time=5):
         Engine.__init__(self)
         self.job = self.settings['JOB_INGEST']
         self.bucket = self.settings['MINIO_BUCKET_INGESTED']
-        self.wait_ingest_cycle = wait_ingest_cycle
+        self.scrape_wait_time = scrape_wait_time
 
     def _setup_rq(self):
         self.rq_conn = Redis(host=self.settings['RQ_REDIS_HOST'], 
@@ -58,19 +58,7 @@ class Ingestor(Engine):
                     job = self.queue[dimension].enqueue(Scrape, args=(req_item, dimension, year, minio_settings, file_id))
                     job_id.append(job.id)
                     file_id+=1
-            while True:
-                job_done = True
-                for id in job_id:
-                    job = Job.fetch(id, self.rq_conn)
-                    print(job.result) #just checkin'
-                    if job.get_status()!='finished':
-                        job_done=False
-                        break
-                if job_done:
-                    break
-                time.sleep(self.wait_ingest_cycle)
-                print("still doing the job") # just checkin'
-            print("the jobs are done") #add to logging
+            self._wait_for_job_to_finish(job_id)
             return True, None
         except:
             # in the meantime error message is just its value
@@ -82,7 +70,7 @@ class Ingestor(Engine):
         minio_settings={}
         for param in parameters: minio_settings[param]=self.settings[param]
         return minio_settings
-    
+
     def _generate_req_list(self, dimension, year):
         req_list=[]
         if self._check_dimension_source('PDKI', dimension):
@@ -157,6 +145,22 @@ class Ingestor(Engine):
             #add header for SINTA here
             None
         return header
+
+    def _wait_for_job_to_finish(self, job_ids):
+        while True:
+            job_done = True
+            for id in job_ids:
+                job = Job.fetch(id, self.rq_conn)
+                print(job.result) #just checkin'
+                if job.get_status()!='finished':
+                    job_done=False
+                    break
+            if job_done:
+                break
+            time.sleep(self.scrape_wait_time)
+            print("still doing the job") # just checkin'
+        print("the jobs are done") #add to logging
+        return
 
     def start(self):
         self._setup_rq()

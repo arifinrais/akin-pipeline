@@ -37,13 +37,13 @@ def Scrape(req_item, dimension, year, minio_settings, file_id=None):
             content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
             _content_type='text/html'
         if num_of_records:
-            temp = MINIO_CLIENT.put_object(BUCKET_NAME, FILE_NAME, BytesIO(content), length=-1, part_size=5*1024*1024, content_type=_content_type) #assuming maximum json filesize 1MB, minimum 5MiB
-            return temp.object_name
+            result = MINIO_CLIENT.put_object(BUCKET_NAME, FILE_NAME, BytesIO(content), length=-1, part_size=5*1024*1024, content_type=_content_type) #assuming maximum json filesize 1MB, minimum 5MiB
+            return result.object_name
         else:
-            return '0 number of records'
+            return '404: 0 number of records'
     except:
         emssg, b, c =sys.exc_info()
-        return(emssg)
+        return emssg
 
 def GenerateFileName(bucket_base, dimension, year, extension, file_id=None):    
     if file_id:
