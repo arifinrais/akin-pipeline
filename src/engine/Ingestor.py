@@ -167,7 +167,8 @@ class Ingestor(Engine):
             if not num_of_records: return
             content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
             _content_type='text/html'
-        MINIO_CLIENT.put_object(BUCKET_NAME, FILE_NAME, BytesIO(content), length=-1, part_size=5*1024*1024, content_type=_content_type) #assuming maximum json filesize 1MB, minimum 5MiB
+        result = MINIO_CLIENT.put_object(BUCKET_NAME, FILE_NAME, BytesIO(content), length=-1, part_size=5*1024*1024, content_type=_content_type) #assuming maximum json filesize 1MB, minimum 5MiB
+        return result.object_name
 
     def _get_minio_settings(self):
         parameters = ['MINIO_HOST', 'MINIO_PORT', 'MINIO_ROOT_USER', 'MINIO_ROOT_PASSWORD']
