@@ -110,7 +110,7 @@ class Engine(object):
         else: 
             return False
 
-    def _save_lines_to_csv_in_minio(self, lines, bucket_identifier, dimension, year):
+    def _save_lines_to_minio_in_csv(self, lines, bucket_identifier, dimension, year):
         csv_file=ConvertLinesToCSV(lines)
         bucket_name=bucket_identifier
         file_name=GenerateFileName(bucket_identifier, dimension, year,'.csv')

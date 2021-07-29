@@ -10,7 +10,6 @@ from datetime import datetime
 from rejson import Client, Path
 from minio import Minio
 from io import BytesIO, StringIO
-from copy import deepcopy
 
 def Scrape(req_item, dimension, year, minio_settings, file_id=None):
     try:

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from engine import Engine, Ingestor, Aggregator, Preparator, Analytics#, Scraper
+from EngineHelper import WrongInputHandler
 import sys
 
 def main():
@@ -25,8 +26,7 @@ def main():
     except KeyboardInterrupt:
         print("Turning Off The Engine...")
     except:
-        Engine.wrong_input(sys.exc_info())
-        None
+        WrongInputHandler(sys.exc_info())
 
 if __name__ == "__main__":
     sys.exit(main())

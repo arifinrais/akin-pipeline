@@ -39,65 +39,16 @@ class Ingestor(Engine):
                             socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
         self.queue={}
-        #self.queue[self.settings['DIMENSION_PATENT']] = Queue(self.settings['DIMENSION_PATENT'], is_async=False,connection=self.rq_conn)
         self.queue[self.settings['DIMENSION_PATENT']] = Queue(self.settings['DIMENSION_PATENT'], connection=self.rq_conn)
         self.queue[self.settings['DIMENSION_TRADEMARK']]= Queue(self.settings['DIMENSION_TRADEMARK'], connection=self.rq_conn)
         self.queue[self.settings['DIMENSION_PUBLICATION']] = Queue(self.settings['DIMENSION_PUBLICATION'], connection=self.rq_conn)
     
     def _ingest(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
-        print('before')
-        #first concept
-        #success, errormsg = self._ingest_records(dimension, year)
-        #self._redis_update_stat_after(key, self.job, success, errormsg)
+        success, errormsg = self._ingest_records(dimension, year)
+        self._redis_update_stat_after(key, self.job, success, errormsg)
         
-        #try three records
-        #self._fetch_and_save_trial(dimension, year)
-
-        #latest concept (nested redis update after)
-        self._ingest_records(key, dimension, year)
-    
-    #minio trial with predefined url
-    def _fetch_and_save_trial(self, dimension, year):
-        TEST_CAP = 3
-        req_list = self._generate_req_list(dimension, year)
-        iteration=0; bucket_name='raw'
-        print('mashuk')
-        for req_item in req_list:
-            #minio logic
-            mclient = Minio(self.settings['MINIO_HOST']+':'+str(self.settings['MINIO_PORT']),
-                access_key=self.settings['MINIO_ROOT_USER'],
-                secret_key=self.settings['MINIO_ROOT_PASSWORD'],
-                secure=False
-            )
-            FILE_NAME=dimension+'/'+str(year)+'/'+bucket_name+'_'+dimension+'_'+str(year)
-            if iteration+1:
-                _file_id='00' if iteration+1<10 else '0' if iteration+1<100 else ''
-                _file_id=_file_id+str(iteration+1)
-                FILE_NAME=FILE_NAME+'_'+_file_id
-            #get response
-            resp=req.get(req_item['url'])
-            url1 = 'https://pdki-indonesia-api.dgip.go.id/api/patent/search?keyword=W002018&start_tanggal_dimulai_perlindungan=2018-02-01&end_tanggal_dimulai_perlindungan=2018-02-28&type=patent&order_state=asc&page=1'     
-            #url2 = 'https://pdki-indonesia-api.dgip.go.id/api/patent/search?keyword=P002018&start_tanggal_dimulai_perlindungan=2018-02-01&end_tanggal_dimulai_perlindungan=2018-02-28&type=patent&order_state=asc&page=1'     
-            resp=req.get(url1)
-            if dimension == 'ptn' or dimension=='trd':
-                FILE_NAME=FILE_NAME+'.json'
-                resp_dict = resp.json()
-                if not resp_dict['hits']['total']['value']: return
-                print('adaan')
-                content = json.dumps(resp_dict['hits']['hits'], ensure_ascii=False, indent=4).encode('utf-8') # convert dict to bytes
-                _content_type='application/json' 
-            elif dimension=='pub':
-                FILE_NAME=FILE_NAME+'.html'
-                content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
-                _content_type='text/html'
-            print('input ',str(iteration+1),': ', FILE_NAME)
-            mclient.put_object(bucket_name, FILE_NAME, BytesIO(content), length=-1, part_size=5*1024*1024, content_type=_content_type) #assuming maximum json filesize 1MB, smallest part 5MiB
-
-            iteration=iteration+1
-            if iteration==TEST_CAP: break
-
-    def _ingest_records(self, key, dimension, year):
+    def _ingest_records(self, dimension, year):
         try:
             minio_settings=self._get_minio_settings()
             req_list = self._generate_req_list(dimension, year)
@@ -105,33 +56,26 @@ class Ingestor(Engine):
             for req_item in req_list:
                 with Connection():
                     job = self.queue[dimension].enqueue(Scrape, args=(req_item, dimension, year, minio_settings, file_id))
-                    #job = self.queue[dimension].enqueue(somefunc, args=(req_item, dimension, year, file_id))
                     job_id.append(job.id)
                     file_id+=1
-                    #time.sleep(1) #so it can be tracked and wait for multithreading constraint
-                    #print(job.id) #marker
-                    #workers = Worker.all(queue=self.queue[dimension])
-                    #for worker in workers:
-                    #    print(worker.state)
-            #print(job_id)
             while True:
                 job_done = True
                 for id in job_id:
                     job = Job.fetch(id, self.rq_conn)
-                    print(job.result)
+                    print(job.result) #just checkin'
                     if job.get_status()!='finished':
                         job_done=False
                         break
                 if job_done:
                     break
                 time.sleep(self.wait_ingest_cycle)
-                print("still doing the job")
-            print("the jobs are done")
-            self._redis_update_stat_after(key, self.job, True, None)
+                print("still doing the job") # just checkin'
+            print("the jobs are done") #add to logging
+            return True, None
         except:
             # in the meantime error message is just its value
             errormsg, b, c = sys.exc_info()
-            self._redis_update_stat_after(key, self.job, False, errormsg)
+            return False, errormsg
     
     #works for rq, no multithreading problems
     #needs to be static so rq can work with it
