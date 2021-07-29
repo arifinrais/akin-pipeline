@@ -21,12 +21,13 @@ from minio.error import S3Error
 from pyspark.conf import SparkConf
 from pyspark import sql
 from pymongo import MongoClient
-from engine.ScrapeHelper import Scrape
+from engine.EngineHelper import Scrape
 
 class Ingestor(Engine):
     def __init__(self, wait_ingest_cycle=5):
         Engine.__init__(self)
         self.job = self.settings['JOB_INGEST']
+        self.bucket = self.settings['MINIO_BUCKET_INGESTED']
         self.wait_ingest_cycle = wait_ingest_cycle
 
     def _setup_rq(self):
@@ -38,13 +39,14 @@ class Ingestor(Engine):
                             socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
         self.queue={}
-        self.queue[self.settings['DIMENSION_PATENT']] = Queue(self.settings['DIMENSION_PATENT'], is_async=False,connection=self.rq_conn)
+        #self.queue[self.settings['DIMENSION_PATENT']] = Queue(self.settings['DIMENSION_PATENT'], is_async=False,connection=self.rq_conn)
+        self.queue[self.settings['DIMENSION_PATENT']] = Queue(self.settings['DIMENSION_PATENT'], connection=self.rq_conn)
         self.queue[self.settings['DIMENSION_TRADEMARK']]= Queue(self.settings['DIMENSION_TRADEMARK'], connection=self.rq_conn)
         self.queue[self.settings['DIMENSION_PUBLICATION']] = Queue(self.settings['DIMENSION_PUBLICATION'], connection=self.rq_conn)
     
     def _ingest(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
-        
+        print('before')
         #first concept
         #success, errormsg = self._ingest_records(dimension, year)
         #self._redis_update_stat_after(key, self.job, success, errormsg)
@@ -100,14 +102,13 @@ class Ingestor(Engine):
             minio_settings=self._get_minio_settings()
             req_list = self._generate_req_list(dimension, year)
             job_id = []; file_id = 1
-            somefunc= deepcopy(self._fetch_and_save)
             for req_item in req_list:
-                with Connection():          
+                with Connection():
                     job = self.queue[dimension].enqueue(Scrape, args=(req_item, dimension, year, minio_settings, file_id))
                     #job = self.queue[dimension].enqueue(somefunc, args=(req_item, dimension, year, file_id))
                     job_id.append(job.id)
                     file_id+=1
-                    #time.sleep(10) #so it can be tracked and wait for multithreading constraint
+                    #time.sleep(1) #so it can be tracked and wait for multithreading constraint
                     #print(job.id) #marker
                     #workers = Worker.all(queue=self.queue[dimension])
                     #for worker in workers:
@@ -207,10 +208,10 @@ class Ingestor(Engine):
             _year=str(year)
             if dimension==self.settings['DIMENSION_PATENT']:
                 param_type='patent'
-                param_keywords=['DID','D00','J00','K00','M00','R00','V00']
+                param_keywords=['PID','P00','S00','W00']
             elif dimension==self.settings['DIMENSION_TRADEMARK']:
                 param_type='trademark'
-                param_keywords=['PID','P00','S00','W00']
+                param_keywords=['DID','D00','J00','K00','M00','R00','V00']
             for i in range(len(param_keywords)):
                 param_keywords[i]=param_keywords[i]+_year
             month_28=[2]
@@ -258,7 +259,7 @@ class Ingestor(Engine):
     def start(self):
         self._setup_rq()
         self._setup_redis_conn()
-        self._setup_minio_client(self.settings['MINIO_BUCKET_INGESTED'])
+        self._setup_minio_client(self.bucket)
         while True:
             self._ingest()
             time.sleep(self.settings['SLEEP_TIME'])

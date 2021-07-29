@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys, time, json, csv, traceback #, os, logging
 from engine import config
+from engine.EngineHelper import ConvertLinesToCSV,GenerateFileName
 from datetime import datetime
 from rejson import Client, Path
 from minio import Minio
@@ -100,7 +101,7 @@ class Engine(object):
                     break
             except:
                 time.sleep(1)#self.settings['SLEEP_TIME'])
-     
+    
     def _check_dimension_source(self, source, dimension):
         if source=='PDKI': 
             return dimension==self.settings['DIMENSION_PATENT'] or dimension==self.settings['DIMENSION_TRADEMARK']
@@ -109,50 +110,9 @@ class Engine(object):
         else: 
             return False
 
-    def _generate_file_name(self, bucket_base, dimension, year, extension, file_id=None):    
-        if file_id:
-            zero_prefix= '00' if file_id<10 else '0' if file_id <100 else ''
-            _file_id = zero_prefix+str(file_id)
-            return dimension+'/'+str(year)+'/'+bucket_base+'_'+dimension+'_'+str(year)+'_'+_file_id+extension       
-        else:
-            return dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+extension
-      
-    def _convert_lines_to_csv(self, lines):
-        csv_file = StringIO()
-        wr=csv.writer(csv_file, quoting=csv.QUOTE_NONE)
-        for line in lines:
-            wr.writerow(line)
-        return csv_file
- 
-    def _create_csv_line(self, fields, delimiter="\t"):
-        line = ""
-        for i in range(len(fields)):
-            if i<len(fields)-1:
-                line=line+fields[i]+delimiter
-            else:
-                line=line+fields[i]
-        return line
-    
-    def _parse_csv_line(self, line, delimiter="\t"):
-        return line.strip().split(delimiter)
-    
-    def _save_lines_to_minio_in_csv(self, lines, bucket_identifier, dimension, year):
-        csv_file=self._convert_lines_to_csv(lines)
+    def _save_lines_to_csv_in_minio(self, lines, bucket_identifier, dimension, year):
+        csv_file=ConvertLinesToCSV(lines)
         bucket_name=bucket_identifier
-        file_name=self._generate_file_name(bucket_identifier, dimension, year,'.csv')
+        file_name=GenerateFileName(bucket_identifier, dimension, year,'.csv')
         content = csv_file.read().encode('utf-8')
         self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=56*1024, content_type='application/csv') #assuming maximum csv filesize 50kb
-
-#Handler and Logger        
-def wrong_input(err):
-    exc_type, exc_value, exc_traceback = err
-    trace_back = traceback.extract_tb(exc_traceback)
-    print(" >Exception Type: %s" % exc_type.__name__)
-    print(" >Exception Message: %s" % exc_value)
-    print(" >Stack Trace:")
-    for trace in trace_back:
-        print("  >file: %s, line: %d, funcName: %s, message: %s" % (trace[0], trace[1], trace[2], trace[3]))
-
-def error_handler():
-    #logging utils(?)
-    None
