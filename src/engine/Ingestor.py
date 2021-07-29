@@ -2,6 +2,7 @@
 import sys, time, json, csv, traceback
 from minio.datatypes import Bucket #, os, logging
 import requests as req
+import logging
 #from os import stat
 #from tenacity import retry
 #from jsonschema import validate
@@ -42,19 +43,19 @@ class Ingestor(Engine):
     
     def _ingest(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
-        #print(key, dimension, year)
+        
+        #first concept
         #success, errormsg = self._ingest_records(dimension, year)
-        #self._redis_update_stat_after(key, self.job, True, None)
+        #self._redis_update_stat_after(key, self.job, success, errormsg)
         
         #try three records
-        print('before')
-        self._fetch_and_save_single(dimension, year)
+        #self._fetch_and_save_trial(dimension, year)
 
-        #latest
-        #self._ingest_records(key, dimension, year)
+        #latest concept (nested redis update after)
+        self._ingest_records(key, dimension, year)
     
-    #temp try to find the right minio method
-    def _fetch_and_save_single(self, dimension, year):
+    #minio trial with predefined url
+    def _fetch_and_save_trial(self, dimension, year):
         TEST_CAP = 3
         req_list = self._generate_req_list(dimension, year)
         iteration=0; bucket_name='raw'
@@ -73,13 +74,17 @@ class Ingestor(Engine):
                 FILE_NAME=FILE_NAME+'_'+_file_id
             #get response
             resp=req.get(req_item['url'])
+            url1 = 'https://pdki-indonesia-api.dgip.go.id/api/patent/search?keyword=W002018&start_tanggal_dimulai_perlindungan=2018-02-01&end_tanggal_dimulai_perlindungan=2018-02-28&type=patent&order_state=asc&page=1'     
+            #url2 = 'https://pdki-indonesia-api.dgip.go.id/api/patent/search?keyword=P002018&start_tanggal_dimulai_perlindungan=2018-02-01&end_tanggal_dimulai_perlindungan=2018-02-28&type=patent&order_state=asc&page=1'     
+            resp=req.get(url1)
             if dimension == 'ptn' or dimension=='trd':
                 FILE_NAME=FILE_NAME+'.json'
                 resp_dict = resp.json()
-                print(resp_dict)
-                content = json.dumps(resp_dict['hits']['hits'], ensure_ascii=False).encode('utf-8') # convert dict to bytes
+                if not resp_dict['hits']['total']['value']: return
+                print('adaan')
+                content = json.dumps(resp_dict['hits']['hits'], ensure_ascii=False, indent=4).encode('utf-8') # convert dict to bytes
                 _content_type='application/json' 
-            elif dimension=='pub':       
+            elif dimension=='pub':
                 FILE_NAME=FILE_NAME+'.html'
                 content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
                 _content_type='text/html'
@@ -97,14 +102,15 @@ class Ingestor(Engine):
             for req_item in req_list:
                 with Connection():          
                     job = self.queue[dimension].enqueue(self._fetch_and_save, args=(req_item, dimension, year, minio_settings, file_id))
+                    #job = self.queue[dimension].enqueue(somefunc, args=(req_item, dimension, year, file_id))
                     job_id.append(job.id)
                     file_id+=1
-                    time.sleep(10) #so it can be tracked
-                    print(job.id) #marker
+                    #time.sleep(10) #so it can be tracked and wait for multithreading constraint
+                    #print(job.id) #marker
                     #workers = Worker.all(queue=self.queue[dimension])
                     #for worker in workers:
                     #    print(worker.state)
-            #print(job_id)
+            print(job_id)
             while True:
                 job_done = True
                 for id in job_id:
@@ -115,81 +121,59 @@ class Ingestor(Engine):
                 if job_done:
                     break
                 time.sleep(self.wait_ingest_cycle)
-                #print("still doing the job")
+                print("still doing the job")
+            print("the jobs are done")
             self._redis_update_stat_after(key, self.job, True, None)
         except:
             # in the meantime error message is just its value
             errormsg, b, c = sys.exc_info()
             self._redis_update_stat_after(key, self.job, False, errormsg)
     
-    #test for rq
-    '''
+    #works for rq, no multithreading problems
+    #needs to be static so rq can work with it
     @staticmethod
     def _test_rq_enqueue(any1, any2, any3, any4):
         return any1['url']+any2+str(any3)+str(any4)
         #still not working because AttributeError: module '__main__' has no attribute 'Ingestor'
-    '''
 
-    #test for rq
+    #natively not working in rq, maybe because of multithreading problems
+    #needs to be static so rq can work with it
     @staticmethod
     def _fetch_and_save(req_item, dimension, year, minio_settings, file_id):
-        #instantiate bucket_name, minio, and filename
         BUCKET_NAME='raw'
         MINIO_CLIENT = Minio(
             minio_settings['MINIO_HOST']+':'+str(minio_settings['MINIO_PORT']),
             access_key=minio_settings['MINIO_ROOT_USER'],
             secret_key=minio_settings['MINIO_ROOT_PASSWORD'],
+            secure=False
         )
-        if not MINIO_CLIENT.bucket_exists(BUCKET_NAME):
-            MINIO_CLIENT.make_bucket(BUCKET_NAME)    
         FILE_NAME=dimension+'/'+str(year)+'/'+BUCKET_NAME+'_'+dimension+'_'+str(year)
         if file_id:
             _file_id='00' if file_id<10 else '0' if file_id<100 else ''
             _file_id=_file_id+str(_file_id)
             FILE_NAME=FILE_NAME+'_'+_file_id
-        
-        #get response
         resp=req.get(req_item['url'])
+        num_of_records = 0
         if dimension == 'ptn' or dimension=='trd':
-            FILE_NAME=FILE_NAME+'_json'
+            FILE_NAME=FILE_NAME+'.json'
             resp_dict = resp.json()
-            content = json.dumps(resp_dict['hits']['hits'], ensure_ascii=False).encode('utf-8') # convert dict to bytes
-            _content_type='application/json' 
-        elif dimension=='pub':       
-            FILE_NAME=FILE_NAME+'_html'
+            num_of_records = resp_dict['hits']['total']['value']
+            if not num_of_records: return #if there are no records, don't do anything
+            content = json.dumps(resp_dict['hits'], ensure_ascii=False, indent=4).encode('utf-8') # convert dict to bytes
+            _content_type='application/json'
+        elif dimension=='pub':
+            FILE_NAME=FILE_NAME+'.html'
+            #need some handling for pages in html
+            if not num_of_records: return
             content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
             _content_type='text/html'
-        MINIO_CLIENT.put_object(BUCKET_NAME, FILE_NAME, BytesIO(content), length=-1, part_size=1024*1024, content_type=_content_type) #assuming maximum json filesize 1MB
+        MINIO_CLIENT.put_object(BUCKET_NAME, FILE_NAME, BytesIO(content), length=-1, part_size=5*1024*1024, content_type=_content_type) #assuming maximum json filesize 1MB, minimum 5MiB
 
-    #test for rq helper
     def _get_minio_settings(self):
+        parameters = ['MINIO_HOST', 'MINIO_PORT', 'MINIO_ROOT_USER', 'MINIO_ROOT_PASSWORD']
         minio_settings={}
-        minio_settings['MINIO_HOST']=self.settings['MINIO_HOST']
-        minio_settings['MINIO_PORT']=self.settings['MINIO_PORT']
-        minio_settings['MINIO_ROOT_USER']=self.settings['MINIO_ROOT_USER']
-        minio_settings['MINIO_ROOT_PASSWORD']=self.settings['MINIO_ROOT_PASSWORD']
+        for param in parameters: minio_settings[param]=self.settings[param]
         return minio_settings
-
-    #can be upgraded to async? @async/retry/classmethod
-    #temporarily created in staticmethod
-    '''
-    def __fetch_and_save(self, req_item, dimension, year, file_id):
-        #req_item, dimension, year, file_id = arguments
-        bucket_name=self.settings['MINIO_BUCKET_INGESTED']
-        if not self.minio_client.bucket_exist(bucket_name):
-            self.minio_client.make_bucket(bucket_name)
-        if self._check_dimension_source('PDKI', dimension):
-            file_name=self._generate_file_name(self.settings['MINIO_BUCKET_INGESTED'],dimension,year,'_json',file_id)
-            resp=req.get(req_item['url'])
-            resp_dict = resp.json()
-            content = json.dumps(resp_dict['hits']['hits'], ensure_ascii=False).encode('utf-8') # convert dict to bytes
-            self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=1024*1024, content_type='application/json') #assuming maximum json filesize 1MB
-        elif self._check_dimension_source('SINTA', dimension):
-            file_name=self._generate_file_name(self.settings['MINIO_BUCKET_INGESTED'],dimension,year,'_html',file_id)
-            resp=req.get(req_item['url'])
-            content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
-            self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=1024*1024, content_type='text/html') #assuming maximum html filesize 1MB
-    '''
     
     def _generate_req_list(self, dimension, year):
         req_list=[]
@@ -276,6 +260,7 @@ class Ingestor(Engine):
 
     def scrape(self):
         self._setup_rq()
+        logging.getLogger().setLevel(logging.ERROR) #to prevent the scraper showing warning, debug, and info messages
         with Connection():
             queues=[self.queue[self.settings['DIMENSION_PATENT']],self.queue[self.settings['DIMENSION_TRADEMARK']],self.queue[self.settings['DIMENSION_PUBLICATION']]]
             worker = Worker(queues=queues, connection=self.rq_conn)
