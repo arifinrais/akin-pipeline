@@ -14,6 +14,7 @@ from io import BytesIO, StringIO
 def Scrape(req_item, dimension, year, minio_settings, file_id=None):
     try:
         BUCKET_NAME='raw'
+        #harusnya MINIO_HOSTS tapi ada yang aneh dari dockernya
         MINIO_CLIENT = Minio(
             'minio'+':'+str(minio_settings['MINIO_PORT']),
             access_key=minio_settings['MINIO_ROOT_USER'],

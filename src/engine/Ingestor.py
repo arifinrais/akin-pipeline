@@ -1,27 +1,12 @@
 #!/usr/bin/env python3
-import sys, time, json, csv, traceback
-from minio.datatypes import Bucket #, os, logging
-import requests as req
+import sys, time
 import logging
-#from os import stat
-#from tenacity import retry
-#from jsonschema import validate
-#from abc import ABC, abstractmethod
 from engine.Engine import Engine
-from datetime import datetime
-from io import BytesIO, StringIO
-from copy import deepcopy
+from engine.EngineHelper import Scrape
 from redis import Redis
-from rejson import Client, Path
 from rq import Connection, Worker
 from rq.queue import Queue
 from rq.job import Job 
-from minio import Minio
-from minio.error import S3Error
-from pyspark.conf import SparkConf
-from pyspark import sql
-from pymongo import MongoClient
-from engine.EngineHelper import Scrape
 
 class Ingestor(Engine):
     def __init__(self, scrape_wait_time=5):
@@ -47,7 +32,7 @@ class Ingestor(Engine):
         key, dimension, year = self._redis_update_stat_before(self.job)
         success, errormsg = self._ingest_records(dimension, year)
         self._redis_update_stat_after(key, self.job, success, errormsg)
-        
+
     def _ingest_records(self, dimension, year):
         try:
             minio_settings=self._get_minio_settings()
@@ -61,7 +46,7 @@ class Ingestor(Engine):
             self._wait_for_job_to_finish(job_id)
             return True, None
         except:
-            # in the meantime error message is just its value
+            # in the meantime error message is just its value, log
             errormsg, b, c = sys.exc_info()
             return False, errormsg
 
