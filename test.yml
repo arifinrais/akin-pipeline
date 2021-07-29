@@ -1,0 +1,54 @@
+version: '2'
+
+services:
+  minio:
+    # viewable at http://127.0.0.1:9001/
+    image: minio/minio
+    container_name: minio
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9001:9001"
+      - "9000:9000"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    command: server /export --console-address ":9001"
+    restart: always
+  job-enqueuer:
+    image: redislabs/rejson:latest
+    container_name: job-enqueuer
+    ports:
+      - "6379:6379"
+    restart: always
+  rq-server:
+    image: redis:alpine
+    command: redis-server --port 6389
+    container_name: rq-server
+    ports:
+      - "6389:6389"
+    restart: always
+  zookeeper:
+    image: wurstmeister/zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    restart: always
+  kafka:
+    image: wurstmeister/kafka
+    container_name: kafka
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ADVERTISED_PORT: 9092
+      KAFKA_MESSAGE_MAX_BYTES: 2000000
+    depends_on:
+      - zookeeper
+    restart: always
+volumes:
+  minio-data: # used for minio

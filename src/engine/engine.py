@@ -38,18 +38,29 @@ class Engine(object):
 
     def _setup_minio_client(self, bucket_name=None):
         print('setup minio connection')
+        '''
         self.minio_client = Minio(
             self.settings['MINIO_HOST']+':'+str(self.settings['MINIO_PORT']),
             access_key=self.settings['MINIO_ROOT_USER'],
             secret_key=self.settings['MINIO_ROOT_PASSWORD'],
+            secure=False #koentji harus di set ntar di kubernetes kalau mau secure pake TLS
+        )
+        '''
+        self.minio_client = Minio(
+            'localhost:9000',
+            access_key='minio',
+            secret_key='minio123',
+            secure=False, #koentji harus di set ntar di kubernetes kalau mau secure pake TLS
         )
         print('try to create bucket')
-        try:
-            if bucket_name:
+        if bucket_name:
+            try: 
                 if not self.minio_client.bucket_exists(bucket_name):
+                    print('bucket not exist')
                     self.minio_client.make_bucket(bucket_name)
-        except:
-            print(sys.exc_info())
+                print('not error')
+            except:
+                print(sys.exc_info())
    
     def _get_lock_name(self, job):
         if job==self.settings['JOB_INGEST']: return self.settings['LOCK_INGEST']
