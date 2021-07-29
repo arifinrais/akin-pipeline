@@ -47,6 +47,7 @@ class Ingestor(Engine):
         #self._redis_update_stat_after(key, self.job, True, None)
         
         #try three records
+        print('before')
         self._fetch_and_save_single(dimension, year)
 
         #latest
@@ -63,25 +64,29 @@ class Ingestor(Engine):
             mclient = Minio(self.settings['MINIO_HOST']+':'+str(self.settings['MINIO_PORT']),
                 access_key=self.settings['MINIO_ROOT_USER'],
                 secret_key=self.settings['MINIO_ROOT_PASSWORD'],
+                secure=False
             )
             FILE_NAME=dimension+'/'+str(year)+'/'+bucket_name+'_'+dimension+'_'+str(year)
-            if iteration:
+            if iteration+1:
                 _file_id='00' if iteration+1<10 else '0' if iteration+1<100 else ''
-                _file_id=_file_id+str(_file_id)
+                _file_id=_file_id+str(iteration+1)
                 FILE_NAME=FILE_NAME+'_'+_file_id
             #get response
             resp=req.get(req_item['url'])
             if dimension == 'ptn' or dimension=='trd':
-                FILE_NAME=FILE_NAME+'_json'
+                FILE_NAME=FILE_NAME+'.json'
                 resp_dict = resp.json()
+                print(resp_dict)
                 content = json.dumps(resp_dict['hits']['hits'], ensure_ascii=False).encode('utf-8') # convert dict to bytes
                 _content_type='application/json' 
             elif dimension=='pub':       
-                FILE_NAME=FILE_NAME+'_html'
+                FILE_NAME=FILE_NAME+'.html'
                 content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
                 _content_type='text/html'
-            MINIO_CLIENT.put_object(BUCKET_NAME, FILE_NAME, BytesIO(content), length=-1, part_size=1024*1024, content_type=_content_type) #assuming maximum json filesize 1MB
+            print('input ',str(iteration+1),': ', FILE_NAME)
+            mclient.put_object(bucket_name, FILE_NAME, BytesIO(content), length=-1, part_size=5*1024*1024, content_type=_content_type) #assuming maximum json filesize 1MB, smallest part 5MiB
 
+            iteration=iteration+1
             if iteration==TEST_CAP: break
 
     def _ingest_records(self, key, dimension, year):
