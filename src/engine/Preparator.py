@@ -44,7 +44,7 @@ class Preparator(Engine):
         self._redis_update_stat_after(key, self.job, success, errormsg)
     
     def _transform_file(self, dimension, year):
-        bucket_name=self.settings['MINIO_AGGREGATED_IDENTIFIER']
+        bucket_name=self.settings['MINIO_BUCKET_AGGREGATED']
         file_name=self._generate_file_name(bucket_name, dimension, year, '.csv')
         try:
             #load the file from minio
@@ -58,7 +58,7 @@ class Preparator(Engine):
                 resp.close()
                 resp.release_conn()
             #save the result file to minio
-            self._save_lines_to_minio_in_csv(lines, self.settings['MINIO_TRANSFORMED_IDENTIFIER'], dimension, year)
+            self._save_lines_to_minio_in_csv(lines, self.settings['MINIO_BUCKET_TRANSFORMED'], dimension, year)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()

@@ -35,7 +35,7 @@ class Analytics(Engine):
         self._redis_update_stat_after(key, self.job, success, errormsg)
     
     def _analyze_file(self, dimension, year):
-        bucket_name=self.settings['MINIO_TRANSFORMED_IDENTIFIER']
+        bucket_name=self.settings['MINIO_BUCKET_TRANSFORMED']
         file_name=self._generate_file_name(bucket_name, dimension, year, '.csv')
         try:
             try:

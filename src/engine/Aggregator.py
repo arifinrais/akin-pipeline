@@ -31,7 +31,7 @@ class Aggregator(Engine):
         self._redis_update_stat_after(key, self.job, success, errormsg)
     
     def _aggregate_records(self, dimension, year):
-        bucket_name=self.settings['MINIO_INGESTED_IDENTIFIER']
+        bucket_name=self.settings['MINIO_BUCKET_INGESTED']
         try:
             #load the objects from minio
             filenames = self.minio_client.list_objects(bucket_name) #can add prefix or recursive
@@ -49,7 +49,7 @@ class Aggregator(Engine):
                     resp.close()
                     resp.release_conn()
             unique_lines=self._uniquify(parsed_lines)
-            self._save_lines_to_minio_in_csv(unique_lines, self.settings['MINIO_AGGREGATED_IDENTIFIER'], dimension, year)
+            self._save_lines_to_minio_in_csv(unique_lines, self.settings['MINIO_BUCKET_AGGREGATED'], dimension, year)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()

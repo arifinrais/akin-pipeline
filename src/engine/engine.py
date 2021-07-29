@@ -36,12 +36,20 @@ class Engine(object):
                             socket_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'])
 
-    def _setup_minio_client(self):
+    def _setup_minio_client(self, bucket_name=None):
+        print('setup minio connection')
         self.minio_client = Minio(
             self.settings['MINIO_HOST']+':'+str(self.settings['MINIO_PORT']),
             access_key=self.settings['MINIO_ROOT_USER'],
             secret_key=self.settings['MINIO_ROOT_PASSWORD'],
         )
+        print('try to create bucket')
+        try:
+            if bucket_name:
+                if not self.minio_client.bucket_exists(bucket_name):
+                    self.minio_client.make_bucket(bucket_name)
+        except:
+            print(sys.exc_info())
    
     def _get_lock_name(self, job):
         if job==self.settings['JOB_INGEST']: return self.settings['LOCK_INGEST']
@@ -94,23 +102,18 @@ class Engine(object):
                 time.sleep(1)#self.settings['SLEEP_TIME'])
      
     def _check_dimension_source(self, source, dimension):
-        if source=='PDKI':
+        if source=='PDKI': 
             return dimension==self.settings['DIMENSION_PATENT'] or dimension==self.settings['DIMENSION_TRADEMARK']
-        elif source=='SINTA':
+        elif source=='SINTA': 
             return dimension==self.settings['DIMENSION_PUBLICATION']
-    
-    def _generate_file_id(self, file_id):
-        if file_id<10:
-            return '00'+str(file_id)
-        elif file_id<100:
-            return '0'+str(file_id)
-        else:
-            return str(file_id)
- 
+        else: 
+            return False
+
     def _generate_file_name(self, bucket_base, dimension, year, extension, file_id=None):    
         if file_id:
-            self._generate_file_id(file_id)
-            return dimension+'/'+str(year)+'/'+bucket_base+'_'+dimension+'_'+str(year)+'_'+file_id+extension       
+            zero_prefix= '00' if file_id<10 else '0' if file_id <100 else ''
+            _file_id = zero_prefix+str(file_id)
+            return dimension+'/'+str(year)+'/'+bucket_base+'_'+dimension+'_'+str(year)+'_'+_file_id+extension       
         else:
             return dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+extension
       
