@@ -21,6 +21,7 @@ from minio.error import S3Error
 from pyspark.conf import SparkConf
 from pyspark import sql
 from pymongo import MongoClient
+from engine.ScrapeHelper import Scrape
 
 class Ingestor(Engine):
     def __init__(self, wait_ingest_cycle=5):
@@ -37,7 +38,7 @@ class Ingestor(Engine):
                             socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
         self.queue={}
-        self.queue[self.settings['DIMENSION_PATENT']] = Queue(self.settings['DIMENSION_PATENT'], connection=self.rq_conn)
+        self.queue[self.settings['DIMENSION_PATENT']] = Queue(self.settings['DIMENSION_PATENT'],connection=self.rq_conn)
         self.queue[self.settings['DIMENSION_TRADEMARK']]= Queue(self.settings['DIMENSION_TRADEMARK'], connection=self.rq_conn)
         self.queue[self.settings['DIMENSION_PUBLICATION']] = Queue(self.settings['DIMENSION_PUBLICATION'], connection=self.rq_conn)
     
@@ -99,9 +100,10 @@ class Ingestor(Engine):
             minio_settings=self._get_minio_settings()
             req_list = self._generate_req_list(dimension, year)
             job_id = []; file_id = 1
+            somefunc= deepcopy(self._fetch_and_save)
             for req_item in req_list:
                 with Connection():          
-                    job = self.queue[dimension].enqueue(self._fetch_and_save, args=(req_item, dimension, year, minio_settings, file_id))
+                    job = self.queue[dimension].enqueue(Scrape, args=(req_item, dimension, year, minio_settings, file_id))
                     #job = self.queue[dimension].enqueue(somefunc, args=(req_item, dimension, year, file_id))
                     job_id.append(job.id)
                     file_id+=1
@@ -168,6 +170,7 @@ class Ingestor(Engine):
             content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
             _content_type='text/html'
         result = MINIO_CLIENT.put_object(BUCKET_NAME, FILE_NAME, BytesIO(content), length=-1, part_size=5*1024*1024, content_type=_content_type) #assuming maximum json filesize 1MB, minimum 5MiB
+        print(result.object_name)
         return result.object_name
 
     def _get_minio_settings(self):
@@ -261,11 +264,6 @@ class Ingestor(Engine):
 
     def scrape(self):
         self._setup_rq()
-        #from io import BytesIO
-        #from minio import Minio
-        #import requests as req
-        #import json
-        #_fetch_and_save = deepcopy(self._fetch_and_save)
         #logging.getLogger().setLevel(logging.ERROR) #to prevent the scraper showing warning, debug, and info messages
         with Connection():
             queues=[self.queue[self.settings['DIMENSION_PATENT']],self.queue[self.settings['DIMENSION_TRADEMARK']],self.queue[self.settings['DIMENSION_PUBLICATION']]]
