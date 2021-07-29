@@ -260,11 +260,11 @@ class Ingestor(Engine):
 
     def scrape(self):
         self._setup_rq()
-        from io import BytesIO
-        from minio import Minio
-        import requests as req
-        import json
-        from engine.Ingestor import _fetch_and_save
+        #from io import BytesIO
+        #from minio import Minio
+        #import requests as req
+        #import json
+        #_fetch_and_save = deepcopy(self._fetch_and_save)
         #logging.getLogger().setLevel(logging.ERROR) #to prevent the scraper showing warning, debug, and info messages
         with Connection():
             queues=[self.queue[self.settings['DIMENSION_PATENT']],self.queue[self.settings['DIMENSION_TRADEMARK']],self.queue[self.settings['DIMENSION_PUBLICATION']]]
