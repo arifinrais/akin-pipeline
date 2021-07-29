@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # job-enqueuer redis host information
-JOB_REDIS_HOST = 'localhost'
+JOB_REDIS_HOST = 'job-enqueuer'
 JOB_REDIS_PORT = 6379
 JOB_REDIS_DB = 0
 JOB_REDIS_PASSWORD = None

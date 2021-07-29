@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from engine import Engine, Ingestor, Aggregator, Preparator, Analytics#, Scraper
-from EngineHelper import WrongInputHandler
+from engine.EngineHelper import WrongInputHandler
 import sys
 
 def main():
