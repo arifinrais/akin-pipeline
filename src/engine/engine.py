@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-import sys, time, json, csv, traceback #, os, logging
+import sys, time, json
 from engine import config
 from engine.EngineHelper import ConvertLinesToCSV,GenerateFileName
 from datetime import datetime
 from rejson import Client, Path
 from minio import Minio
-from io import BytesIO, StringIO
+from io import BytesIO
 
 class Engine(object):
     def __init__(self):
@@ -64,7 +64,6 @@ class Engine(object):
         if job==self.settings['JOB_TRANSFORM']: return self.settings['JOB_ANALYZE']
         if job==self.settings['JOB_ANALYZE']: return self.settings['JOB_ANALYZE']
 
-    #@retry
     def _redis_update_stat_before(self, job):
         key, dimension, year = '', '', 0
         while True:
@@ -86,7 +85,6 @@ class Engine(object):
                 time.sleep(2)#self.settings['SLEEP_TIME'])
         return key, dimension, year
         
-    #@retry
     def _redis_update_stat_after(self, key, job, success, errormsg):
         while True:
             try:
