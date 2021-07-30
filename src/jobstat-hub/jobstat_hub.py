@@ -1,13 +1,17 @@
+#!/usr/bin/env python3
+
 import sys
 import config
 import json
 import traceback
 import time
+from jobstat_hub import config
 from kafka import KafkaProducer
 from tenacity import retry
 from jsonschema import validate
+from rejson import Client, Path
 
-class JobstatHub:
+class JobstatHub(object):
 
     def __init__(self):
         try:
@@ -15,6 +19,7 @@ class JobstatHub:
             self.settings={}
             for item in configs:
                 self.settings[item]=getattr(config, item)
+            self.all_locks=[self.settings['LOCK_INGEST'],self.settings['LOCK_AGGREGATE'],self.settings['LOCK_TRANSFORM']]
             self.jobstat_schema={
                 "type": "object",
                 "properties": {
@@ -63,6 +68,19 @@ class JobstatHub:
         except:
             self.error_handler(sys.exc_info())
     
+    def _setup_redis_conn(self):
+        try:
+            self.redis_conn = Client(host=self.settings['JOB_REDIS_HOST'], 
+                                port=self.settings['JOB_REDIS_PORT'], 
+                                password=self.settings['JOB_REDIS_PASSWORD'],
+                                db=self.settings['JOB_REDIS_DB'],
+                                decode_responses=True,
+                                socket_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'],
+                                socket_connect_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'])
+            return True
+        except:
+            return False
+
     @retry(wait_exponential_multiplier=500, wait_exponential_max=10000)
     def _create_producer(self):
         """Tries to establish a Kafka consumer connection"""
@@ -117,19 +135,44 @@ class JobstatHub:
         else:
             self.logger.error("Failed to feed item into Kafka")
     
+    def _read_job_stats(self):
+        job_stats={}
+        for _key in self.redis_conn.scan_iter(match='[pt][rtu][bdn]_[0-9][0-9][0-9][0-9]',count=100): #match="[pt][rtu][bdn]_[0-9][0-9][0-9][0-9]"
+            if _key==self._get_lock_name(job): continue
+            try: #ini bingung kadang kalau gapake json.loads gakebaca, tapi kalau gaada kadang TypeError
+                _job=json.loads(self.redis_conn.jsonget(_key, Path('.')))
+            except TypeError:
+                _job=self.redis_conn.jsonget(_key, Path('.'))
+            if _job and _job['job']==job and _job['status']==self.settings['STAT_WAIT']: #if _job penting bet
+                _job['status'] = self.settings['STAT_WIP']
+                self.redis_conn.jsonset(_key, Path.rootPath(), json.dumps(_job))
+                key, dimension, year = _key, _job['dimension'], _job['year']
+                updated=True
+                break
+
     def run(self):
+        self._setup_redis_conn()
         while True:
+            job_stats = self._read_job_stats()
+
             #read key value pair from redis aggstatDB, tfmstatDB, anlstatDB
 
             #retry if KafkaProducer
                 #send formatted stat: ingested, transformed, analyzed, failed
 
-            time.sleep(self.settings['SLEEP_TIME'])
+            #time.sleep(self.settings['SLEEP_TIME'])
+            time.sleep(5)
 
     @staticmethod
-    def error_handler():
+    def error_handler(err):
         #logging utils(?)
-        None 
+        exc_type, exc_value, exc_traceback = err
+        trace_back = traceback.extract_tb(exc_traceback)
+        print(" >Exception Type: %s" % exc_type.__name__)
+        print(" >Exception Message: %s" % exc_value)
+        print(" >Stack Trace:")
+        for trace in trace_back:
+            print("  >file: %s, line: %d, funcName: %s, message: %s" % (trace[0], trace[1], trace[2], trace[3]))
 
 def main():
     hub = JobstatHub()
