@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import logging
 from datetime import datetime
 import sys
 import config as cfg
@@ -14,8 +14,6 @@ from rejson import Client, Path
 from engine.config import DIMENSION_PATENT
 
 class JobstatHub(object):
-    producer=None
-
     def __init__(self):
         try:
             '''
@@ -88,67 +86,29 @@ class JobstatHub(object):
         except:
             return False
 
-    def close(self):
-        # Properly exiting the application
-        if self.producer is not None:
-            self.producer.close()
-
-    #@retry(wait_exponential_multiplier=500, wait_exponential_max=10000)
-    def _create_producer(self):
-        """Tries to establish a Kafka consumer connection"""
+    def _setup_kafka_producer(self):
+        brokers = cfg.KAFKA_HOSTS
         try:
-            brokers = cfg.KAFKA_HOSTS
-            self.logger.debug("Creating new kafka producer using brokers: " +
-                               str(brokers))
-
-            return KafkaProducer(bootstrap_servers=brokers,
-                                 value_serializer=lambda m: json.dumps(m).encode('utf-8'),
-                                 retries=3,
-                                 linger_ms=cfg.KAFKA_PRODUCER_BATCH_LINGER_MS,
-                                 buffer_memory=cfg.KAFKA_PRODUCER_BUFFER_BYTES)
-        except KeyError as e:
-            self.logger.error('Missing setting named ' + str(e),
-                               {'ex': traceback.format_exc()})
+            self.kafka_producer = KafkaProducer(bootstrap_servers=brokers,
+                                    value_serializer=lambda m: json.dumps(m).encode('utf-8'),
+                                    retries=3,
+                                    linger_ms=cfg.KAFKA_PRODUCER_BATCH_LINGER_MS,
+                                    buffer_memory=cfg.KAFKA_PRODUCER_BUFFER_BYTES)
+            return True
         except:
-            self.logger.error("Couldn't initialize kafka producer.",
-                               {'ex': traceback.format_exc()})
-            raise
+            print(sys.exc_info())
+            return False
 
-    #for reference to kafka producer
-    def feed(self, json_item):
-        '''
-        Feeds a json item into the Kafka topic
-
-        @param json_item: The loaded json object
-        '''
-        #@MethodTimer.timeout(cfg.KAFKA_FEED_TIMEOUT, False)
-        def _feed(json_item):
-            producer = self._create_producer()
-            topic = cfg.KAFKA_INCOMING_TOPIC
-            if not self.logger.json:
-                self.logger.info('Feeding JSON into {0}\n{1}'.format(
-                    topic, json.dumps(json_item, indent=4)))
-            else:
-                self.logger.info('Feeding JSON into {0}\n'.format(topic),
-                                 extra={'value': json_item})
-
-            if producer is not None:
-                producer.send(topic, json_item)
-                producer.flush()
-                producer.close(timeout=10)
+    #@retry
+    def _feed_job_stats_to_kafka(self, job_stats):
+        while True:
+            if self.kafka_producer:
+                self.kafka_producer.send(cfg.KAFKA_INCOMING_TOPIC,job_stats)
+                self.kafka_producer.flush()
                 return True
             else:
-                return False
-
-        result = _feed(json_item)
-
-        if result:
-            self.logger.info("Successfully fed item to Kafka")
-        else:
-            self.logger.error("Failed to feed item into Kafka")
-    
-    def _feed_job_stats_to_kafka(self, job_stats):
-        pass
+                self._setup_kafka_producer()
+                time.sleep(2)
 
     def _read_job_stats(self):
         job_stats={}
@@ -172,15 +132,18 @@ class JobstatHub(object):
         return job_stats
 
     def run(self):
-        self._setup_redis_conn()
+        setup_redis = self._setup_redis_conn()
+        setup_kafka = self._setup_kafka_producer()
+        logging.info("Jobstat Hub Successfully Started") if setup_kafka and setup_redis else logging.warning("Problem in Starting Jobstat Hub")
         while True:
             job_stats = self._read_job_stats()
             self._feed_job_stats_to_kafka(job_stats)
-            #retry if KafkaProducer
-                #send formatted stat: ingested, transformed, analyzed, failed
-
-            #time.sleep(cfg.SLEEP_TIME)
             time.sleep(5)
+    
+    def close(self):
+        # Properly exiting the application
+        if self.producer is not None:
+            self.producer.close()
 
     @staticmethod
     def error_handler(err):
@@ -194,6 +157,7 @@ class JobstatHub(object):
             print("  >file: %s, line: %d, funcName: %s, message: %s" % (trace[0], trace[1], trace[2], trace[3]))
 
 def main():
+    logging.basicConfig(filename='jobstat.log', encoding='utf-8', level=logging.WARNING) # for production WARNING
     try:
         hub = JobstatHub()
         hub.run()
@@ -205,4 +169,57 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+'''
+#@retry(wait_exponential_multiplier=500, wait_exponential_max=10000)
+def _create_producer(self):
+    """Tries to establish a Kafka consumer connection"""
+    try:
+        brokers = cfg.KAFKA_HOSTS
+        self.logger.debug("Creating new kafka producer using brokers: " +
+                            str(brokers))
+
+        return KafkaProducer(bootstrap_servers=brokers,
+                                value_serializer=lambda m: json.dumps(m).encode('utf-8'),
+                                retries=3,
+                                linger_ms=cfg.KAFKA_PRODUCER_BATCH_LINGER_MS,
+                                buffer_memory=cfg.KAFKA_PRODUCER_BUFFER_BYTES)
+    except KeyError as e:
+        self.logger.error('Missing setting named ' + str(e),
+                            {'ex': traceback.format_exc()})
+    except:
+        self.logger.error("Couldn't initialize kafka producer.",
+                            {'ex': traceback.format_exc()})
+        raise
+'''
+'''
+#for reference to kafka producer
+def feed(self, json_item):
+    #@MethodTimer.timeout(cfg.KAFKA_FEED_TIMEOUT, False)
+    def _feed(json_item):
+        producer = self._create_producer()
+        topic = cfg.KAFKA_INCOMING_TOPIC
+        if not self.logger.json:
+            self.logger.info('Feeding JSON into {0}\n{1}'.format(
+                topic, json.dumps(json_item, indent=4)))
+        else:
+            self.logger.info('Feeding JSON into {0}\n'.format(topic),
+                                extra={'value': json_item})
+
+        if producer is not None:
+            producer.send(topic, json_item)
+            producer.flush()
+            producer.close(timeout=10)
+            return True
+        else:
+            return False
+
+    result = _feed(json_item)
+
+    if result:
+        self.logger.info("Successfully fed item to Kafka")
+    else:
+        self.logger.error("Failed to feed item into Kafka")
+'''
+
 
