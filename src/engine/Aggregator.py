@@ -36,24 +36,26 @@ class Aggregator(Engine):
     
     def _aggregate(self):
         logging.debug('Acquiring Lock for Aggregation Jobs...')
-        key, dimension, year = self._redis_update_stat_before(self.job)
+        #key, dimension, year = self._redis_update_stat_before(self.job)
         logging.debug('Aggregating Records...')
-        success, errormsg = self._aggregate_records(dimension, year)
+        #success, errormsg = self._aggregate_records(dimension, year)
+        success, errormssg = self._aggregate_records('ptn', 2018)
+        sys.exit()
         logging.debug('Updating Job Status...')
-        self._redis_update_stat_after(key, self.job, success, errormsg)
+        #self._redis_update_stat_after(key, self.job, success, errormsg)
     
     def _aggregate_records(self, dimension, year):
         try:
             folder = dimension+'/'+str(year)+'/'
-            obj_list = self.minio_client.list_objects(self.previous_bucket, prefix=folder, recursive=True)
+            obj_list = self._get_object_names(self.previous_bucket,folder)
             parsed_lines = []
-            for obj in obj_list:
+            for obj_name in obj_list:
                 if self._check_dimension_source('PDKI', dimension):
-                    lines=self._parse_json(obj.object_name, dimension)
+                    lines=self._parse_json(obj_name, dimension)
                     if len(lines): 
                         for line in lines: parsed_lines.append(line) 
                 elif self._check_dimension_source('SINTA', dimension):
-                    lines=self._parse_html(obj.object_name, dimension)
+                    lines=self._parse_html(obj_name, dimension)
                     if len(lines): 
                         for line in lines: parsed_lines.append(line)
                 else:
@@ -64,6 +66,19 @@ class Aggregator(Engine):
         except:
             errormsg, b, c = sys.exc_info()
             return False, errormsg
+
+    def _get_object_names(self, bucket_name, folder):
+        object_names_fetched=False
+        while not object_names_fetched:
+            try:
+                object_names=[]
+                resp = self.minio_client.list_objects(bucket_name, start_after=folder, recursive=True)
+                if resp: 
+                    for obj in resp: object_names.append(obj.object_name)
+                    object_names_fetched=True
+            except:
+                time.sleep(2)
+        return object_names
     
     def _parse_html(self, obj_name):
         #ntar didefine buat SINTA
@@ -95,8 +110,9 @@ class Aggregator(Engine):
                 if not id_certificate: continue #filter applied but not listed patent
                 address = self._parse_address(dimension, record['_source']['owner'], record['_source']['inventor'])
                 if not address: continue #patent can't be located or it's not an indonesian patent
-                classes = self._parse_classes(record['_source']['ipc'])
+                classes = self._parse_classes(dimension,record['_source']['ipc'])
                 if not classes: continue
+                print(CreateCSVLine([id_application,id_certificate,status, date_begin, date_end, classes, address]))
                 lines.append(CreateCSVLine([id_application,id_certificate,status, date_begin, date_end, classes, address]))
                 #counter+=1
         elif dimension==self.settings['DIMENSION_TRADEMARK']:
@@ -113,8 +129,6 @@ class Aggregator(Engine):
                 classes = self._parse_classes(dimension, record['_source']['t_class'])
                 if not classes: continue
                 lines.append(CreateCSVLine([id_application,id_certificate,status, date_begin, date_end, classes, address]))
-        #print('done')
-        #print(counter, 'from', str(len(obj['hits'])))
         return lines
     
     def _parse_address(self, dimension, owner_record, inventor_record=None):
@@ -135,10 +149,17 @@ class Aggregator(Engine):
                     #bisa dicek alamatnya di Indo juga?
                     inventor_address=inventor['alamat_inventor'] if inventor['alamat_inventor'] != '-' else None
                     if not inventor_address: break
-        return inventor_address if inventor_address else owner_address
+        address = inventor_address if inventor_address else owner_address
+        if address:
+            address = address.replace('\n',', ')
+            address = address.replace('\n\r',', ')
+            address = address.replace('\r',', ')
+            address = address.replace('\r\n',', ')
+            address = address.replace('\t',', ')
+        return address
 
     def _parse_classes(self, dimension, class_record):
-        if not class_record: return None #handle unclassified patent
+        if not class_record or len(class_record)==0: return None #handle unclassified patent
         if dimension==self.settings['DIMENSION_PATENT']:
             record_list=[i['ipc_full'] for i in class_record]
             if len(record_list[0])>12: record_list=record_list[0].strip().split(',') #handle error value nempel

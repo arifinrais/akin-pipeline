@@ -62,7 +62,7 @@ def CreateCSVLine(fields, delimiter="\t"):
         if i<len(fields)-1:
             line+=str(fields[i])+delimiter
         else:
-            line+=str(fields[i])
+            line+=str(fields[i])+"\n"
     return line
 
 def ParseCSVLine(line, delimiter="\t"):
