@@ -52,34 +52,13 @@ class Aggregator(Engine):
             for obj in obj_list:
                 #assuming list_objects return the name of the object
                 try:
-                    '''
-                    resp = self.minio_client.select_object_content(bucket_name=self.previous_bucket,
-                                                                    object_name=obj.object_name,
-                                                                    request=SelectRequest(
-                                                                        "select hits from S3Object",
-                                                                        JSONInputSerialization(json_type="DOCUMENT"),
-                                                                        JSONOutputSerialization(),
-                                                                        request_progress=False
-                                                                    )
-                                                                    )
-                    '''
+                    data = self.minio_client.get_object(self.previous_bucket, obj.object_name)
+                    temp = json.load(BytesIO(data.data))
+                    print(temp['hits'][0]['_source']['nomor_sertifikat'])
                     
-                    test=BytesIO()
-                    for data in resp.stream():
-                        test+=data.decode('utf-8')
-                    print('WARNINGGGGG')
-                    print(test[0:10])
-                    temp=json.loads(test)
-                    print(temp['hits'])
                     
-                    '''
-                    SelectRequest(
-                                    "select hits from S3Object[*].hits",
-                                    JSONInputSerialization(),
-                                    JSONOutputSerialization(),
-                                    request_progress=True
-                                )
-                    '''
+                    
+                    
                     resp=None
                     print(json.loads(resp))
                     resp_utf = json.loads(resp.decode('utf-8'))
