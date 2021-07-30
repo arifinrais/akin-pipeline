@@ -46,15 +46,18 @@ class Aggregator(Engine):
             parsed_lines = []
             for obj in obj_list:
                 if self._check_dimension_source('PDKI', dimension):
-                    parsed_lines, emssg = self._parse_json(obj.object_name, dimension)
-                    if emssg:raise Exception(emssg)
+                    lines=self._parse_json(obj.object_name, dimension)
+                    if len(lines): 
+                        for line in lines: parsed_lines.append(line) 
                 elif self._check_dimension_source('SINTA', dimension):
-                    parsed_lines=self._parse_html(obj.object_name)
+                    lines=self._parse_html(obj.object_name, dimension)
+                    if len(lines): 
+                        for line in lines: parsed_lines.append(line)
                 else:
                     raise Exception('405: Parser Not Found')
-            print('parsed_lines :', parsed_lines[0])
-            return
             unique_lines=self._uniquify(parsed_lines)
+            print('unique_lines length :',len(unique_lines))
+            print('unique_lines :', unique_lines[0])
             self._save_lines_to_minio_in_csv(unique_lines, self.bucket, dimension, year)
             return True, None
         except:
@@ -65,20 +68,15 @@ class Aggregator(Engine):
         pass
 
     def _parse_json(self, obj_name, dimension):
-        parsed_lines=[]
         try:
             resp = self.minio_client.get_object(self.previous_bucket, obj_name)
             json_obj = json.load(BytesIO(resp.data))
             lines = self._parse_object(json_obj, dimension)
-            for line in lines:
-                parsed_lines.append(line)
-        except S3Error as e:
-            return [], e.message
+        except S3Error: raise S3Error
         finally:
-            if len(parsed_lines): print(parsed_lines[0])
             resp.close()
             resp.release_conn()
-            return parsed_lines, None
+            return lines
 
     def _parse_object(self, obj, dimension):
         lines = []
@@ -112,8 +110,8 @@ class Aggregator(Engine):
                 address = self._parse_address(dimension, record['_source']['owner'])
                 if not address: continue #patent can't be located or it's not an indonesian patent
                 lines.append(CreateCSVLine([id_application,id_certificate,status, date_begin, date_end, classes, address]))
-        print('done')
-        print(counter, 'from', str(len(obj['hits'])))
+        #print('done')
+        #print(counter, 'from', str(len(obj['hits'])))
         return lines
     
     def _parse_address(self, dimension, owner_record, inventor_record=None):
