@@ -1,25 +1,31 @@
 #!/usr/bin/env python3
 
+from datetime import datetime
 import sys
-import config
+import config as cfg
 import json
 import traceback
 import time
-from jobstat_hub import config
 from kafka import KafkaProducer
 from tenacity import retry
 from jsonschema import validate
 from rejson import Client, Path
 
+from engine.config import DIMENSION_PATENT
+
 class JobstatHub(object):
 
     def __init__(self):
         try:
+            '''
             configs=[item for item in dir(config) if not item.startswith("__")]
             self.settings={}
             for item in configs:
                 self.settings[item]=getattr(config, item)
-            self.all_locks=[self.settings['LOCK_INGEST'],self.settings['LOCK_AGGREGATE'],self.settings['LOCK_TRANSFORM']]
+            self.all_locks=[cfg.LOCK_INGEST,cfg.LOCK_AGGREGATE,cfg.LOCK_TRANSFORM]
+            '''
+            self.all_locks=[cfg.LOCK_INGEST,cfg.LOCK_AGGREGATE,cfg.LOCK_ANALYZE]
+            print(self.all_locks)
             self.jobstat_schema={
                 "type": "object",
                 "properties": {
@@ -29,7 +35,7 @@ class JobstatHub(object):
                         "years": {
                             "type": "object",
                             "properties": {
-                                "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']},
+                                "year": {"type": "integer", "minimum": cfg.MIN_SCRAPE_YEAR, "maximum": cfg.MAX_SCRAPE_YEAR},
                                 "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
                                 "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
                                 "timestamp": {"type": "date-time"},
@@ -42,7 +48,7 @@ class JobstatHub(object):
                         "years": {
                             "type": "object",
                             "properties": {
-                                "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']},
+                                "year": {"type": "integer", "minimum": cfg.MIN_SCRAPE_YEAR, "maximum": cfg.MAX_SCRAPE_YEAR},
                                 "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
                                 "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
                                 "timestamp": {"type": "date-time"},
@@ -55,7 +61,7 @@ class JobstatHub(object):
                         "years": {
                             "type": "object",
                             "properties": {
-                                "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']},
+                                "year": {"type": "integer", "minimum": cfg.MIN_SCRAPE_YEAR, "maximum": cfg.MAX_SCRAPE_YEAR},
                                 "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
                                 "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
                                 "timestamp": {"type": "date-time"},
@@ -70,30 +76,30 @@ class JobstatHub(object):
     
     def _setup_redis_conn(self):
         try:
-            self.redis_conn = Client(host=self.settings['JOB_REDIS_HOST'], 
-                                port=self.settings['JOB_REDIS_PORT'], 
-                                password=self.settings['JOB_REDIS_PASSWORD'],
-                                db=self.settings['JOB_REDIS_DB'],
+            self.redis_conn = Client(host=cfg.JOB_REDIS_HOST, 
+                                port=cfg.JOB_REDIS_PORT, 
+                                password=cfg.JOB_REDIS_PASSWORD,
+                                db=cfg.JOB_REDIS_DB,
                                 decode_responses=True,
-                                socket_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'],
-                                socket_connect_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'])
+                                socket_timeout=cfg.JOB_REDIS_SOCKET_TIMEOUT,
+                                socket_connect_timeout=cfg.JOB_REDIS_SOCKET_TIMEOUT)
             return True
         except:
             return False
 
-    @retry(wait_exponential_multiplier=500, wait_exponential_max=10000)
+    #@retry(wait_exponential_multiplier=500, wait_exponential_max=10000)
     def _create_producer(self):
         """Tries to establish a Kafka consumer connection"""
         try:
-            brokers = self.settings['KAFKA_HOSTS']
+            brokers = cfg.KAFKA_HOSTS
             self.logger.debug("Creating new kafka producer using brokers: " +
                                str(brokers))
 
             return KafkaProducer(bootstrap_servers=brokers,
                                  value_serializer=lambda m: json.dumps(m).encode('utf-8'),
                                  retries=3,
-                                 linger_ms=self.settings['KAFKA_PRODUCER_BATCH_LINGER_MS'],
-                                 buffer_memory=self.settings['KAFKA_PRODUCER_BUFFER_BYTES'])
+                                 linger_ms=cfg.KAFKA_PRODUCER_BATCH_LINGER_MS,
+                                 buffer_memory=cfg.KAFKA_PRODUCER_BUFFER_BYTES)
         except KeyError as e:
             self.logger.error('Missing setting named ' + str(e),
                                {'ex': traceback.format_exc()})
@@ -109,10 +115,10 @@ class JobstatHub(object):
 
         @param json_item: The loaded json object
         '''
-        #@MethodTimer.timeout(self.settings['KAFKA_FEED_TIMEOUT'], False)
+        #@MethodTimer.timeout(cfg.KAFKA_FEED_TIMEOUT, False)
         def _feed(json_item):
             producer = self._create_producer()
-            topic = self.settings['KAFKA_INCOMING_TOPIC']
+            topic = cfg.KAFKA_INCOMING_TOPIC
             if not self.logger.json:
                 self.logger.info('Feeding JSON into {0}\n{1}'.format(
                     topic, json.dumps(json_item, indent=4)))
@@ -137,30 +143,36 @@ class JobstatHub(object):
     
     def _read_job_stats(self):
         job_stats={}
+        job_stats['timestamp']=datetime.utcnow().isoformat()
+        job_stats['patent']=[];job_stats['trademark']=[];job_stats['publication']=[]
         for _key in self.redis_conn.scan_iter(match='[pt][rtu][bdn]_[0-9][0-9][0-9][0-9]',count=100): #match="[pt][rtu][bdn]_[0-9][0-9][0-9][0-9]"
-            if _key==self._get_lock_name(job): continue
+            if _key in self.all_locks: continue
             try: #ini bingung kadang kalau gapake json.loads gakebaca, tapi kalau gaada kadang TypeError
                 _job=json.loads(self.redis_conn.jsonget(_key, Path('.')))
             except TypeError:
                 _job=self.redis_conn.jsonget(_key, Path('.'))
-            if _job and _job['job']==job and _job['status']==self.settings['STAT_WAIT']: #if _job penting bet
-                _job['status'] = self.settings['STAT_WIP']
-                self.redis_conn.jsonset(_key, Path.rootPath(), json.dumps(_job))
-                key, dimension, year = _key, _job['dimension'], _job['year']
-                updated=True
-                break
+            job_stat = {}
+            job_stat['year']=_job['year']
+            job_stat['job']=_job['job']
+            job_stat['status']=_job['status']
+            job_stat['timestamp']=_job['timestamp']
+            job_stat['errormsg']=_job['errormsg']
+            if _job['dimension']==cfg.DIMENSION_PATENT: job_stats['patent'].append(job_stat)
+            if _job['dimension']==cfg.DIMENSION_PUBLICATION: job_stats['publication'].append(job_stat)
+            if _job['dimension']==cfg.DIMENSION_TRADEMARK: job_stats['trademark'].append(job_stat)
+        return job_stats
 
     def run(self):
         self._setup_redis_conn()
         while True:
             job_stats = self._read_job_stats()
-
+            print(job_stats)
             #read key value pair from redis aggstatDB, tfmstatDB, anlstatDB
 
             #retry if KafkaProducer
                 #send formatted stat: ingested, transformed, analyzed, failed
 
-            #time.sleep(self.settings['SLEEP_TIME'])
+            #time.sleep(cfg.SLEEP_TIME)
             time.sleep(5)
 
     @staticmethod
