@@ -36,13 +36,11 @@ class Aggregator(Engine):
     
     def _aggregate(self):
         logging.debug('Acquiring Lock for Aggregation Jobs...')
-        #key, dimension, year = self._redis_update_stat_before(self.job)
+        key, dimension, year = self._redis_update_stat_before(self.job)
         logging.debug('Aggregating Records...')
-        #success, errormsg = self._aggregate_records(dimension, year)
-        success, errormssg = self._aggregate_records('ptn', 2018)
-        sys.exit()
+        success, errormsg = self._aggregate_records(dimension, year)
         logging.debug('Updating Job Status...')
-        #self._redis_update_stat_after(key, self.job, success, errormsg)
+        self._redis_update_stat_after(key, self.job, success, errormsg)
     
     def _aggregate_records(self, dimension, year):
         try:
@@ -112,7 +110,6 @@ class Aggregator(Engine):
                 if not address: continue #patent can't be located or it's not an indonesian patent
                 classes = self._parse_classes(dimension,record['_source']['ipc'])
                 if not classes: continue
-                print(CreateCSVLine([id_application,id_certificate,status, date_begin, date_end, classes, address]))
                 lines.append(CreateCSVLine([id_application,id_certificate,status, date_begin, date_end, classes, address]))
                 #counter+=1
         elif dimension==self.settings['DIMENSION_TRADEMARK']:
