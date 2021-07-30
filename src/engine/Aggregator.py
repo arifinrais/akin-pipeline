@@ -42,7 +42,7 @@ class Aggregator(Engine):
     def _aggregate_records(self, dimension, year):
         try:
             folder = dimension+'/'+str(year)+'/'
-            obj_list = self.minio_client.list_objects(self.previous_bucket, prefix=folder, recursive=True) #can add prefix or recursive
+            obj_list = self.minio_client.list_objects(self.previous_bucket, prefix=folder, recursive=True)
             parsed_lines = []
             for obj in obj_list:
                 if self._check_dimension_source('PDKI', dimension):
@@ -56,8 +56,6 @@ class Aggregator(Engine):
                 else:
                     raise Exception('405: Parser Not Found')
             unique_lines=self._uniquify(parsed_lines)
-            print('unique_lines length :',len(unique_lines))
-            print('unique_lines :', unique_lines[0])
             self._save_lines_to_minio_in_csv(unique_lines, self.bucket, dimension, year)
             return True, None
         except:
@@ -81,7 +79,7 @@ class Aggregator(Engine):
     def _parse_object(self, obj, dimension):
         lines = []
         records = obj['hits']
-        counter=0 #buat ngecek aja
+        #counter=0 #buat ngecek aja
         if dimension==self.settings['DIMENSION_PATENT']:
             for record in records:
                 id_application, id_certificate, status, date_begin, date_end = \
@@ -96,19 +94,20 @@ class Aggregator(Engine):
                 classes = self._parse_classes(record['_source']['ipc'])
                 if not classes: continue
                 lines.append(CreateCSVLine([id_application,id_certificate,status, date_begin, date_end, classes, address]))
-                counter+=1
+                #counter+=1
         elif dimension==self.settings['DIMENSION_TRADEMARK']:
             for record in records:
-                id_application, id_certificate, status, date_begin, date_end, classes = \
+                id_application, id_certificate, status, date_begin, date_end = \
                     record['_source']['id'], \
                     record['_source']['nomor_pendaftaran'], \
                     record['_source']['status_permohonan'], \
                     record['_source']['tanggal_dimulai_perlindungan'], \
-                    record['_source']['tanggal_berakhir_perlindungan'], \
-                    record['_source']['t_class']['class_no']
-                if not id_certificate or not classes: continue #filter applied but not listed patent
+                    record['_source']['tanggal_berakhir_perlindungan']
+                if not id_certificate: continue #filter applied but not listed patent
                 address = self._parse_address(dimension, record['_source']['owner'])
                 if not address: continue #patent can't be located or it's not an indonesian patent
+                classes = self._parse_classes(dimension, record['_source']['t_class'])
+                if not classes: continue
                 lines.append(CreateCSVLine([id_application,id_certificate,status, date_begin, date_end, classes, address]))
         #print('done')
         #print(counter, 'from', str(len(obj['hits'])))
@@ -124,7 +123,7 @@ class Aggregator(Engine):
                     if not owner_address: break
             elif dimension==self.settings['DIMENSION_TRADEMARK']:
                 if owner['country_code']=='ID':
-                    owner_address=owner['alamat_pemegang'] if owner['alamat_pemegang'] != '-' else None 
+                    owner_address=owner['tm_owner_address'] if owner['tm_owner_address'] != '-' else None 
                     if not owner_address: break
         if dimension==self.settings['DIMENSION_PATENT'] and inventor_record:
             for inventor in inventor_record:
@@ -134,15 +133,18 @@ class Aggregator(Engine):
                     if not inventor_address: break
         return inventor_address if inventor_address else owner_address
 
-    def _parse_classes(self, ipc_record):
-        if not ipc_record: return None #handle unclassified patent
-        record_list=[i['ipc_full'] for i in ipc_record]
-        if len(record_list[0])>12: record_list=record_list[0].strip().split(',') #handle error value nempel
-        ipc_list=[]
-        for ipc in record_list:
-            category = ipc.strip().split()
-            if category[0] not in ipc_list: ipc_list.append(category[0])
-        return ipc_list
+    def _parse_classes(self, dimension, class_record):
+        if not class_record: return None #handle unclassified patent
+        if dimension==self.settings['DIMENSION_PATENT']:
+            record_list=[i['ipc_full'] for i in class_record]
+            if len(record_list[0])>12: record_list=record_list[0].strip().split(',') #handle error value nempel
+            class_list=[]
+            for ipc in record_list:
+                category = ipc.strip().split()
+                if category[0] not in class_list: class_list.append(category[0])
+        elif dimension==self.settings['DIMENSION_TRADEMARK']:
+            class_list=[i['class_no'] for i in class_record]
+        return class_list
 
     def _uniquify(self, lines):
         unique_lines=[]

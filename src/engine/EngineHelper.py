@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import sys
+from urllib.parse import quote
 import requests as req
 from io import BytesIO
 from minio import Minio
@@ -54,13 +55,6 @@ def GenerateFileName(bucket_base, dimension, year, extension, file_id=None):
         return dimension+'/'+str(year)+'/'+bucket_base+'_'+dimension+'_'+str(year)+'_'+_file_id+extension       
     else:
         return dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+extension
-    
-def ConvertLinesToCSV(lines):
-    csv_file = StringIO()
-    wr=csv.writer(csv_file, quoting=csv.QUOTE_NONE)
-    for line in lines:
-        wr.writerow(line)
-    return csv_file
 
 def CreateCSVLine(fields, delimiter="\t"):
     line = ""

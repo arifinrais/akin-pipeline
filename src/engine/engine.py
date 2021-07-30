@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 import sys, time, json
 from engine import config
-from engine.EngineHelper import ConvertLinesToCSV,GenerateFileName
+from engine.EngineHelper import GenerateFileName
 from datetime import datetime
 from rejson import Client, Path
 from minio import Minio
-from io import BytesIO
+from io import BytesIO,StringIO
 
 class Engine(object):
     def __init__(self):
@@ -70,7 +70,7 @@ class Engine(object):
             updated = False
             try:
                 with self.redis_conn.lock(self._get_lock_name(job), blocking_timeout=5) as lock:
-                    for _key in self.redis_conn.scan_iter(match="[pt][rtu][bdn]_[0-9][0-9][0-9][0-9]"):
+                    for _key in self.redis_conn.scan_iter(): #match="[pt][rtu][bdn]_[0-9][0-9][0-9][0-9]"
                         if _key==self._get_lock_name(job): continue #koentji
                         _job=self.redis_conn.jsonget(_key, Path('.'))
                         if _job['job']==job and _job['status']==self.settings['STAT_WAIT']:
@@ -108,9 +108,9 @@ class Engine(object):
         else: 
             return False
 
-    def _save_lines_to_minio_in_csv(self, lines, bucket_identifier, dimension, year):
-        csv_file=ConvertLinesToCSV(lines)
-        bucket_name=bucket_identifier
-        file_name=GenerateFileName(bucket_identifier, dimension, year,'.csv')
-        content = csv_file.read().encode('utf-8')
-        self.minio_client.put_object(bucket_name, file_name, BytesIO(content), length=-1, part_size=56*1024, content_type='application/csv') #assuming maximum csv filesize 50kb
+    def _save_lines_to_minio_in_csv(self, lines, bucket_name, dimension, year):
+        file_name=GenerateFileName(bucket_name, dimension, year,'.csv')
+        csv_file = StringIO(newline='\n')
+        for line in lines: csv_file.writelines(line)
+        content = BytesIO(csv_file.getvalue().encode('utf-8'))
+        self.minio_client.put_object(bucket_name, file_name, content, length=-1, part_size=5*1024*1024, content_type='application/csv') #assuming maximum csv filesize 50kb
