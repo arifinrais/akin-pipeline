@@ -14,6 +14,7 @@ from rejson import Client, Path
 from engine.config import DIMENSION_PATENT
 
 class JobstatHub(object):
+    producer=None
 
     def __init__(self):
         try:
@@ -87,6 +88,11 @@ class JobstatHub(object):
         except:
             return False
 
+    def close(self):
+        # Properly exiting the application
+        if self.producer is not None:
+            self.producer.close()
+
     #@retry(wait_exponential_multiplier=500, wait_exponential_max=10000)
     def _create_producer(self):
         """Tries to establish a Kafka consumer connection"""
@@ -141,6 +147,9 @@ class JobstatHub(object):
         else:
             self.logger.error("Failed to feed item into Kafka")
     
+    def _feed_job_stats_to_kafka(self, job_stats):
+        pass
+
     def _read_job_stats(self):
         job_stats={}
         job_stats['timestamp']=datetime.utcnow().isoformat()
@@ -166,9 +175,7 @@ class JobstatHub(object):
         self._setup_redis_conn()
         while True:
             job_stats = self._read_job_stats()
-            print(job_stats)
-            #read key value pair from redis aggstatDB, tfmstatDB, anlstatDB
-
+            self._feed_job_stats_to_kafka(job_stats)
             #retry if KafkaProducer
                 #send formatted stat: ingested, transformed, analyzed, failed
 
@@ -187,8 +194,14 @@ class JobstatHub(object):
             print("  >file: %s, line: %d, funcName: %s, message: %s" % (trace[0], trace[1], trace[2], trace[3]))
 
 def main():
-    hub = JobstatHub()
-    hub.run()
+    try:
+        hub = JobstatHub()
+        hub.run()
+    except KeyboardInterrupt:
+        print("Closing Ingestion Monitor...")
+        hub.close()
+    except:
+        hub.error_handler(sys.exc_info())
 
 if __name__ == "__main__":
     sys.exit(main())
