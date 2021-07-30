@@ -1,17 +1,6 @@
 version: '2'
 
 services:
-  aggregator-engine:
-      image: arifinrais/akin-pipeline:engine-dev
-      container_name: aggregator
-      build:
-        context: .
-        dockerfile: docker/engine/Dockerfile.py3
-      depends_on:
-        - minio
-        - job-enqueuer
-      command: python main.py aggregate
-      restart: unless-stopped
   ingestor-engine:
     image: arifinrais/akin-pipeline:engine-dev
     container_name: ingestor
@@ -62,27 +51,5 @@ services:
       replicas: 3
     command: python main.py scrape
     restart: unless-stopped
-  zookeeper:
-    image: wurstmeister/zookeeper
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-    restart: always
-  kafka:
-    image: wurstmeister/kafka
-    container_name: kafka
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_ADVERTISED_HOST_NAME: kafka
-      KAFKA_ADVERTISED_PORT: 9092
-      KAFKA_MESSAGE_MAX_BYTES: 2000000
-    depends_on:
-      - zookeeper
-    restart: always
 volumes:
   minio-data: # used for minio

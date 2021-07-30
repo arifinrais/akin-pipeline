@@ -4,6 +4,8 @@
 /res
 /utils
 
+*.yml
+!docker-compose.yml
 *.log
 
 __pycache__

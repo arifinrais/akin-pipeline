@@ -7,7 +7,6 @@ def main():
     try:
         command = sys.argv[1]
         logging.basicConfig(filename='%s.log' % command, encoding='utf-8', level=logging.DEBUG)
-        logging.root.setLevel(logging.DEBUG)
         if command=='scrape':
             engine = Ingestor.Ingestor()
             engine.scrape()

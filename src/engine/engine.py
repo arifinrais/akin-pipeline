@@ -76,7 +76,7 @@ class Engine(object):
                 with self.redis_conn.lock(self._get_lock_name(job), blocking_timeout=5) as lock:
                     for _key in self.redis_conn.scan_iter(): #match="[pt][rtu][bdn]_[0-9][0-9][0-9][0-9]"
                         if _key==self._get_lock_name(job): continue #koentji
-                        _job=self.redis_conn.jsonget(_key, Path('.'))
+                        _job=json.loads(self.redis_conn.jsonget(_key, Path('.')))
                         if _job['job']==job and _job['status']==self.settings['STAT_WAIT']:
                             _job['status'] = self.settings['STAT_WIP']
                             self.redis_conn.jsonset(_key, Path.rootPath(), json.dumps(_job))
