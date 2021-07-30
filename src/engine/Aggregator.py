@@ -1,31 +1,9 @@
 #!/usr/bin/env python3
-import re
-import sys, time, json, logging, csv, traceback
-from xml.etree.ElementTree import indent
-from minio.datatypes import Bucket #, os, logging
-import requests as req
-from requests.api import request
-#from os import stat
-#from tenacity import retry
-#from jsonschema import validate
-#from abc import ABC, abstractmethod
+import sys, time, json, logging
 from engine.Engine import Engine
 from engine.EngineHelper import CreateCSVLine
-from datetime import datetime
-from io import BytesIO, StringIO
-from copy import deepcopy
-from redis import Redis
-from rejson import Client, Path
-from rq import Connection as RedisQueueConnection
-from rq.queue import Queue
-from rq.job import Job 
-from minio import Minio
-from minio.api import SelectRequest
-from minio.select import InputSerialization, JSONInputSerialization, JSONOutputSerialization
+from io import BytesIO
 from minio.error import S3Error
-from pyspark.conf import SparkConf
-from pyspark import sql
-from pymongo import MongoClient
 
 class Aggregator(Engine):
     def __init__(self):
