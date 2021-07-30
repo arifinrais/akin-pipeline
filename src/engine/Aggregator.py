@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import re
-import sys, time, json, csv, traceback
+import sys, time, json, logging, csv, traceback
 from xml.etree.ElementTree import indent
 from minio.datatypes import Bucket #, os, logging
 import requests as req
@@ -35,8 +35,11 @@ class Aggregator(Engine):
         self.previous_bucket = self.settings['MINIO_BUCKET_INGESTED']
     
     def _aggregate(self):
+        logging.debug('Acquiring Lock for Aggregation Jobs...')
         key, dimension, year = self._redis_update_stat_before(self.job)
+        logging.debug('Aggregating Records...')
         success, errormsg = self._aggregate_records(dimension, year)
+        logging.debug('Updating Job Status...')
         self._redis_update_stat_after(key, self.job, success, errormsg)
     
     def _aggregate_records(self, dimension, year):
@@ -63,6 +66,7 @@ class Aggregator(Engine):
             return False, errormsg
     
     def _parse_html(self, obj_name):
+        #ntar didefine buat SINTA
         pass
 
     def _parse_json(self, obj_name, dimension):
@@ -156,8 +160,10 @@ class Aggregator(Engine):
         return unique_lines
 
     def start(self):
-        self._setup_redis_conn()
-        self._setup_minio_client(self.bucket)
+        logging.info("Starting Aggregator Engine...")
+        setup_redis = self._setup_redis_conn()
+        setup_minio = self._setup_minio_client(self.bucket)
+        logging.info("Aggregator Engine Successfully Started") if  setup_redis and setup_minio else logging.warning("Problem in Starting Aggregator Engine")
         while True:
             self._aggregate()
             time.sleep(self.settings['SLEEP_TIME'])

@@ -16,21 +16,28 @@ class Ingestor(Engine):
         self.scrape_wait_time = scrape_wait_time
 
     def _setup_rq(self):
-        self.rq_conn = Redis(host=self.settings['RQ_REDIS_HOST'], 
-                            port=self.settings['RQ_REDIS_PORT'], 
-                            password=self.settings['RQ_REDIS_PASSWORD'],
-                            db=self.settings['RQ_REDIS_DB'],
-                            decode_responses=False, #koentji
-                            socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
-                            socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
-        self.queue={}
-        self.queue[self.settings['DIMENSION_PATENT']] = Queue(self.settings['DIMENSION_PATENT'], connection=self.rq_conn)
-        self.queue[self.settings['DIMENSION_TRADEMARK']]= Queue(self.settings['DIMENSION_TRADEMARK'], connection=self.rq_conn)
-        self.queue[self.settings['DIMENSION_PUBLICATION']] = Queue(self.settings['DIMENSION_PUBLICATION'], connection=self.rq_conn)
-    
+        try:
+            self.rq_conn = Redis(host=self.settings['RQ_REDIS_HOST'], 
+                                port=self.settings['RQ_REDIS_PORT'], 
+                                password=self.settings['RQ_REDIS_PASSWORD'],
+                                db=self.settings['RQ_REDIS_DB'],
+                                decode_responses=False, #koentji
+                                socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
+                                socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
+            self.queue={}
+            self.queue[self.settings['DIMENSION_PATENT']] = Queue(self.settings['DIMENSION_PATENT'], connection=self.rq_conn)
+            self.queue[self.settings['DIMENSION_TRADEMARK']]= Queue(self.settings['DIMENSION_TRADEMARK'], connection=self.rq_conn)
+            self.queue[self.settings['DIMENSION_PUBLICATION']] = Queue(self.settings['DIMENSION_PUBLICATION'], connection=self.rq_conn)
+            return True
+        except:
+            return False
+
     def _ingest(self):
+        logging.debug('Acquiring Lock for Ingestion Jobs...')
         key, dimension, year = self._redis_update_stat_before(self.job)
+        logging.debug('Ingesting Records...')
         success, errormsg = self._ingest_records(dimension, year)
+        logging.debug('Updating Job Status...')
         self._redis_update_stat_after(key, self.job, success, errormsg)
 
     def _ingest_records(self, dimension, year):
@@ -148,9 +155,11 @@ class Ingestor(Engine):
         return
 
     def start(self):
-        self._setup_rq()
-        self._setup_redis_conn()
-        self._setup_minio_client(self.bucket)
+        logging.info("Starting Ingestion Engine...")
+        setup_rq = self._setup_rq()
+        setup_redis = self._setup_redis_conn()
+        setup_minio = self._setup_minio_client(self.bucket)
+        logging.info("Ingestion Engine Successfully Started") if setup_rq and setup_redis and setup_minio else logging.warning("Problem in Starting Ingestion Engine")
         while True:
             self._ingest()
             time.sleep(self.settings['SLEEP_TIME'])

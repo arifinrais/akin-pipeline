@@ -1,6 +1,17 @@
 version: '2'
 
 services:
+  aggregator-engine:
+      image: arifinrais/akin-pipeline:engine-dev
+      container_name: aggregator
+      build:
+        context: .
+        dockerfile: docker/engine/Dockerfile.py3
+      depends_on:
+        - minio
+        - job-enqueuer
+      command: python main.py aggregate
+      restart: unless-stopped
   ingestor-engine:
     image: arifinrais/akin-pipeline:engine-dev
     container_name: ingestor

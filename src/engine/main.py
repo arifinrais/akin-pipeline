@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 from engine import Engine, Ingestor, Aggregator, Preparator, Analytics#, Scraper
 from engine.EngineHelper import WrongInputHandler
-import sys
+import sys, logging
 
 def main():
     try:
         command = sys.argv[1]
+        logging.basicConfig(filename='%s.log' % command, encoding='utf-8', level=logging.DEBUG)
+        logging.root.setLevel(logging.DEBUG)
         if command=='scrape':
             engine = Ingestor.Ingestor()
             engine.scrape()

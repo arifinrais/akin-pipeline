@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, time, json
+import sys, time, json, logging
 from engine import config
 from engine.EngineHelper import GenerateFileName
 from datetime import datetime
@@ -29,13 +29,17 @@ class Engine(object):
             self.error_handler(sys.exc_info())
     
     def _setup_redis_conn(self):
-        self.redis_conn = Client(host=self.settings['JOB_REDIS_HOST'], 
-                            port=self.settings['JOB_REDIS_PORT'], 
-                            password=self.settings['JOB_REDIS_PASSWORD'],
-                            db=self.settings['JOB_REDIS_DB'],
-                            decode_responses=True,
-                            socket_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'],
-                            socket_connect_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'])
+        try:
+            self.redis_conn = Client(host=self.settings['JOB_REDIS_HOST'], 
+                                port=self.settings['JOB_REDIS_PORT'], 
+                                password=self.settings['JOB_REDIS_PASSWORD'],
+                                db=self.settings['JOB_REDIS_DB'],
+                                decode_responses=True,
+                                socket_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'],
+                                socket_connect_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'])
+            return True
+        except:
+            return False
 
     def _setup_minio_client(self, bucket_name=None):
         self.minio_client = Minio(
@@ -49,8 +53,8 @@ class Engine(object):
                 if not self.minio_client.bucket_exists(bucket_name):
                     self.minio_client.make_bucket(bucket_name)
             except:
-                #temporary
-                print(sys.exc_info())
+                return False
+        return True
    
     def _get_lock_name(self, job):
         if job==self.settings['JOB_INGEST']: return self.settings['LOCK_INGEST']
