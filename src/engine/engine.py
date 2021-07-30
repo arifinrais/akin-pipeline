@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys, time, json
+from typing import Type
 from engine import config
 from engine.EngineHelper import GenerateFileName
 from datetime import datetime
@@ -76,7 +77,10 @@ class Engine(object):
                 with self.redis_conn.lock(self._get_lock_name(job), blocking_timeout=5) as lock:
                     for _key in self.redis_conn.scan_iter(match='[pt][rtu][bdn]_[0-9][0-9][0-9][0-9]',count=100): #match="[pt][rtu][bdn]_[0-9][0-9][0-9][0-9]"
                         if _key==self._get_lock_name(job): continue
-                        _job=json.loads(self.redis_conn.jsonget(_key, Path('.')))
+                        try: #ini bingung kadang kalau gapake json.loads gakebaca, tapi kalau gaada kadang TypeError
+                            _job=json.loads(self.redis_conn.jsonget(_key, Path('.')))
+                        except TypeError:
+                            _job=self.redis_conn.jsonget(_key, Path('.'))
                         if _job and _job['job']==job and _job['status']==self.settings['STAT_WAIT']: #if _job penting bet
                             _job['status'] = self.settings['STAT_WIP']
                             self.redis_conn.jsonset(_key, Path.rootPath(), json.dumps(_job))
