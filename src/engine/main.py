@@ -6,7 +6,7 @@ import sys, logging
 def main():
     try:
         command = sys.argv[1]
-        logging.basicConfig(filename='%s.log' % command, encoding='utf-8', level=logging.DEBUG)
+        logging.basicConfig(filename='%s.log' % command, encoding='utf-8', level=logging.WARNING) # for production WARNING
         if command=='scrape':
             engine = Ingestor.Ingestor()
             engine.scrape()

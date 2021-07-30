@@ -166,7 +166,6 @@ class Ingestor(Engine):
 
     def scrape(self):
         self._setup_rq()
-        #logging.getLogger().setLevel(logging.ERROR) #to prevent the scraper showing warning, debug, and info messages
         with Connection():
             queues=[self.queue[self.settings['DIMENSION_PATENT']],self.queue[self.settings['DIMENSION_TRADEMARK']],self.queue[self.settings['DIMENSION_PUBLICATION']]]
             worker = Worker(queues=queues, connection=self.rq_conn)
