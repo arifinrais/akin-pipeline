@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
-import logging
 from datetime import datetime
-import sys
-import config as cfg
-import json
-import traceback
-import time
 from kafka import KafkaProducer
-from tenacity import retry
-from jsonschema import validate
+from kafka.errors import KafkaTimeoutError
 from rejson import Client, Path
-
-from engine.config import DIMENSION_PATENT
+import config as cfg
+import sys, logging, json, traceback, time
+#from tenacity import retry
+#from jsonschema import validate
 
 class JobstatHub(object):
     def __init__(self):
@@ -89,7 +84,7 @@ class JobstatHub(object):
     def _setup_kafka_producer(self):
         brokers = cfg.KAFKA_HOSTS
         try:
-            self.kafka_producer = KafkaProducer(bootstrap_servers=brokers,
+            self.kafka_producer = KafkaProducer(bootstrap_servers=cfg.KAFKA_HOSTS,
                                     value_serializer=lambda m: json.dumps(m).encode('utf-8'),
                                     retries=3,
                                     linger_ms=cfg.KAFKA_PRODUCER_BATCH_LINGER_MS,
@@ -100,13 +95,19 @@ class JobstatHub(object):
             return False
 
     #@retry
-    def _feed_job_stats_to_kafka(self, job_stats):
-        print('the message : %s' % job_stats)
+    def _feed_job_stats_to_kafka(self, job_stats, retry_limit=10):
+        failed_count=0
         while True:
-            if self.kafka_producer:
-                self.kafka_producer.send(cfg.KAFKA_INCOMING_TOPIC,job_stats)
-                
-                self.kafka_producer.flush()
+            if self.kafka_producer is not None:
+                try:
+                    self.kafka_producer.send(cfg.KAFKA_INCOMING_TOPIC,job_stats)
+                    self.kafka_producer.flush()
+                except KafkaTimeoutError as e:
+                    logging.error(e)
+                    time.sleep(2)
+                    failed_count+=1
+                    if failed_count==retry_limit: return False
+                    continue
                 return True
             else:
                 self._setup_kafka_producer()
@@ -138,31 +139,15 @@ class JobstatHub(object):
         setup_kafka = self._setup_kafka_producer()
         logging.info("Jobstat Hub Successfully Started") if setup_kafka and setup_redis else logging.warning("Problem in Starting Jobstat Hub")
         while True:
-            print('reading job stats...')
             job_stats = self._read_job_stats()
-            print('try to produce message...')
             test=self._feed_job_stats_to_kafka(job_stats)
             print(test)
-            time.sleep(10)
-    
-    def run_once(self):
-        setup_redis = self._setup_redis_conn()
-        setup_kafka = self._setup_kafka_producer()
-        print('reading job stats...')
-        job_stats = self._read_job_stats()
-        print('try to produce message...')
-        print('the message : %s' % job_stats)
-        if self.kafka_producer:
-            print('try to produce message...')
-            self.kafka_producer.send(cfg.KAFKA_INCOMING_TOPIC,job_stats)
-            self.kafka_producer.flush()
-            self.kafka_producer.close()
-        print('done')
-    
+            time.sleep(5*60)
+
     def close(self):
         # Properly exiting the application
-        if self.producer is not None:
-            self.producer.close()
+        if self.kafka_producer is not None:
+            self.kafka_producer.close()
 
     @staticmethod
     def error_handler(err):
@@ -176,7 +161,7 @@ class JobstatHub(object):
             print("  >file: %s, line: %d, funcName: %s, message: %s" % (trace[0], trace[1], trace[2], trace[3]))
 
 def main():
-    logging.basicConfig(filename='jobstat.log', encoding='utf-8', level=logging.WARNING) # for production WARNING
+    logging.basicConfig(filename='jobstat.log', encoding='utf-8', level=logging.DEBUG) # for production WARNING
     try:
         hub = JobstatHub()
         hub.run()
