@@ -88,7 +88,8 @@ class JobstatHub(object):
                                     value_serializer=lambda m: json.dumps(m).encode('utf-8'),
                                     retries=3,
                                     linger_ms=cfg.KAFKA_PRODUCER_BATCH_LINGER_MS,
-                                    buffer_memory=cfg.KAFKA_PRODUCER_BUFFER_BYTES)
+                                    buffer_memory=cfg.KAFKA_PRODUCER_BUFFER_BYTES,
+                                    api_version=(2,0,2))
             return True
         except:
             print(sys.exc_info())
@@ -161,7 +162,7 @@ class JobstatHub(object):
             print("  >file: %s, line: %d, funcName: %s, message: %s" % (trace[0], trace[1], trace[2], trace[3]))
 
 def main():
-    logging.basicConfig(filename='jobstat.log', encoding='utf-8', level=logging.DEBUG) # for production WARNING
+    logging.basicConfig(filename='jobstat.log', encoding='utf-8', level=logging.WARNING) # for production WARNING
     try:
         hub = JobstatHub()
         hub.run()
