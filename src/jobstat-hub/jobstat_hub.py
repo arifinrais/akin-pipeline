@@ -89,7 +89,7 @@ class JobstatHub(object):
                                     retries=3,
                                     linger_ms=cfg.KAFKA_PRODUCER_BATCH_LINGER_MS,
                                     buffer_memory=cfg.KAFKA_PRODUCER_BUFFER_BYTES,
-                                    api_version=(2,0,2))
+                                    api_version=(2,7,0))
             return True
         except:
             print(sys.exc_info())
@@ -103,13 +103,13 @@ class JobstatHub(object):
                 try:
                     self.kafka_producer.send(cfg.KAFKA_INCOMING_TOPIC,job_stats)
                     self.kafka_producer.flush()
+                    return True
                 except KafkaTimeoutError as e:
                     logging.error(e)
                     time.sleep(2)
                     failed_count+=1
                     if failed_count==retry_limit: return False
                     continue
-                return True
             else:
                 self._setup_kafka_producer()
                 time.sleep(2)
@@ -162,7 +162,7 @@ class JobstatHub(object):
             print("  >file: %s, line: %d, funcName: %s, message: %s" % (trace[0], trace[1], trace[2], trace[3]))
 
 def main():
-    logging.basicConfig(filename='jobstat.log', encoding='utf-8', level=logging.WARNING) # for production WARNING
+    logging.basicConfig(filename='jobstat.log', encoding='utf-8', level=logging.INFO) # for production WARNING
     try:
         hub = JobstatHub()
         hub.run()

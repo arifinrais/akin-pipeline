@@ -1,6 +1,18 @@
 version: '2'
 
 services:
+  jobstat-hub:
+    image: arifinrais/akin-pipeline:jobstat-hub-dev
+    container_name: jobstat-hub
+    build:
+      context: .
+      dockerfile: docker/jobstat-hub/Dockerfile.py3
+    depends_on:
+      - kafka
+      - zookeeper
+      - job-enqueuer
+    command: python jobstat_hub.py
+    restart: unless-stopped
   aggregator-engine:
     image: arifinrais/akin-pipeline:engine-dev
     container_name: aggregator
@@ -26,7 +38,7 @@ services:
     restart: unless-stopped
   minio:
     # viewable at http://127.0.0.1:9001/
-    image: minio/minio:RELEASE.2021-07-30T00-02-00Z # atau minio/minio latest aja? tags
+    image: minio/minio:RELEASE.2021-07-27T02-40-15Z.fips
     container_name: minio
     volumes:
       - minio-data:/data
