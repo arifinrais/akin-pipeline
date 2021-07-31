@@ -1,18 +1,6 @@
 version: '2'
 
 services:
-  jobstat-hub:
-    image: arifinrais/akin-pipeline:jobstat-hub-dev
-    container_name: jobstat-hub
-    build:
-      context: .
-      dockerfile: docker/jobstat-hub/Dockerfile.py3
-    depends_on:
-      - kafka
-      - zookeeper
-      - job-enqueuer
-    command: python jobstat_hub.py
-    restart: unless-stopped
   aggregator-engine:
     image: arifinrais/akin-pipeline:engine-dev
     container_name: aggregator
