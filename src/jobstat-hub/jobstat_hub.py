@@ -145,6 +145,20 @@ class JobstatHub(object):
             print(test)
             time.sleep(10)
     
+    def run_once(self):
+        setup_redis = self._setup_redis_conn()
+        setup_kafka = self._setup_kafka_producer()
+        print('reading job stats...')
+        job_stats = self._read_job_stats()
+        print('try to produce message...')
+        print('the message : %s' % job_stats)
+        if self.kafka_producer:
+            print('try to produce message...')
+            self.kafka_producer.send(cfg.KAFKA_INCOMING_TOPIC,job_stats)
+            self.kafka_producer.flush()
+            self.kafka_producer.close()
+        print('done')
+    
     def close(self):
         # Properly exiting the application
         if self.producer is not None:
