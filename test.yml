@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
   minio:
     # viewable at http://127.0.0.1:9001/
-    image: minio/minio
+    image: minio/minio:RELEASE.2021-07-30T00-02-00Z # atau minio/minio latest aja? tags
     container_name: minio
     volumes:
       - minio-data:/data
