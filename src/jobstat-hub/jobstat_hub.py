@@ -24,7 +24,7 @@ class JobstatHub(object):
             self.all_locks=[cfg.LOCK_INGEST,cfg.LOCK_AGGREGATE,cfg.LOCK_TRANSFORM]
             '''
             self.all_locks=[cfg.LOCK_INGEST,cfg.LOCK_AGGREGATE,cfg.LOCK_ANALYZE]
-            print(self.all_locks)
+            #print(self.all_locks)
             self.jobstat_schema={
                 "type": "object",
                 "properties": {
@@ -34,7 +34,7 @@ class JobstatHub(object):
                         "years": {
                             "type": "object",
                             "properties": {
-                                "year": {"type": "integer", "minimum": cfg.MIN_SCRAPE_YEAR, "maximum": cfg.MAX_SCRAPE_YEAR},
+                                "year": {"type": "integer", "minimum": cfg.MIN_INGEST_YEAR, "maximum": cfg.MAX_INGEST_YEAR},
                                 "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
                                 "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
                                 "timestamp": {"type": "date-time"},
@@ -47,7 +47,7 @@ class JobstatHub(object):
                         "years": {
                             "type": "object",
                             "properties": {
-                                "year": {"type": "integer", "minimum": cfg.MIN_SCRAPE_YEAR, "maximum": cfg.MAX_SCRAPE_YEAR},
+                                "year": {"type": "integer", "minimum": cfg.MAX_INGEST_YEAR, "maximum": cfg.MAX_INGEST_YEAR},
                                 "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
                                 "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
                                 "timestamp": {"type": "date-time"},
@@ -60,7 +60,7 @@ class JobstatHub(object):
                         "years": {
                             "type": "object",
                             "properties": {
-                                "year": {"type": "integer", "minimum": cfg.MIN_SCRAPE_YEAR, "maximum": cfg.MAX_SCRAPE_YEAR},
+                                "year": {"type": "integer", "minimum": cfg.MIN_INGEST_YEAR, "maximum": cfg.MAX_INGEST_YEAR},
                                 "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
                                 "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
                                 "timestamp": {"type": "date-time"},
@@ -101,9 +101,11 @@ class JobstatHub(object):
 
     #@retry
     def _feed_job_stats_to_kafka(self, job_stats):
+        print('the message : %s' % job_stats)
         while True:
             if self.kafka_producer:
                 self.kafka_producer.send(cfg.KAFKA_INCOMING_TOPIC,job_stats)
+                
                 self.kafka_producer.flush()
                 return True
             else:
@@ -136,9 +138,12 @@ class JobstatHub(object):
         setup_kafka = self._setup_kafka_producer()
         logging.info("Jobstat Hub Successfully Started") if setup_kafka and setup_redis else logging.warning("Problem in Starting Jobstat Hub")
         while True:
+            print('reading job stats...')
             job_stats = self._read_job_stats()
-            self._feed_job_stats_to_kafka(job_stats)
-            time.sleep(5)
+            print('try to produce message...')
+            test=self._feed_job_stats_to_kafka(job_stats)
+            print(test)
+            time.sleep(10)
     
     def close(self):
         # Properly exiting the application
