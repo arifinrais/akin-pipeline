@@ -3,7 +3,7 @@ import sys, time, logging, json, csv, traceback #, os, logging
 import requests as req
 import pandas as pd
 from engine.Engine import Engine
-from engine.EngineHelper import GenerateFileName
+from engine.EngineHelper import GenerateFileName, BytesToDataFrame
 from datetime import datetime
 from io import BytesIO, StringIO
 from copy import deepcopy
@@ -57,7 +57,8 @@ class Preparator(Engine):
                 lines = self._transform_in_spark(list_of_record[0:-1], dimension, year)
                 '''
                 #lines=self._transform_in_spark(resp.data, dimension, year)
-                self._bytes_to_df(resp.data)
+                df = BytesToDataFrame(resp.data, ['No. Permohonan','No. Sertifikat','Status','Tanggal Dimulai Perlindungan','Tanggal Berakhir Perlindungan','Daftar Kelas','Alamat'])
+                print(df)
             except S3Error: raise S3Error
             except:
                 print(sys.exc_info())
@@ -72,15 +73,6 @@ class Preparator(Engine):
             return False, errormsg
     
     #def _csv_parse(self):
-
-    def _bytes_to_df(self, databytes):
-        output = StringIO()
-        output.write('No. Permohonan\tNo. Sertifikat\tStatus\tTanggal Dimulai Perlindungan\tTanggal Berakhir Perlindungan\tDaftar Kelas\tAlamat\n')
-        #list_of_record = databytes.decode('utf-8').split('\n')
-        output.write(databytes.decode('utf-8'))
-        output.seek(0)
-        df = pd.read_csv(output,delimiter='\t',lineterminator='\n')
-        print(df)
 
     def _transform_in_spark(self, databytes, dimension, year):
         #submit cleaning, pattern-matching(?), geocoding, encoding job to SPARK

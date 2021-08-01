@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-import json
-import sys
+import json, sys, json, traceback, requests as req, pandas as pd #, time, csv, os, logging
 from urllib.parse import quote
-import requests as req
-from io import BytesIO
+#import requests as req
 from minio import Minio
-import sys, time, json, csv, traceback #, os, logging
 from engine import config
 from datetime import datetime
 from rejson import Client, Path
@@ -56,14 +53,23 @@ def GenerateFileName(bucket_base, dimension, year, extension, file_id=None):
     else:
         return dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+extension
 
-def CreateCSVLine(fields, delimiter="\t"):
+def CreateCSVLine(fields, delimiter="\t", lineterminator='\n'):
     line = ""
     for i in range(len(fields)):
         if i<len(fields)-1:
             line+=str(fields[i])+delimiter
         else:
-            line+=str(fields[i])+"\n"
+            line+=str(fields[i])+lineterminator
     return line
+
+def BytesToDataFrame(databytes, fields, delimiter="\t", lineterminator='\n'):
+    output = StringIO()
+    output.write(CreateCSVLine(fields))
+    output.write(databytes.decode('utf-8'))
+    output.seek(0)
+    df = pd.read_csv(output,delimiter=delimiter,lineterminator=lineterminator)
+    return df
+
 
 def ParseCSVLine(line, delimiter="\t"):
     return line.strip().split(delimiter)
