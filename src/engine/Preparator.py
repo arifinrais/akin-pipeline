@@ -139,14 +139,23 @@ class Preparator(Engine):
         #initiate mapped_list=[]
         #if length >3:
             #cek pake fuzzywuzzy elemen -3,-2,-1 -> permutasi 3: kota-prov-negara, 2: kota-negara|kota-prov|prov-negara, 1: kota|prov|negara
+            #bisa displit lagi pake spasi
         #elif length==3:
             #cek elemen -2,-1 -> permutasi 2: kota-negara|kota-prov|prov-negara, 1: kota|prov|negara
+            #bisa displit lagi pake spasi
         #else
             #cek elemen -1 (cek out of index ga) -> permutasi 1: kota-negara|kota-prov|prov-negara, 1: kota|prov|negara
+            #bisa displit lagi pake spasi
         #assign highest kota, provinsi, negara
         #if kota >=90% -> mapped -> mapped_list.append
         #if negara>=80% -> if cek kode pos -> mapped -> mapped_list.append
         #if kota+provinsi/2 >=70% if cek kode pos -> mapped -> mapped_list.append
+        
+        #if not assigned and ada kode pos
+            #split by commas, and then space
+            #if kota >=90% -> mapped -> mapped_list.append
+            #if negara>=80% -> if cek kode pos -> mapped -> mapped_list.append
+            #if kota+provinsi/2 >=70% if cek kode pos -> mapped -> mapped_list.append
         pass
 
     def _rq_geocoding(self, lines):
