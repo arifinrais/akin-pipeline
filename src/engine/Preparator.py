@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys, time, logging, json, csv, traceback #, os, logging
 import requests as req
+import pandas as pd
 from engine.Engine import Engine
 from engine.EngineHelper import GenerateFileName
 from datetime import datetime
@@ -47,8 +48,16 @@ class Preparator(Engine):
             lines=[]
             try:
                 resp = self.minio_client.get_object(self.previous_bucket, file_name)
+                '''
                 list_of_record = resp.data.decode('utf-8').split('\n') #kalau terlalu banyak bisa diganti stringIO
-                lines = self._transform_in_spark(list_of_record[0:-1], dimension, year)   
+                
+                list_of_record_list = []
+                for line in list_of_record:
+                    list_of_record_list.append(line.split('\t'))
+                lines = self._transform_in_spark(list_of_record[0:-1], dimension, year)
+                '''
+                #lines=self._transform_in_spark(resp.data, dimension, year)
+                self._bytes_to_df(resp.data)
             except S3Error: raise S3Error
             except:
                 print(sys.exc_info())
@@ -62,9 +71,22 @@ class Preparator(Engine):
             errormsg, b, c = sys.exc_info()
             return False, errormsg
     
-    def _transform_in_spark(self, list_of_records, dimension, year):
+    #def _csv_parse(self):
+
+    def _bytes_to_df(self, databytes):
+        output = StringIO()
+        output.write('No. Permohonan\tNo. Sertifikat\tStatus\tTanggal Dimulai Perlindungan\tTanggal Berakhir Perlindungan\tDaftar Kelas\tAlamat\n')
+        #list_of_record = databytes.decode('utf-8').split('\n')
+        output.write(databytes.decode('utf-8'))
+        output.seek(0)
+        df = pd.read_csv(output,delimiter='\t',lineterminator='\n')
+        print(df)
+
+    def _transform_in_spark(self, databytes, dimension, year):
         #submit cleaning, pattern-matching(?), geocoding, encoding job to SPARK
-        sql.types.StrucType()
+        
+
+        return
         spark_session = sql.SparkSession.builder.config(conf=self.spark_conf).getOrCreate()
         spark_context = spark_session.sparkContext
         spark_reader = spark_session.read
