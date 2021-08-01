@@ -60,9 +60,8 @@ class Preparator(Engine):
                 resp.release_conn()
             
             cleaned_lines = self._spark_cleaning(df, self.column_names[-1])
-            #geocoded_lines = self._geocoding(cleaned_lines) rq/spark?
             mapped_lines, unmapped_lines = self._spark_splitting(cleaned_lines)
-            geocoded_lines = self._rq_geocoding(unmapped_lines) #try rq first
+            geocoded_lines = self._rq_geocoding(unmapped_lines) #maybe spark also can do it
             for line in geocoded_lines:
                 mapped_lines.append(line)
             #save the result file to minio
@@ -139,7 +138,7 @@ class Preparator(Engine):
         #cek length list address
         #initiate mapped_list=[]
         #if length >3:
-            #cek elemen -3,-2,-1 -> permutasi 3: kota-prov-negara, 2: kota-negara|kota-prov|prov-negara, 1: kota|prov|negara
+            #cek pake fuzzywuzzy elemen -3,-2,-1 -> permutasi 3: kota-prov-negara, 2: kota-negara|kota-prov|prov-negara, 1: kota|prov|negara
         #elif length==3:
             #cek elemen -2,-1 -> permutasi 2: kota-negara|kota-prov|prov-negara, 1: kota|prov|negara
         #else
