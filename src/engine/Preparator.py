@@ -1,29 +1,23 @@
 #!/usr/bin/env python3
-import sys, time, json, csv, traceback #, os, logging
+import sys, time, logging, json, csv, traceback #, os, logging
 import requests as req
-#from os import stat
-#from tenacity import retry
-#from jsonschema import validate
-#from abc import ABC, abstractmethod
 from engine.Engine import Engine
+from engine.EngineHelper import GenerateFileName
 from datetime import datetime
 from io import BytesIO, StringIO
 from copy import deepcopy
 from redis import Redis
-from rejson import Client, Path
-from rq import Connection as RedisQueueConnection
-from rq.queue import Queue
-from rq.job import Job 
 from minio import Minio
 from minio.error import S3Error
 from pyspark.conf import SparkConf
-from pyspark import sql
-from pymongo import MongoClient
+from pyspark.sql.types import *
 
 class Preparator(Engine):
     def __init__(self):
         Engine.__init__(self)
         self.job = self.settings['JOB_TRANSFORM']
+        self.bucket = self.settings['MINIO_BUCKET_TRANSFORMED']
+        self.previous_bucket = self.settings['MINIO_BUCKET_AGGREGATED']
 
     def _setup_spark(self):
         self.spark_conf = SparkConf()
@@ -39,21 +33,25 @@ class Preparator(Engine):
         ])
 
     def _transform(self):
+        logging.debug('Acquiring Lock for Transformation Jobs...')
         key, dimension, year = self._redis_update_stat_before(self.job)
+        logging.debug('Transforming Records...')
         success, errormsg = self._transform_file(dimension, year)
+        logging.debug('Updating Job Status...')
         self._redis_update_stat_after(key, self.job, success, errormsg)
     
     def _transform_file(self, dimension, year):
-        bucket_name=self.settings['MINIO_BUCKET_AGGREGATED']
-        file_name=self._generate_file_name(bucket_name, dimension, year, '.csv')
+        file_name=GenerateFileName(self.previous_bucket, dimension, year, '.csv')
         try:
             #load the file from minio
-            resp = self.minio_client.get_object(bucket_name, file_name)
-            lines=[]            
+            lines=[]
             try:
-                resp = self.minio_client.get_object(bucket_name, file_name)
-                resp_utf = resp.decode('utf-8')
-                lines = self._transform_in_spark(resp_utf, dimension, year)   
+                resp = self.minio_client.get_object(self.previous_bucket, file_name)
+                list_of_record = resp.data.decode('utf-8').split('\n') #kalau terlalu banyak bisa diganti stringIO
+                lines = self._transform_in_spark(list_of_record[0:-1], dimension, year)   
+            except S3Error: raise S3Error
+            except:
+                print(sys.exc_info())
             finally:
                 resp.close()
                 resp.release_conn()
@@ -64,9 +62,9 @@ class Preparator(Engine):
             errormsg, b, c = sys.exc_info()
             return False, errormsg
     
-    def _transform_in_spark(self, resp, dimension, year):
+    def _transform_in_spark(self, list_of_records, dimension, year):
         #submit cleaning, pattern-matching(?), geocoding, encoding job to SPARK
-        resp_stream = StringIO(resp)
+        sql.types.StrucType()
         spark_session = sql.SparkSession.builder.config(conf=self.spark_conf).getOrCreate()
         spark_context = spark_session.sparkContext
         spark_reader = spark_session.read
@@ -86,9 +84,11 @@ class Preparator(Engine):
         #https://github.com/bitnami/bitnami-docker-spark/issues/18
         
     def start(self):
-        self._setup_redis_conn()
-        self._setup_minio_client()
-        self._setup_spark()
+        setup_redis = self._setup_redis_conn()
+        setup_minio = self._setup_minio_client()
+        setup_spark = self._setup_spark()
+        logging.info("Preparator Engine Successfully Started") if  setup_redis and setup_minio and setup_spark else logging.warning("Problem in Starting Preparator Engine")
         while True:
             self._transform()
             time.sleep(self.settings['SLEEP_TIME'])
+        
