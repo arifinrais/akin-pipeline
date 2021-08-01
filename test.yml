@@ -63,7 +63,8 @@ services:
     command: python main.py scrape
     restart: unless-stopped
   spark:
-    image: docker.io/bitnami/spark:3.1.1
+    image: docker.io/bitnami/spark:3-debian-10
+    container_name: spark
     environment:
       - SPARK_MODE=master
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
@@ -74,7 +75,8 @@ services:
       - '8080:8080'
       - '7077:7077'
   spark-worker-1:
-    image: docker.io/bitnami/spark:3.1.1
+    image: docker.io/bitnami/spark:3-debian-10
+    container_name: spark-worker-1
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark:7077
@@ -85,7 +87,8 @@ services:
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
   spark-worker-2:
-    image: docker.io/bitnami/spark:3.1.1
+    image: docker.io/bitnami/spark:3-debian-10
+    container_name: spark-worker-2
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark:7077
