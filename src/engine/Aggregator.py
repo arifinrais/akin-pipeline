@@ -135,16 +135,21 @@ class Aggregator(Engine):
         return address
 
     def _parse_classes(self, dimension, class_record):
-        if not class_record or len(class_record)==0: return None #handle unclassified patent
+        if not class_record or len(class_record)==0: 
+            return None #handle unclassified patent
         if dimension==self.settings['DIMENSION_PATENT']:
             record_list=[i['ipc_full'] for i in class_record]
-            if len(record_list[0])>12: record_list=record_list[0].strip().split(',') #handle error value nempel
+            if len(record_list)==1 and ';' in record_list[0]: 
+                record_list=record_list[0].strip().split(';') #handle error in classes
             class_list=[]
             for ipc in record_list:
                 category = ipc.strip().split()
-                if category[0] not in class_list: class_list.append(category[0])
+                if category[0] not in class_list:
+                    class_list.append(category[0])
         elif dimension==self.settings['DIMENSION_TRADEMARK']:
             class_list=[i['class_no'] for i in class_record]
+            if len(class_list)==1 and ';' in class_list[0]: 
+                class_list=class_list[0].strip().split(';') #handle error in classes
         return class_list
 
     def _uniquify(self, lines):
