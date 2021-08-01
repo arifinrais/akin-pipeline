@@ -23,25 +23,33 @@ class Preparator(Engine):
         self.previous_bucket = self.settings['MINIO_BUCKET_AGGREGATED']
 
     def _setup_spark(self):
-        self.spark_conf = SparkConf()
-        self.spark_conf.setAll([
-            ('spark.master', self.settings['SPARK_MASTER']),# <--- this host must be resolvable by the driver in this case pyspark (whatever it is located, same server or remote) in our case the IP of server
-            ('spark.app.name', self.settings['SPARK_APP_NAME']),
-            ('spark.submit.deployMode', self.settings['SPARK_SUBMIT_DEPLOY_MODE']),
-            ('spark.ui.showConsoleProgress', self.settings['SPARK_UI_SHOW_CONSOLE_PROGRESS']),
-            ('spark.eventLog.enabled', self.settings['SPARK_EVENT_LOG_ENABLED']),
-            ('spark.logConf', self.settings['SAPRK_LOG_CONF_']),
-            ('spark.driver.bindAddress', self.settings['SPARK_DRIVER_BIND_ADDRESS']),# <--- this host is the IP where pyspark will bind the service running the driver (normally 0.0.0.0)
-            ('spark.driver.host', self.settings['SPARK_DRIVER_HOST']),# <--- this host is the resolvable IP for the host that is running the driver and it must be reachable by the master and master must be able to reach it (in our case the IP of the container where we are running pyspark
-        ])
+        try:
+            self.spark_conf = SparkConf()
+            self.spark_conf.setAll([
+                ('spark.master', self.settings['SPARK_MASTER']),# <--- this host must be resolvable by the driver in this case pyspark (whatever it is located, same server or remote) in our case the IP of server
+                ('spark.app.name', self.settings['SPARK_APP_NAME']),
+                ('spark.submit.deployMode', self.settings['SPARK_SUBMIT_DEPLOY_MODE']),
+                ('spark.ui.showConsoleProgress', self.settings['SPARK_UI_SHOW_CONSOLE_PROGRESS']),
+                ('spark.eventLog.enabled', self.settings['SPARK_EVENT_LOG_ENABLED']),
+                ('spark.logConf', self.settings['SAPRK_LOG_CONF_']),
+                ('spark.driver.bindAddress', self.settings['SPARK_DRIVER_BIND_ADDRESS']),# <--- this host is the IP where pyspark will bind the service running the driver (normally 0.0.0.0)
+                ('spark.driver.host', self.settings['SPARK_DRIVER_HOST']),# <--- this host is the resolvable IP for the host that is running the driver and it must be reachable by the master and master must be able to reach it (in our case the IP of the container where we are running pyspark
+            ])
+            return True
+        except:
+            print(sys.exc_info()) #for debugging
+            return False
 
     def _transform(self):
-        logging.debug('Acquiring Lock for Transformation Jobs...')
-        key, dimension, year = self._redis_update_stat_before(self.job)
-        logging.debug('Transforming Records...')
-        success, errormsg = self._transform_file(dimension, year)
-        logging.debug('Updating Job Status...')
-        self._redis_update_stat_after(key, self.job, success, errormsg)
+        #logging.debug('Acquiring Lock for Transformation Jobs...')
+        #key, dimension, year = self._redis_update_stat_before(self.job)
+        #logging.debug('Transforming Records...')
+        #success, errormsg = self._transform_file(dimension, year)
+        #logging.debug('Updating Job Status...')
+        #self._redis_update_stat_after(key, self.job, success, errormsg)
+        #for debugging
+        success, errormsg = self._transform_file('ptn', 2018)
+        print(success, errormsg)
     
     def _transform_file(self, dimension, year):
         file_name=GenerateFileName(self.previous_bucket, dimension, year, '.csv')
@@ -73,6 +81,9 @@ class Preparator(Engine):
         
         try:
             spark_session = sql.SparkSession.builder.config(conf=self.spark_conf).getOrCreate()
+            try:
+                print(spark_session)
+            except: print(sys.exc_info())
             spark_context = spark_session.sparkContext
             spark_reader = spark_session.read
             spark_stream_reader = spark_session.readStream
