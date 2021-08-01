@@ -47,20 +47,18 @@ class Preparator(Engine):
         #success, errormsg = self._transform_file(dimension, year)
         #logging.debug('Updating Job Status...')
         #self._redis_update_stat_after(key, self.job, success, errormsg)
-        #for debugging
-        success, errormsg = self._transform_file('ptn', 2018)
+        success, errormsg = self._transform_file('ptn', 2018) #for debugging
         print(success, errormsg)
     
     def _transform_file(self, dimension, year):
         file_name=GenerateFileName(self.previous_bucket, dimension, year, '.csv')
         try:
-            #load the file from minio
             lines=[]
             try:
                 resp = self.minio_client.get_object(self.previous_bucket, file_name)
                 #nanti bisa dirapihin masalah fieldsnya
                 df = BytesToDataFrame(resp.data, ['no_permohonan','no_sertifikat','status','tanggal_dimulai','tanggal_berakhir','daftar_kelas','alamat'])
-                self._transform_in_spark(df, dimension, year)
+                lines = self._transform_in_spark(df, dimension, year)
             except S3Error: raise S3Error
             except:
                 print(sys.exc_info())
@@ -77,8 +75,7 @@ class Preparator(Engine):
     def _transform_in_spark(self, dataframe, dimension, year):
         def _clean_address_field(s):
             return s.split(", ")
-        #submit cleaning, pattern-matching(?), geocoding, encoding job to SPARK
-        
+        #submit cleaning->pattern-matching(?)+geocoding->encoding job to SPARK
         try:
             spark_session = sql.SparkSession.builder.config(conf=self.spark_conf).getOrCreate()
             try:
@@ -110,8 +107,10 @@ class Preparator(Engine):
         setup_minio = self._setup_minio_client()
         setup_spark = self._setup_spark()
         logging.info("Preparator Engine Successfully Started") if  setup_redis and setup_minio and setup_spark else logging.warning("Problem in Starting Preparator Engine")
+        
+        self._transform() #for debugging
+        return
         while True:
             self._transform()
-            return #try spark
             time.sleep(self.settings['SLEEP_TIME'])
         
