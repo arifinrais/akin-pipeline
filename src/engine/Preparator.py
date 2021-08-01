@@ -60,13 +60,13 @@ class Preparator(Engine):
                 resp.release_conn()
             
             cleaned_lines = self._spark_cleaning(df, self.column_names[-1])
-            #geocoded_lines = self._geocoding(cleaned_lines) rq/spark? 
-            geocoded_lines = self._rq_geocoding(cleaned_lines) #try rq first
-            lines, encoded_lines = self._spark_encoding()
-            
-
+            #geocoded_lines = self._geocoding(cleaned_lines) rq/spark?
+            mapped_lines, unmapped_lines = self._spark_splitting(cleaned_lines)
+            geocoded_lines = self._rq_geocoding(unmapped_lines) #try rq first
+            for line in geocoded_lines:
+                mapped_lines.append(line)
             #save the result file to minio
-            self._save_lines_to_minio_in_csv(lines, self.bucket, dimension, year)
+            self._save_lines_to_minio_in_csv(mapped_lines, self.bucket, dimension, year)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
@@ -93,8 +93,7 @@ class Preparator(Engine):
             ("(?i)\(perubahan\salamat\)", ","),
             ("¿+", ""),
             ("#.*#", ""),
-            ("#+", "")
-        ]
+            ("#+", "")]
         COUNTRY_LIST = [
             'india',
             'u.s.a',
@@ -118,8 +117,7 @@ class Preparator(Engine):
             'france',
             'norway',
             'united kingdom',
-            'finland'
-        ]
+            'finland']
         spark_session = SparkSession.builder.config(conf=self.spark_conf).getOrCreate()
         spark_context = spark_session.sparkContext
         spark_context.setLogLevel("ERROR")
@@ -136,41 +134,28 @@ class Preparator(Engine):
         spark_session.stop()
         return lines
 
-    def _rq_geocoding(self, lines):
+    def _spark_splitting(self, dataframe, col_name="_c6"):
+        #split address berdasarkan comma
+        #cek length list address
+        #initiate mapped_list=[]
+        #if length >3:
+            #cek elemen -3,-2,-1 -> permutasi 3: kota-prov-negara, 2: kota-negara|kota-prov|prov-negara, 1: kota|prov|negara
+        #elif length==3:
+            #cek elemen -2,-1 -> permutasi 2: kota-negara|kota-prov|prov-negara, 1: kota|prov|negara
+        #else
+            #cek elemen -1 (cek out of index ga) -> permutasi 1: kota-negara|kota-prov|prov-negara, 1: kota|prov|negara
+        #assign highest kota, provinsi, negara
+        #if kota >=90% -> mapped -> mapped_list.append
+        #if negara>=80% -> if cek kode pos -> mapped -> mapped_list.append
+        #if kota+provinsi/2 >=70% if cek kode pos -> mapped -> mapped_list.append
         pass
-    
 
-
-    def _transform_in_spark(self, dataframe, dimension, year):
-        #submit cleaning->pattern-matching(?)+geocoding->pembobotan->encoding job to SPARK
-        try:
-            spark_session = sql.SparkSession.builder.config(conf=self.spark_conf).getOrCreate()
-            try:
-                print(spark_session)
-            except: print(sys.exc_info())
-            spark_context = spark_session.sparkContext
-            spark_reader = spark_session.read
-            spark_stream_reader = spark_session.readStream
-            spark_context.setLogLevel("WARN")
-            #######
-            
-            df = spark_session.createDataFrame(dataframe)
-            #clean_address = udf(lambda x: x.strip().strip(', '), StringType())
-            #df = df.withColumn("_c6", clean_address(col("_c6")))
-            df.show()
-        except:
-            print(sys.exc_info())
-                                            
-        #myGDF = ip_dataframe.select('*').groupBy('col1')
-        #ip_dataframe.createOrReplaceTempView('ip_dataframe_as_sqltable')
-        #print(ip_dataframe.collect())
-        #myGDF.sum().show()
-        #
-        finally: 
-            spark_session.stop(); #quit()
-
-        return 1
-        #https://github.com/bitnami/bitnami-docker-spark/issues/18
+    def _rq_geocoding(self, lines):
+        #set request list
+        #loop to enqueue
+        #wait for job
+        #return result
+        pass
         
     def start(self):
         setup_redis = self._setup_redis_conn()
