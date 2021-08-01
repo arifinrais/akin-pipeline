@@ -10,8 +10,10 @@ from copy import deepcopy
 from redis import Redis
 from minio import Minio
 from minio.error import S3Error
+from pyspark import sql
 from pyspark.conf import SparkConf
-from pyspark.sql.types import *
+from pyspark.sql.functions import *
+#from pyspark.sql.types import *
 
 class Preparator(Engine):
     def __init__(self):
@@ -48,17 +50,9 @@ class Preparator(Engine):
             lines=[]
             try:
                 resp = self.minio_client.get_object(self.previous_bucket, file_name)
-                '''
-                list_of_record = resp.data.decode('utf-8').split('\n') #kalau terlalu banyak bisa diganti stringIO
-                
-                list_of_record_list = []
-                for line in list_of_record:
-                    list_of_record_list.append(line.split('\t'))
-                lines = self._transform_in_spark(list_of_record[0:-1], dimension, year)
-                '''
-                #lines=self._transform_in_spark(resp.data, dimension, year)
-                df = BytesToDataFrame(resp.data, ['No. Permohonan','No. Sertifikat','Status','Tanggal Dimulai Perlindungan','Tanggal Berakhir Perlindungan','Daftar Kelas','Alamat'])
-                print(df)
+                #nanti bisa dirapihin masalah fieldsnya
+                df = BytesToDataFrame(resp.data, ['no_permohonan','no_sertifikat','status','tanggal_dimulai','tanggal_berakhir','daftar_kelas','alamat'])
+                self._transform_in_spark(df, dimension, year)
             except S3Error: raise S3Error
             except:
                 print(sys.exc_info())
@@ -71,28 +65,31 @@ class Preparator(Engine):
         except:
             errormsg, b, c = sys.exc_info()
             return False, errormsg
-    
-    #def _csv_parse(self):
 
-    def _transform_in_spark(self, databytes, dimension, year):
+    def _transform_in_spark(self, dataframe, dimension, year):
+        def _clean_address_field(s):
+            return s.split(", ")
         #submit cleaning, pattern-matching(?), geocoding, encoding job to SPARK
         
-
-        return
-        spark_session = sql.SparkSession.builder.config(conf=self.spark_conf).getOrCreate()
-        spark_context = spark_session.sparkContext
-        spark_reader = spark_session.read
-        spark_stream_reader = spark_session.readStream
-        spark_context.setLogLevel("WARN")
-        #######
-        ip_dataframe  = spark_session.createDataFrame(resp_stream.split("\n"))
+        try:
+            spark_session = sql.SparkSession.builder.config(conf=self.spark_conf).getOrCreate()
+            spark_context = spark_session.sparkContext
+            spark_reader = spark_session.read
+            spark_stream_reader = spark_session.readStream
+            spark_context.setLogLevel("WARN")
+            #######
+            df = spark_session.createDataFrame(dataframe)
+            df.select(transform("alamat", _clean_address_field)).show(5)
+        except:
+            print(sys.exc_info())
                                             
-        myGDF = ip_dataframe.select('*').groupBy('col1')
-        ip_dataframe.createOrReplaceTempView('ip_dataframe_as_sqltable')
-        print(ip_dataframe.collect())
-        myGDF.sum().show()
+        #myGDF = ip_dataframe.select('*').groupBy('col1')
+        #ip_dataframe.createOrReplaceTempView('ip_dataframe_as_sqltable')
+        #print(ip_dataframe.collect())
+        #myGDF.sum().show()
         #
-        spark_session.stop(); #quit()
+        finally: 
+            spark_session.stop(); #quit()
 
         return 1
         #https://github.com/bitnami/bitnami-docker-spark/issues/18
@@ -104,5 +101,6 @@ class Preparator(Engine):
         logging.info("Preparator Engine Successfully Started") if  setup_redis and setup_minio and setup_spark else logging.warning("Problem in Starting Preparator Engine")
         while True:
             self._transform()
+            return #try spark
             time.sleep(self.settings['SLEEP_TIME'])
         

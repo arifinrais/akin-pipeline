@@ -126,6 +126,7 @@ class Aggregator(Engine):
                     if not inventor_address: break
         address = inventor_address if inventor_address else owner_address
         if address:
+            #tar coba dicek kalau \n \r \t aja
             address = address.replace('\n',', ')
             address = address.replace('\n\r',', ')
             address = address.replace('\r',', ')
