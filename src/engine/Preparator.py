@@ -25,17 +25,24 @@ class Preparator(Engine):
         self.previous_bucket = self.settings['MINIO_BUCKET_AGGREGATED']
         self.column_names = ['no_permohonan','no_sertifikat','status','tanggal_dimulai','tanggal_berakhir','daftar_kelas','alamat']
 
-    def _setup_spark(self):
+    def _setup_spark(self, app_name=None):
         try:
-            self.spark_conf = SparkConf()
-            self.spark_conf.setAll([
+            _app_name = app_name if app_name else self.settings['SPARK_APP_NAME']
+            spark_conf = SparkConf()
+            spark_conf.setAll([
                 ('spark.master', self.settings['SPARK_MASTER']),# <--- this host must be resolvable by the driver in this case pyspark (whatever it is located, same server or remote) in our case the IP of server
-                ('spark.app.name', self.settings['SPARK_APP_NAME'])
+                ('spark.app.name', _app_name),
+                ('spark.submit.deployMode', self.settings['SPARK_SUBMIT_DEPLOY_MODE']),
+                ('spark.ui.showConsoleProgress', self.settings['SPARK_UI_SHOW_CONSOLE_PROGRESS']),
+                ('spark.eventLog.enabled', self.settings['SPARK_EVENT_LOG_ENABLED']),
+                ('spark.logConf', self.settings['SAPRK_LOG_CONF_']),
+                ('spark.driver.bindAddress', self.settings['SPARK_DRIVER_BIND_ADDRESS']),# <--- this host is the IP where pyspark will bind the service running the driver (normally 0.0.0.0)
+                ('spark.driver.host', self.settings['SPARK_DRIVER_HOST']),# <--- this host is the resolvable IP for the host that is running the driver and it must be reachable by the master and master must be able to reach it (in our case the IP of the container where we are running pyspark
             ])
-            return True
+            return spark_conf
         except:
             print(sys.exc_info()) #for debugging
-            return False
+            return None
 
     def _transform(self):
         #logging.debug('Acquiring Lock for Transformation Jobs...')
@@ -88,7 +95,7 @@ class Preparator(Engine):
             #remove previous address
             ("(?i)\(?perubahan\salamat.*$", ""),
             #remove telephone number
-            (("(?i)\s(telp?\.|telp\s).*indonesia\s+?$", ", INDONESIA"))
+            (("(?i)\s(telp?\.|telp\s).*indonesia\s+?$", ", INDONESIA")),
             ("(?i)\s(telp?\.|telp\s).*$", ""),
             #remove to be noted remarks
             ("(?i)\(\s?u\.?p\.?.*\)", ""),
@@ -108,28 +115,29 @@ class Preparator(Engine):
         COUNTRY_LIST = [
             'india',
             'u.s.a',
-            'san diego, ca',
-            'korea',
-            'china',
-            'california',
-            'thailand',
-            'singapore',
-            'switzerland',
-            'japan',
-            'indiana',
-            'united states',
-            'germany',
-            'sweden',
-            'netherlands',
-            'italy',
-            'belgium',
-            'philippines',
-            'malaysia',
-            'france',
-            'norway',
-            'united kingdom',
-            'finland']
-        spark_session = SparkSession.builder.config(conf=self.spark_conf).getOrCreate()
+            'california', 
+            'indiana', 
+            'san diego, ca', 
+            'united states', 
+            'korea', 
+            'china', 
+            'thailand', 
+            'singapore', 
+            'switzerland', 
+            'japan', 
+            'germany', 
+            'sweden', 
+            'netherlands', 
+            'italy', 
+            'belgium', 
+            'philippines', 
+            'malaysia', 
+            'france', 
+            'norway', 
+            'united kingdom', 
+            'finland'] 
+        spark_conf = self._setup_spark(app_name='data_cleaning')
+        spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
         spark_context = spark_session.sparkContext
         spark_context.setLogLevel("ERROR")
         df = spark_session.createDataFrame(dataframe)
@@ -138,7 +146,7 @@ class Preparator(Engine):
             rgxpattern, replacement = regexp
             df = df.withColumn(col_name, regexp_replace(col(col_name), rgxpattern, replacement))
         for country in COUNTRY_LIST: #filter foreign addresses
-            df = df.filter(df[col_name].rlike('(?i)^.*'+country+'.*$')==False)
+            df = df.filter(df[col_name].rlike('(?i)^.*'+country+'(?![a-z]).*$')==False)
         lines=[]
         for row in df.collect():
             lines.append(CreateCSVLine(row,lineterminator=''))
@@ -146,6 +154,11 @@ class Preparator(Engine):
         return lines
 
     def _spark_splitting(self, dataframe, col_name="_c6"):
+        spark_conf = self._setup_spark(app_name='data_cleaning')
+        spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
+        spark_context = spark_session.sparkContext
+        spark_context.setLogLevel("ERROR")
+        df = spark_session.createDataFrame(dataframe)
         #split address berdasarkan comma
         #cek length list address
         #initiate mapped_list=[]
@@ -180,7 +193,6 @@ class Preparator(Engine):
     def start(self):
         setup_redis = self._setup_redis_conn()
         setup_minio = self._setup_minio_client()
-        setup_spark = self._setup_spark()
         logging.info("Preparator Engine Successfully Started") if  setup_redis and setup_minio and setup_spark else logging.warning("Problem in Starting Preparator Engine")
         
         self._transform() #for debugging
