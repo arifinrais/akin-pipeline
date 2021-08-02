@@ -70,6 +70,14 @@ def BytesToDataFrame(databytes, fields, delimiter="\t", lineterminator='\n'):
     df = pd.read_csv(output,delimiter=delimiter,lineterminator=lineterminator)
     return df
 
+def LinesToDataFrame(lines, fields, delimiter="\t", lineterminator='\n'):
+    output = StringIO()
+    output.write(CreateCSVLine(fields))
+    for i in range(len(lines)):
+        output.write(CreateCSVLine(lines[i]))
+        if i==0: output.seek(0)
+    df = pd.read_csv(output,delimiter=delimiter,lineterminator=lineterminator)
+    return df
 
 def ParseCSVLine(line, delimiter="\t"):
     return line.strip().split(delimiter)

@@ -4,7 +4,7 @@ from typing import Pattern #, os, logging
 import requests as req
 import pandas as pd
 from engine.Engine import Engine
-from engine.EngineHelper import GenerateFileName, BytesToDataFrame, CreateCSVLine
+from engine.EngineHelper import GenerateFileName, BytesToDataFrame, CreateCSVLine, LinesToDataFrame
 from datetime import datetime
 from io import BytesIO, StringIO
 from copy import deepcopy
@@ -60,7 +60,8 @@ class Preparator(Engine):
                 resp.close()
                 resp.release_conn()
             cleaned_lines = self._spark_cleaning(df, self.column_names[-1])
-            mapped_lines, unmapped_lines = self._spark_splitting(cleaned_lines)
+            df = LinesToDataFrame(cleaned_lines)
+            mapped_lines, unmapped_lines = self._spark_splitting(df)
             geocoded_lines = self._rq_geocoding(unmapped_lines) #maybe spark also can do it
             for line in geocoded_lines:
                 mapped_lines.append(line)
