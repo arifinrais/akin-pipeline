@@ -15,6 +15,7 @@ from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
 from pyspark.sql.types import *
+from fuzzywuzzy import fuzz
 
 class Preparator(Engine):
     def __init__(self):
@@ -58,7 +59,6 @@ class Preparator(Engine):
             finally:
                 resp.close()
                 resp.release_conn()
-            
             cleaned_lines = self._spark_cleaning(df, self.column_names[-1])
             mapped_lines, unmapped_lines = self._spark_splitting(cleaned_lines)
             geocoded_lines = self._rq_geocoding(unmapped_lines) #maybe spark also can do it
@@ -71,28 +71,39 @@ class Preparator(Engine):
             errormsg, b, c = sys.exc_info()
             return False, errormsg
 
+
+    '''
+        Notes: Usually the address format is as follows,
+            <Street Address><City>(<General Remarks>?)(<Province>?)(<Country>?)(<Postal Code>?)
+            (<To Be Noted>|<Telephone Number>|<Fax Number>)?(<Country>?)(<Previous Address>|<Postal Address>)?
+        Clean from the end!
+    '''
     def _spark_cleaning(self, dataframe, col_name="_c6"):
         REGEXP_LIST = [
             #remove long spaces
             ("\s+", " "),
-            #remove telephone number
-            ("(?i)\s(telp?\.|telp\s).*$", ""),
+            #remove postal/correspondence address
+            ("(?i)[\s\*\(][Aa]lamat\s[SsKk2].*$", ""),
+            #remove previous address
             ("(?i)\(?perubahan\salamat.*$", ""),
+            #remove telephone number
+            (("(?i)\s(telp?\.|telp\s).*indonesia\s+?$", ", INDONESIA"))
+            ("(?i)\s(telp?\.|telp\s).*$", ""),
             #remove to be noted remarks
             ("(?i)\(\s?u\.?p\.?.*\)", ""),
+            ("(?i)\s\(?\s?u\.?p\.?\s[a-z].*indonesia\s+?$", ", INDONESIA"),
             ("(?i)\s\(?\s?u\.?p\.?\s[a-z].*$", ""),
             #remove general remarks
             ("\(.*\)", ""),
             #fix commas position
-            ("(,\s,)+", ","),
+            (",\s,(\s,)*", ", "),
             (",+", ","),
-            #remove postal address
-            ("(?i)[\s\*\(][Aa]lamat\s[SsKk2].*$", ""),
             #remove other remaining clutter
-            ("(?i)\(perubahan\salamat\)", ","),
             ("¿+", ""),
             ("#.*#", ""),
-            ("#+", "")]
+            ("#+", ""),
+            #remove long spaces again
+            ("\s+", " ")]
         COUNTRY_LIST = [
             'india',
             'u.s.a',
