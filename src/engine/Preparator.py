@@ -101,31 +101,27 @@ class Preparator(Engine):
             ("(?i)\(\s?u\.?p\.?.*\)", ""),
             ("(?i)\s\(?\s?u\.?p\.?\s[a-z].*indonesia\s+?$", ", INDONESIA"),
             ("(?i)\s\(?\s?u\.?p\.?\s[a-z].*$", ""),
-            #remove general remarks
-            ("\(.*\)", ""),
+            #remove general remarks non-postal code
+            ("\((?!\d{5}).*\)", ""),
             #fix commas position
             (",\s,(\s,)*", ", "),
             (",+", ","),
             #remove other remaining clutter
             ("¿+", ""),
-            ("#.*#", ""),
             ("#+", ""),
+            ("·+", ""),
             #remove long spaces again
             ("\s+", " ")]
         COUNTRY_LIST = [
-            'india',
-            'u.s.a',
-            'california', 
-            'indiana', 
-            'san diego, ca', 
-            'united states', 
+            'india','gujarat',
+            'u.s.a','california','indiana','san diego, ca','united states', 
             'korea', 
             'china', 
             'thailand', 
             'singapore', 
             'switzerland', 
-            'japan', 
-            'germany', 
+            'japan', 'tokyo',
+            'germany', 'erlangen',
             'sweden', 
             'netherlands', 
             'italy', 
@@ -153,12 +149,58 @@ class Preparator(Engine):
         spark_session.stop()
         return lines
 
+    CITY_LIST=[
+        'Bandung', #bandung dan kota bandung samain
+        'Jakarta Utara',
+        'Medan',
+        'Surabaya',
+        'Yogyakarta'
+    ]
+    PROVINCE_LIST = [
+        'Jawa Barat',
+        'Jawa Timur',
+        'DKI Jakarta',
+        'Sumatera Utara'
+    ]
+    COUNTRY_LIST = ['Indonesia']
+
     def _spark_splitting(self, dataframe, col_name="_c6"):
+        def _location_fuzz_rating(loc, list_of_loc):
+            maxVal=0; maxLoc=None
+            llw=loc.lower()
+            for _loc in list_of_loc:
+                _llw= _loc.lower()
+                loc_ratio = (fuzz.ratio(llw,_llw)+fuzz.partial_ratio(llw,_llw)+\
+                    fuzz.token_sort_ratio(llw,_llw)+fuzz.token_set_ratio(llw,_llw))/4
+                if loc_ratio>maxVal:
+                    maxVal=loc_ratio
+                    maxLoc=_loc
+            return maxVal, maxLoc
+
+        def _address_splitting(s):
+            address_params=s.split(',')
+            num_of_params=len(address_params)
+            if num_of_params>3:
+                city=address_params[-3]; province = address_params[-2]; country=address_params[-1]
+                maxCity, maxCityRate = _location_fuzz_rating(city, self.CITY_LIST)
+                if maxCityRate > 90: 
+                    #map address
+                    #append address to mapped_list
+                    pass
+        
+                
+                
+            pass
         spark_conf = self._setup_spark(app_name='data_cleaning')
         spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
         spark_context = spark_session.sparkContext
         spark_context.setLogLevel("ERROR")
         df = spark_session.createDataFrame(dataframe)
+        df_postal_coded = df.filter(df[col_name].rlike('(\s|-|,|\.|\()\d{5}($|"\s"|,|\))')==True)
+        #regexp extract -> map postal coded df 
+        #jangan lupa cek locationsnya juga -> split(',') fuzz 100% country/province/city if not, split(' ') fuzz 100% country/province/city
+
+        df = df.filter(df[col_name].rlike('(\s|-|,|\.|\()\d{5}')==True)
         #split address berdasarkan comma
         #cek length list address
         #initiate mapped_list=[]
