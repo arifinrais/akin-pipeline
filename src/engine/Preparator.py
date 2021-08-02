@@ -156,6 +156,7 @@ class Preparator(Engine):
                 if int(s)>=int(p_range[0]) and int(s)<=int(p_range[1]):
                     return rec['city']+';'+rec['province'] #format can be changed
             return 'POSTAL_MAPPING_ERROR'
+        
         def udf_map_postal(std_file):
             return udf(lambda x: map_postal(x,std_file), StringType())
         
@@ -198,7 +199,6 @@ class Preparator(Engine):
         def udf_map_pattern(std_file):
             return udf(lambda x: map_pattern(x,std_file),StringType())
 
-        
         std_file = 'tar dikirim std_file dari parameter sebelumnya dari minio' #JANLUP!!!!!!!
 
         spark_conf = self._setup_spark(app_name='data_splitting')
@@ -209,43 +209,26 @@ class Preparator(Engine):
 
         #split based on postal code
         regex_address_postal = '(\s|-|,|\.|\()\d{5}($|\s|,|\)|\.|-)'; regex_postal = '\d{5}'
-        df_postal_coded = df.filter(df[col_name].rlike(regex_address_postal)==True).\
+        df_postal_mapped = df.filter(df[col_name].rlike(regex_address_postal)==True).\
                             withColumn(col_name, regexp_extract(col_name, regex_address_postal, 0)).\
                             withColumn(col_name, regexp_extract(col_name, regex_postal, 0)).\
-                            withColumn(col_name,  udf_map_postal(std_file)(col(col_name)))
-        #map postal coded udf
+                            withColumn(col_name,  udf_map_postal(std_file)(col(col_name))) #mapping
+        df = df.filter(df[col_name].rlike(regex_address_postal)==False).\
+                withColumn(col_name,  udf_map_pattern(std_file)(col(col_name))) #mapping
+        
+        #split based on pattern-matched
+        df_pattern_mapped = df.filter(df[col_name].rlike('some_pattern')==True) #sesuain format apa kasih flag aja?
+        df_to_geocode = df.filter(df[col_name].rlike('some_pattern')==False) #sesuain format
 
-        
-        df = df.filter(df[col_name].rlike(regex_address_postal)==False)
-        #split address berdasarkan comma
-        #cek length list address
-        #initiate mapped_list=[]
-        #if length >3:
-            #cek pake fuzzywuzzy elemen -3,-2,-1 -> permutasi 3: kota-prov-negara, 2: kota-negara|kota-prov|prov-negara, 1: kota|prov|negara
-            #bisa displit lagi pake spasi
-        #elif length==3:
-            #cek elemen -2,-1 -> permutasi 2: kota-negara|kota-prov|prov-negara, 1: kota|prov|negara
-            #bisa displit lagi pake spasi
-        #else
-            #cek elemen -1 (cek out of index ga) -> permutasi 1: kota-negara|kota-prov|prov-negara, 1: kota|prov|negara
-            #bisa displit lagi pake spasi
-        #assign highest kota, provinsi, negara
-        #if kota >=90% -> mapped -> mapped_list.append
-        #if negara>=80% -> if cek kode pos -> mapped -> mapped_list.append
-        #if kota+provinsi/2 >=70% if cek kode pos -> mapped -> mapped_list.append
-        
-        #if not assigned and ada kode pos
-            #split by commas, and then space
-            #if kota >=90% -> mapped -> mapped_list.append
-            #if negara>=80% -> if cek kode pos -> mapped -> mapped_list.append
-            #if kota+provinsi/2 >=70% if cek kode pos -> mapped -> mapped_list.append
         mapped_lines=[];unmapped_lines=[]
-        for row in df_postal_coded.collect():
+        for row in df_postal_mapped.collect():
             mapped_lines.append(CreateCSVLine(row,lineterminator=''))
-        for row in df_postal_coded.collect():
+        for row in df_pattern_mapped.collect():
             mapped_lines.append(CreateCSVLine(row,lineterminator=''))
+        for row in df_to_geocode.collect():
+            unmapped_lines.append(CreateCSVLine(row,lineterminator=''))
         spark_session.stop()
-        return
+        return mapped_lines, unmapped_lines
 
     def _spark_pattern_matching(self):
         pass
