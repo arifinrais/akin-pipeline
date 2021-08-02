@@ -191,16 +191,23 @@ class Preparator(Engine):
                 
                 
             pass
+        
+        def _map_postal_code(s): #masukin ke udf ntar
+            pass
+
         spark_conf = self._setup_spark(app_name='data_cleaning')
         spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
         spark_context = spark_session.sparkContext
         spark_context.setLogLevel("ERROR")
         df = spark_session.createDataFrame(dataframe)
-        df_postal_coded = df.filter(df[col_name].rlike('(\s|-|,|\.|\()\d{5}($|"\s"|,|\))')==True)
-        #regexp extract -> map postal coded df 
+        regex_address_postal = '(\s|-|,|\.|\()\d{5}($|\s|,|\)|\.|-)'
+        regex_postal = '\d{5}'
+        df_postal_coded = df.filter(df[col_name].rlike(regex_address_postal)==True)
+        df_postal_coded = df_postal_coded.withColumn(col_name, regexp_extract(col_name, regex_postal, 0))
+        #regexp extract -> map postal coded udf
         #jangan lupa cek locationsnya juga -> split(',') fuzz 100% country/province/city if not, split(' ') fuzz 100% country/province/city
 
-        df = df.filter(df[col_name].rlike('(\s|-|,|\.|\()\d{5}')==True)
+        df = df.filter(df[col_name].rlike(regex_address_postal)==False)
         #split address berdasarkan comma
         #cek length list address
         #initiate mapped_list=[]
