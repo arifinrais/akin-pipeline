@@ -67,8 +67,7 @@ class Preparator(Engine):
                 resp.close()
                 resp.release_conn()
             cleaned_lines = self._spark_cleaning(df, self.column_names[-1])
-            df = LinesToDataFrame(cleaned_lines)
-            mapped_lines, unmapped_lines = self._spark_splitting(df)
+            mapped_lines, unmapped_lines = self._spark_splitting(LinesToDataFrame(cleaned_lines))
             geocoded_lines = self._rq_geocoding(unmapped_lines) #maybe spark also can do it
             for line in geocoded_lines:
                 mapped_lines.append(line)
@@ -110,6 +109,7 @@ class Preparator(Engine):
             ("¿+", ""),
             ("#+", ""),
             ("·+", ""),
+            (";", ""),
             #remove long spaces again
             ("\s+", " ")]
         COUNTRY_LIST = [
@@ -149,64 +149,73 @@ class Preparator(Engine):
         spark_session.stop()
         return lines
 
-    CITY_LIST=[
-        'Bandung', #bandung dan kota bandung samain
-        'Jakarta Utara',
-        'Medan',
-        'Surabaya',
-        'Yogyakarta'
-    ]
-    PROVINCE_LIST = [
-        'Jawa Barat',
-        'Jawa Timur',
-        'DKI Jakarta',
-        'Sumatera Utara'
-    ]
-    COUNTRY_LIST = ['Indonesia']
-
     def _spark_splitting(self, dataframe, col_name="_c6"):
-        def _location_fuzz_rating(loc, list_of_loc):
-            maxVal=0; maxLoc=None
-            llw=loc.lower()
-            for _loc in list_of_loc:
-                _llw= _loc.lower()
-                loc_ratio = (fuzz.ratio(llw,_llw)+fuzz.partial_ratio(llw,_llw)+\
-                    fuzz.token_sort_ratio(llw,_llw)+fuzz.token_set_ratio(llw,_llw))/4
-                if loc_ratio>maxVal:
-                    maxVal=loc_ratio
-                    maxLoc=_loc
-            return maxVal, maxLoc
-
-        def _address_splitting(s):
-            address_params=s.split(',')
-            num_of_params=len(address_params)
-            if num_of_params>3:
-                city=address_params[-3]; province = address_params[-2]; country=address_params[-1]
-                maxCity, maxCityRate = _location_fuzz_rating(city, self.CITY_LIST)
-                if maxCityRate > 90: 
-                    #map address
-                    #append address to mapped_list
-                    pass
+        def map_postal(s,std_file):
+            for rec in std_file:
+                p_range=rec['postal_range'].strip().split('-')
+                if int(s)>=int(p_range[0]) and int(s)<=int(p_range[1]):
+                    return rec['city']+';'+rec['province'] #format can be changed
+            return 'POSTAL_MAPPING_ERROR'
+        def udf_map_postal(std_file):
+            return udf(lambda x: map_postal(x,std_file), StringType())
         
-                
-                
-            pass
-        
-        def _map_postal_code(s): #masukin ke udf ntar
-            pass
+        def map_pattern(s,std_file):
+            def fuzz_rating(city, std_file):
+                maxRtg=0; maxLoc=None
+                city=city.strip().lower()
+                fuzz_calc=lambda x,y: (fuzz.ratio(x,y)+fuzz.partial_ratio(x,y)+fuzz.token_sort_ratio(x,y)+fuzz.token_set_ratio(x,y))/4
+                for rec in std_file:
+                    _city = rec['city'].lower()
+                    rating1 = fuzz_calc(city,_city)
+                    _city = rec['city_official'].lower()
+                    rating2 = fuzz_calc(city,_city)
+                    if rec['city_alias']:
+                        _city = rec['city_alias'].lower()
+                        rating3 = fuzz_calc(city,_city)
+                    else: rating3=0
+                    rating = rating1 if rating1>rating2 and rating1>rating3 else rating2 if rating2>rating3 else rating3
+                    if rating==100: return 100, rec['city']+";"+rec['province'] #format can be changed
+                    if rating>maxRtg:
+                        maxRtg=rating
+                        maxLoc=rec['city']+";"+rec['province'] #format can be changed
+                return maxRtg, maxLoc
+            OFFSET=88
+            address_params = s.split(',')
+            max_rating, max_region = 0, ''
+            num_of_params = len(address_params) 
+            max_param = 3 if num_of_params>3 else 2 if num_of_params>2 else 1 if num_of_params>1 else 0
+            if max_param:
+                for i in range(max_param):
+                    r_loc, loc = fuzz_rating(address_params[-i-1],std_file)
+                    if r_loc==100: return loc
+                    if r_loc>max_rating:
+                        max_rating=r_loc
+                        max_region=loc
+            else:
+                return s
+            return max_region if max_rating>=OFFSET else s
+            
+        def udf_map_pattern(std_file):
+            return udf(lambda x: map_pattern(x,std_file),StringType())
 
-        spark_conf = self._setup_spark(app_name='data_cleaning')
+        
+        std_file = 'tar dikirim std_file dari parameter sebelumnya dari minio' #JANLUP!!!!!!!
+
+        spark_conf = self._setup_spark(app_name='data_splitting')
         spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
         spark_context = spark_session.sparkContext
         spark_context.setLogLevel("ERROR")
         df = spark_session.createDataFrame(dataframe)
-        regex_address_postal = '(\s|-|,|\.|\()\d{5}($|\s|,|\)|\.|-)'
-        regex_postal = '\d{5}'
-        df_postal_coded = df.filter(df[col_name].rlike(regex_address_postal)==True)
-        df_postal_coded = df_postal_coded.withColumn(col_name, regexp_extract(col_name, regex_postal, 0))
-        #regexp extract -> map postal coded udf
-        #jangan lupa cek locationsnya juga -> split(',') fuzz 100% country/province/city if not, split(' ') fuzz 100% country/province/city
 
+        #split based on postal code
+        regex_address_postal = '(\s|-|,|\.|\()\d{5}($|\s|,|\)|\.|-)'; regex_postal = '\d{5}'
+        df_postal_coded = df.filter(df[col_name].rlike(regex_address_postal)==True).\
+                            withColumn(col_name, regexp_extract(col_name, regex_address_postal, 0)).\
+                            withColumn(col_name, regexp_extract(col_name, regex_postal, 0)).\
+                            withColumn(col_name,  udf_map_postal(std_file)(col(col_name)))
+        #map postal coded udf
+
+        
         df = df.filter(df[col_name].rlike(regex_address_postal)==False)
         #split address berdasarkan comma
         #cek length list address
@@ -230,6 +239,15 @@ class Preparator(Engine):
             #if kota >=90% -> mapped -> mapped_list.append
             #if negara>=80% -> if cek kode pos -> mapped -> mapped_list.append
             #if kota+provinsi/2 >=70% if cek kode pos -> mapped -> mapped_list.append
+        mapped_lines=[];unmapped_lines=[]
+        for row in df_postal_coded.collect():
+            mapped_lines.append(CreateCSVLine(row,lineterminator=''))
+        for row in df_postal_coded.collect():
+            mapped_lines.append(CreateCSVLine(row,lineterminator=''))
+        spark_session.stop()
+        return
+
+    def _spark_pattern_matching(self):
         pass
 
     def _rq_geocoding(self, lines):
