@@ -42,8 +42,8 @@ class Preparator(Engine):
                 ('spark.ui.showConsoleProgress', self.settings['SPARK_UI_SHOW_CONSOLE_PROGRESS']),
                 ('spark.eventLog.enabled', self.settings['SPARK_EVENT_LOG_ENABLED']),
                 ('spark.logConf', self.settings['SAPRK_LOG_CONF_']),
-                #('spark.driver.bindAddress', self.settings['SPARK_DRIVER_BIND_ADDRESS']),# <--- this host is the IP where pyspark will bind the service running the driver (normally 0.0.0.0)
-                #('spark.driver.host', self.settings['SPARK_DRIVER_HOST']),# <--- this host is the resolvable IP for the host that is running the driver and it must be reachable by the master and master must be able to reach it (in our case the IP of the container where we are running pyspark
+                ('spark.driver.bindAddress', self.settings['SPARK_DRIVER_BIND_ADDRESS']),# <--- this host is the IP where pyspark will bind the service running the driver (normally 0.0.0.0)
+                ('spark.driver.host', self.settings['SPARK_DRIVER_HOST']),# <--- this host is the resolvable IP for the host that is running the driver and it must be reachable by the master and master must be able to reach it (in our case the IP of the container where we are running pyspark
             ])
             return spark_conf
         except:
@@ -51,17 +51,17 @@ class Preparator(Engine):
             return None
 
     def _transform(self):
-        #logging.debug('Acquiring Lock for Transformation Jobs...')
-        #key, dimension, year = self._redis_update_stat_before(self.job)
-        #logging.debug('Transforming Records...')
-        #success, errormsg = self._transform_in_spark(dimension, year)
+        logging.debug('Acquiring Lock for Transformation Jobs...')
+        key, dimension, year = self._redis_update_stat_before(self.job)
+        logging.debug('Transforming Records...')
+        success, errormsg = self._transform_in_spark(dimension, year)
         #logging.debug('Do Geocoding...')
         #if success: success, errormsg = self._geocoding(dimension, year)
-        #logging.debug('Updating Job Status...')
-        #self._redis_update_stat_after(key, self.job, success, errormsg)
-        success, errormsg = self._transform_in_spark('ptn', 2018) #for debugging
+        logging.debug('Updating Job Status...')
+        self._redis_update_stat_after(key, self.job, success, errormsg)
+        #success, errormsg = self._transform_in_spark('ptn', 2018) #for debugging
         #success, errormsg = self._geocoding('ptn', 2018) #for debugging
-        print(success, errormsg)
+        #print(success, errormsg)
 
     def _transform_in_spark(self, dimension, year):
         file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv')
@@ -70,10 +70,10 @@ class Preparator(Engine):
             df = BytesToDataFrame(data_output, self.column_names) if data_output else None
             data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_file_region)
             std_file = json.load(BytesIO(data_output))
-            print('mashuk')
+            
             #cleaning the data
             df_cleaned = self._spark_cleaning(df, self.column_names[-1])
-            print(df_cleaned)
+
             #splitting based on postal code and pattern-matching
             df_mapped_postal, df_unmapped = self._spark_splitting_postal(df_cleaned, std_file, self.column_names[-1])
             df_mapped_pattern, df_unmapped = self._spark_splitting_pattern(df_unmapped, std_file, self.column_names[-1])
@@ -181,10 +181,10 @@ class Preparator(Engine):
         df = spark_session.createDataFrame(dataframe)
         
         #cleaning address data
-        df = df.filter(df[col_name].rlike('^\s*$')==False)\
-            .withColumn(col_name, udf_flag_foreign_address(COUNTRY_LIST)(col(col_name))).cache() #so it can be easily accessed by filter
-        df = df.filter(df[col_name].rlike('FOREIGN_ADDRESS')==False)\
-            .withColumn(col_name, udf_clean_address(REGEXP_LIST)(col(col_name)))
+        df = df.filter(df[col_name].rlike('^\s*$')==False).\
+            withColumn(col_name, udf_flag_foreign_address(COUNTRY_LIST)(col(col_name))).cache() #so it can be easily accessed by filter
+        df = df.filter(df[col_name].rlike('FOREIGN_ADDRESS')==False).\
+            withColumn(col_name, udf_clean_address(REGEXP_LIST)(col(col_name)))
         df_cleaned = df.toPandas()
         
         spark_session.stop()
@@ -214,7 +214,7 @@ class Preparator(Engine):
         df_postal_mapped = df.filter(df[col_name].rlike(regex_address_postal)==True).\
                             withColumn(col_name, regexp_extract(col_name, regex_address_postal, 0)).\
                             withColumn(col_name, regexp_extract(col_name, regex_postal, 0)).\
-                            withColumn(col_name, udf_map_postal(std_file)(col(col_name))) #mapping
+                            withColumn(col_name, udf_map_postal(std_file)(col(col_name))).cache() #mapping
         df_unmapped = df.filter(df[col_name].rlike(regex_address_postal)==False).toPandas()
         df_postal_mapped= df_postal_mapped.toPandas()
         
@@ -238,10 +238,10 @@ class Preparator(Engine):
                         rating3 = fuzz_calc(city,_city)
                     else: rating3=0
                     rating = rating1 if rating1>rating2 and rating1>rating3 else rating2 if rating2>rating3 else rating3
-                    if rating==100: return 100, rec['city']+";"+rec['province'] #format can be changed
+                    if rating==100: return 100, rec['city']+"\t"+rec['province']+'[ADDRESS_MATCHED]' #format can be changed
                     if rating>maxRtg:
                         maxRtg=rating
-                        maxLoc=rec['city']+";"+rec['province'] #format can be changed
+                        maxLoc=rec['city']+"\t"+rec['province']+'[ADDRESS_MATCHED]' #format can be changed
                 return maxRtg, maxLoc
             FUZZ_RATING_OFFSET=88
             address_params = s.split(',')
@@ -270,13 +270,15 @@ class Preparator(Engine):
         df = spark_session.createDataFrame(dataframe)
 
         #map and split based on address pattern
-        df = df.withColumn(col_name, udf_map_pattern(std_file)(col(col_name))) #mapping
+        df = df.withColumn(col_name, udf_map_pattern(std_file)(col(col_name))).cache() #mapping
         regex_address_pattern='\t.*\[ADDRESS_MATCHED\]'#sesuain format apa kasih flag aja?
-        df_pattern_mapped = df.filter(df[col_name].rlike(regex_address_pattern)==True).toPandas() 
+        df_pattern_mapped = df.filter(df[col_name].rlike(regex_address_pattern)==True).\
+                            withColumn(col_name, regexp_replace(col(col_name), '\[ADDRESS_MATCHED\]', ''))
+        df_mapped = df_pattern_mapped.toPandas()
         df_unmapped = df.filter(df[col_name].rlike(regex_address_pattern)==False).toPandas()
         
         spark_session.stop()
-        return df_pattern_mapped, df_unmapped
+        return df_mapped, df_unmapped
 
     def _geocoding(self, dimension, year):
         mapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.mapped_folder)
@@ -383,8 +385,8 @@ class Preparator(Engine):
         setup_redis = self._setup_redis_conn()
         setup_minio = self._setup_minio_client()
         logging.info("Preparator Engine Successfully Started") if  setup_redis and setup_minio else logging.warning("Problem in Starting Preparator Engine")    
-        self._transform() #for debugging
-        return
+        #self._transform() #for debugging
+        #return
         while True:
             self._transform()
             time.sleep(self.settings['SLEEP_TIME'])
