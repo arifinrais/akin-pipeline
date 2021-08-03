@@ -31,14 +31,14 @@ MAX_INGEST_YEAR = 2018
 MIN_INGEST_YEAR = 2000
 
 # spark settings
-SPARK_MASTER = 'spark://172.20.0.5:7077'
-SPARK_APP_NAME = 'preparator'
+SPARK_MASTER = 'spark://localhost:7077'
+SPARK_APP_NAME = 'preparator_'
 SPARK_SUBMIT_DEPLOY_MODE = 'client'
 SPARK_UI_SHOW_CONSOLE_PROGRESS = 'true'
 SPARK_EVENT_LOG_ENABLED = 'false'
 SAPRK_LOG_CONF_ = 'false'
 SPARK_DRIVER_BIND_ADDRESS = '0.0.0.0'
-SPARK_DRIVER_HOST = '172.25.0.5'
+SPARK_DRIVER_HOST = 'preparator'
 
 # stats setup
 STATS_TOTAL = True

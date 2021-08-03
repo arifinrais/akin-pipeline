@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, time, logging, json, csv, traceback
+import sys, time, logging, json, regex as re, csv, traceback
 from typing import Pattern #, os, logging
 import requests as req
 import pandas as pd
@@ -42,8 +42,8 @@ class Preparator(Engine):
                 ('spark.ui.showConsoleProgress', self.settings['SPARK_UI_SHOW_CONSOLE_PROGRESS']),
                 ('spark.eventLog.enabled', self.settings['SPARK_EVENT_LOG_ENABLED']),
                 ('spark.logConf', self.settings['SAPRK_LOG_CONF_']),
-                ('spark.driver.bindAddress', self.settings['SPARK_DRIVER_BIND_ADDRESS']),# <--- this host is the IP where pyspark will bind the service running the driver (normally 0.0.0.0)
-                ('spark.driver.host', self.settings['SPARK_DRIVER_HOST']),# <--- this host is the resolvable IP for the host that is running the driver and it must be reachable by the master and master must be able to reach it (in our case the IP of the container where we are running pyspark
+                #('spark.driver.bindAddress', self.settings['SPARK_DRIVER_BIND_ADDRESS']),# <--- this host is the IP where pyspark will bind the service running the driver (normally 0.0.0.0)
+                #('spark.driver.host', self.settings['SPARK_DRIVER_HOST']),# <--- this host is the resolvable IP for the host that is running the driver and it must be reachable by the master and master must be able to reach it (in our case the IP of the container where we are running pyspark
             ])
             return spark_conf
         except:
@@ -70,10 +70,10 @@ class Preparator(Engine):
             df = BytesToDataFrame(data_output, self.column_names) if data_output else None
             data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_file_region)
             std_file = json.load(BytesIO(data_output))
-
+            print('mashuk')
             #cleaning the data
             df_cleaned = self._spark_cleaning(df, self.column_names[-1])
-
+            print(df_cleaned)
             #splitting based on postal code and pattern-matching
             df_mapped_postal, df_unmapped = self._spark_splitting_postal(df_cleaned, std_file, self.column_names[-1])
             df_mapped_pattern, df_unmapped = self._spark_splitting_pattern(df_unmapped, std_file, self.column_names[-1])
@@ -146,15 +146,45 @@ class Preparator(Engine):
             'norway', 
             'united kingdom', 
             'finland'] 
+        def clean_address(s,regexp_list):
+            for regex_pair in regexp_list:
+                regexp, replacement = regex_pair
+                s=re.sub(regexp,replacement,s,flags=re.I)
+            return s
+        
+        def udf_clean_address(regexp_list):
+            return udf(lambda x: clean_address(x,regexp_list), StringType())
+
         spark_conf = self._setup_spark(app_name='data_cleaning')
         spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
         spark_context = spark_session.sparkContext
         spark_context.setLogLevel("ERROR")
         df = spark_session.createDataFrame(dataframe)
         df = df.filter(df[col_name].rlike('^\s*$')==False) #filter empty addresses
+        
+        print('done')
+        df = df.withColumn(col_name, udf_clean_address(REGEXP_LIST)(col(col_name))).persist()
+        
+        #for debugging
+        print(df)
+        print('done2')
+        df_pandas = df.toPandas()
+        spark_session.stop()
+        print(df_pandas)
+        return df_pandas
+
+        #for debugging
+        for row in df.collect():
+            print(list(row))
+            break
+        print('done3')
+        '''
+        previous version:
         for regexp in REGEXP_LIST: #transforming addresses format for quality
             rgxpattern, replacement = regexp
             df = df.withColumn(col_name, regexp_replace(col(col_name), rgxpattern, replacement))
+        '''
+
         for country in COUNTRY_LIST: #filter foreign addresses
             df = df.filter(df[col_name].rlike('(?i)^.*'+country+'(?![a-z]).*$')==False)       
         df_pandas=df.toPandas()
