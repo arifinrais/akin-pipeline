@@ -22,6 +22,9 @@ MINIO_ROOT_PASSWORD = 'minio123'
 MINIO_BUCKET_INGESTED = 'raw'
 MINIO_BUCKET_AGGREGATED = 'agg'
 MINIO_BUCKET_TRANSFORMED = 'tfm'
+MINIO_BUCKET_RESOURCES = 'res'
+FILE_REGION_STANDARD = 'region_standard.json'
+FILE_DEPARTMENT_STANDARD = 'department_standard.json'
 
 # ingestion settings
 MAX_INGEST_YEAR = 2018

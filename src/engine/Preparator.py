@@ -23,6 +23,9 @@ class Preparator(Engine):
         self.job = self.settings['JOB_TRANSFORM']
         self.bucket = self.settings['MINIO_BUCKET_TRANSFORMED']
         self.previous_bucket = self.settings['MINIO_BUCKET_AGGREGATED']
+        self.resources_bucket = self.settings['MINIO_BUCKET_RESOURCES']
+        self.standard_file_region = self.settings['FILE_REGION_STANDARD']
+        self.standard_file_department = self.settings['FILE_DEPARTMENT_STANDARD']
         self.column_names = ['no_permohonan','no_sertifikat','status','tanggal_dimulai','tanggal_berakhir','daftar_kelas','alamat']
 
     def _setup_spark(self, app_name=None):
@@ -57,22 +60,29 @@ class Preparator(Engine):
     def _transform_file(self, dimension, year):
         file_name=GenerateFileName(self.previous_bucket, dimension, year, '.csv')
         try:
-            df=None
-            try:
-                resp = self.minio_client.get_object(self.previous_bucket, file_name)
-                #nanti bisa dirapihin masalah fieldsnya
-                df = BytesToDataFrame(resp.data, self.column_names)
-            except S3Error: raise S3Error
-            finally:
-                resp.close()
-                resp.release_conn()
-            cleaned_lines = self._spark_cleaning(df, self.column_names[-1])
-            mapped_lines, unmapped_lines = self._spark_splitting(LinesToDataFrame(cleaned_lines))
-            geocoded_lines = self._rq_geocoding(unmapped_lines) #maybe spark also can do it
-            for line in geocoded_lines:
-                mapped_lines.append(line)
-            #save the result file to minio
-            self._save_lines_to_minio_in_csv(mapped_lines, self.bucket, dimension, year)
+            data_output = self._fetch_file_from_minio(self.previous_bucket, file_name)
+            df = BytesToDataFrame(data_output, self.column_names) if data_output else None
+            data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_file_region)
+            std_file = json.load(BytesIO(data_output))
+
+            #cleaning the data
+            df_cleaned = self._spark_cleaning(df, self.column_names[-1])
+
+            #splitting based on postal code and pattern-matching
+            df_mapped_postal, df_unmapped = self._spark_splitting_postal(df_cleaned, std_file, self.column_names[-1])
+            df_mapped_pattern, df_unmapped = self._spark_splitting_pattern(df_unmapped, std_file, self.column_names[-1])
+            
+            #save mapped dataframes
+            df_mapped = df_mapped_postal.append(df_mapped_pattern)
+            mapped_lines = []
+            for mapped_values in df_mapped.values.tolist():
+                mapped_lines.append(CreateCSVLine(mapped_values))
+            self._save_data_to_minio(mapped_lines, self.bucket, dimension, year) #buat bucket khusus?
+
+            unmapped_lines = []
+            for unmapped_values in df_unmapped.values.tolist():
+                unmapped_lines.append(CreateCSVLine(unmapped_values))
+            self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year) #buat bucket khusus?
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
@@ -142,14 +152,18 @@ class Preparator(Engine):
             rgxpattern, replacement = regexp
             df = df.withColumn(col_name, regexp_replace(col(col_name), rgxpattern, replacement))
         for country in COUNTRY_LIST: #filter foreign addresses
-            df = df.filter(df[col_name].rlike('(?i)^.*'+country+'(?![a-z]).*$')==False)
+            df = df.filter(df[col_name].rlike('(?i)^.*'+country+'(?![a-z]).*$')==False)       
+        df_pandas=df.toPandas()
+        spark_session.stop()
+        return df_pandas
+        '''
         lines=[]
         for row in df.collect():
             lines.append(CreateCSVLine(row,lineterminator=''))
-        spark_session.stop()
-        return lines
+        '''
 
-    def _spark_splitting(self, dataframe, col_name="_c6"):
+    def _spark_splitting_postal(self, dataframe, std_file, col_name="_c6"):
+        #setup spark udfs
         def map_postal(s,std_file):
             for rec in std_file:
                 p_range=rec['postal_range'].strip().split('-')
@@ -159,7 +173,28 @@ class Preparator(Engine):
         
         def udf_map_postal(std_file):
             return udf(lambda x: map_postal(x,std_file), StringType())
+
+        #setup spark
+        spark_conf = self._setup_spark(app_name='data_splitting_postal')
+        spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
+        spark_context = spark_session.sparkContext
+        spark_context.setLogLevel("ERROR")
+        df = spark_session.createDataFrame(dataframe)
         
+        #split and map based on postal code
+        regex_address_postal = '(\s|-|,|\.|\()\d{5}($|\s|,|\)|\.|-)'; regex_postal = '\d{5}'
+        df_postal_mapped = df.filter(df[col_name].rlike(regex_address_postal)==True).\
+                            withColumn(col_name, regexp_extract(col_name, regex_address_postal, 0)).\
+                            withColumn(col_name, regexp_extract(col_name, regex_postal, 0)).\
+                            withColumn(col_name,  udf_map_postal(std_file)(col(col_name))) #mapping
+        df_unmapped = df.filter(df[col_name].rlike(regex_address_postal)==False).toPandas()
+        df_postal_mapped= df_postal_mapped.toPandas()
+        
+        spark_session.stop()
+        return df_postal_mapped, df_unmapped
+
+    def _spark_splitting_pattern(self, dataframe, std_file, col_name="_c6"):
+        #setup spark udfs
         def map_pattern(s,std_file):
             def fuzz_rating(city, std_file):
                 maxRtg=0; maxLoc=None
@@ -199,39 +234,22 @@ class Preparator(Engine):
         def udf_map_pattern(std_file):
             return udf(lambda x: map_pattern(x,std_file),StringType())
 
-        std_file = 'tar dikirim std_file dari parameter sebelumnya dari minio' #JANLUP!!!!!!!
-
-        spark_conf = self._setup_spark(app_name='data_splitting')
+        #setup spark
+        spark_conf = self._setup_spark(app_name='data_splitting_pattern')
         spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
         spark_context = spark_session.sparkContext
         spark_context.setLogLevel("ERROR")
         df = spark_session.createDataFrame(dataframe)
 
-        #split based on postal code
-        regex_address_postal = '(\s|-|,|\.|\()\d{5}($|\s|,|\)|\.|-)'; regex_postal = '\d{5}'
-        df_postal_mapped = df.filter(df[col_name].rlike(regex_address_postal)==True).\
-                            withColumn(col_name, regexp_extract(col_name, regex_address_postal, 0)).\
-                            withColumn(col_name, regexp_extract(col_name, regex_postal, 0)).\
-                            withColumn(col_name,  udf_map_postal(std_file)(col(col_name))) #mapping
-        df = df.filter(df[col_name].rlike(regex_address_postal)==False).\
-                withColumn(col_name,  udf_map_pattern(std_file)(col(col_name))) #mapping
+        #map and split based on address pattern
+        df = df.withColumn(col_name,  udf_map_pattern(std_file)(col(col_name))) #mapping
+        regex_address_pattern='\t.*\[ADDRESS_MATCHED\]'#sesuain format apa kasih flag aja?
+        df_pattern_mapped = df.filter(df[col_name].rlike(regex_address_pattern)==True).toPandas() 
+        df_unmapped = df.filter(df[col_name].rlike(regex_address_pattern)==False).toPandas()
         
-        #split based on pattern-matched
-        df_pattern_mapped = df.filter(df[col_name].rlike('some_pattern')==True) #sesuain format apa kasih flag aja?
-        df_to_geocode = df.filter(df[col_name].rlike('some_pattern')==False) #sesuain format
-
-        mapped_lines=[];unmapped_lines=[]
-        for row in df_postal_mapped.collect():
-            mapped_lines.append(CreateCSVLine(row,lineterminator=''))
-        for row in df_pattern_mapped.collect():
-            mapped_lines.append(CreateCSVLine(row,lineterminator=''))
-        for row in df_to_geocode.collect():
-            unmapped_lines.append(CreateCSVLine(row,lineterminator=''))
         spark_session.stop()
-        return mapped_lines, unmapped_lines
+        return df_pattern_mapped, df_unmapped
 
-    def _spark_pattern_matching(self):
-        pass
 
     def _rq_geocoding(self, lines):
         #set request list
