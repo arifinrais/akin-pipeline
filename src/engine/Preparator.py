@@ -98,6 +98,15 @@ class Preparator(Engine):
             <Street Address><City>(<General Remarks>?)(<Province>?)(<Country>?)(<Postal Code>?)
             (<To Be Noted>|<Telephone Number>|<Fax Number>)?(<Country>?)(<Previous Address>|<Postal Address>)?
         Clean from the end!
+        PREVIOUS VERSION
+        for regexp in REGEXP_LIST: #transforming addresses format for quality
+            rgxpattern, replacement = regexp
+            df = df.withColumn(col_name, regexp_replace(col(col_name), rgxpattern, replacement))
+        for country in COUNTRY_LIST: #filter foreign addresses
+            df = df.filter(df[col_name].rlike('(?i)^.*'+country+'(?![a-z]).*$')==False)
+        lines=[]
+        for row in df.collect():
+            lines.append(CreateCSVLine(row,lineterminator=''))
     '''
     def _spark_cleaning(self, dataframe, col_name="_c6"):
         REGEXP_LIST = [
@@ -146,55 +155,40 @@ class Preparator(Engine):
             'norway', 
             'united kingdom', 
             'finland'] 
+        #setup spark udfs
         def clean_address(s,regexp_list):
             for regex_pair in regexp_list:
                 regexp, replacement = regex_pair
-                s=re.sub(regexp,replacement,s,flags=re.I)
+                s=re.sub(regexp,replacement,s)
             return s
         
         def udf_clean_address(regexp_list):
             return udf(lambda x: clean_address(x,regexp_list), StringType())
 
+        def flag_foreign_address(s,country_list):
+            for country in country_list:
+                if country.lower() in s.lower(): return 'FOREIGN_ADDRESS'
+            return s
+
+        def udf_flag_foreign_address(regexp_list):
+            return udf(lambda x: flag_foreign_address(x,regexp_list), StringType())
+
+        #setup spark
         spark_conf = self._setup_spark(app_name='data_cleaning')
         spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
         spark_context = spark_session.sparkContext
         spark_context.setLogLevel("ERROR")
         df = spark_session.createDataFrame(dataframe)
-        df = df.filter(df[col_name].rlike('^\s*$')==False) #filter empty addresses
         
-        print('done')
-        df = df.withColumn(col_name, udf_clean_address(REGEXP_LIST)(col(col_name))).persist()
+        #cleaning address data
+        df = df.filter(df[col_name].rlike('^\s*$')==False)\
+            .withColumn(col_name, udf_flag_foreign_address(COUNTRY_LIST)(col(col_name))).cache() #so it can be easily accessed by filter
+        df = df.filter(df[col_name].rlike('FOREIGN_ADDRESS')==False)\
+            .withColumn(col_name, udf_clean_address(REGEXP_LIST)(col(col_name)))
+        df_cleaned = df.toPandas()
         
-        #for debugging
-        print(df)
-        print('done2')
-        df_pandas = df.toPandas()
         spark_session.stop()
-        print(df_pandas)
-        return df_pandas
-
-        #for debugging
-        for row in df.collect():
-            print(list(row))
-            break
-        print('done3')
-        '''
-        previous version:
-        for regexp in REGEXP_LIST: #transforming addresses format for quality
-            rgxpattern, replacement = regexp
-            df = df.withColumn(col_name, regexp_replace(col(col_name), rgxpattern, replacement))
-        '''
-
-        for country in COUNTRY_LIST: #filter foreign addresses
-            df = df.filter(df[col_name].rlike('(?i)^.*'+country+'(?![a-z]).*$')==False)       
-        df_pandas=df.toPandas()
-        spark_session.stop()
-        return df_pandas
-        '''
-        lines=[]
-        for row in df.collect():
-            lines.append(CreateCSVLine(row,lineterminator=''))
-        '''
+        return df_cleaned
 
     def _spark_splitting_postal(self, dataframe, std_file, col_name="_c6"):
         #setup spark udfs
@@ -249,7 +243,7 @@ class Preparator(Engine):
                         maxRtg=rating
                         maxLoc=rec['city']+";"+rec['province'] #format can be changed
                 return maxRtg, maxLoc
-            OFFSET=88
+            FUZZ_RATING_OFFSET=88
             address_params = s.split(',')
             max_rating, max_region = 0, ''
             num_of_params = len(address_params) 
@@ -263,7 +257,7 @@ class Preparator(Engine):
                         max_region=loc
             else:
                 return s
-            return max_region if max_rating>=OFFSET else s
+            return max_region if max_rating>=FUZZ_RATING_OFFSET else s
             
         def udf_map_pattern(std_file):
             return udf(lambda x: map_pattern(x,std_file),StringType())
