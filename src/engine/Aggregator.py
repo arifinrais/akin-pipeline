@@ -28,16 +28,20 @@ class Aggregator(Engine):
             for obj_name in obj_list:
                 if self._check_dimension_source('PDKI', dimension):
                     lines=self._parse_json(obj_name, dimension)
-                    if len(lines): 
+                    if lines is None: 
+                        raise Exception('500: Internal Server Error')
+                    elif lines:
                         for line in lines: parsed_lines.append(line) 
                 elif self._check_dimension_source('SINTA', dimension):
                     lines=self._parse_html(obj_name, dimension)
-                    if len(lines): 
+                    if lines is None: 
+                        raise Exception('500: Internal Server Error')
+                    elif lines: 
                         for line in lines: parsed_lines.append(line)
                 else:
                     raise Exception('405: Parser Not Found')
             unique_lines=self._uniquify(parsed_lines)
-            self._save_lines_to_minio_in_csv(unique_lines, self.bucket, dimension, year)
+            self._save_data_to_minio(unique_lines, self.bucket, dimension, year)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
@@ -62,14 +66,12 @@ class Aggregator(Engine):
 
     def _parse_json(self, obj_name, dimension):
         try:
-            resp = self.minio_client.get_object(self.previous_bucket, obj_name)
-            json_obj = json.load(BytesIO(resp.data))
+            data_output = self._fetch_file_from_minio(self.previous_bucket, obj_name)
+            json_obj = json.load(BytesIO(data_output))
             lines = self._parse_object(json_obj, dimension)
-        except S3Error: raise S3Error
-        finally:
-            resp.close()
-            resp.release_conn()
             return lines
+        except:
+            return None
 
     def _parse_object(self, obj, dimension):
         lines = []
