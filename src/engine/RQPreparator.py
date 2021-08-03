@@ -1,25 +1,18 @@
 #!/usr/bin/env python3
-import sys, time, logging, json, regex as re, csv, traceback
-import requests as req
-import pandas as pd
-from engine.Engine import Engine
-from engine.EngineHelper import GenerateFileName, BytesToDataFrame, CreateCSVLine, BytesToLines, CleanAddress, PatternSplit, PostalSplit
-from io import BytesIO
-from redis import Redis
-from minio import Minio
+import sys, time, logging, json, regex as re, requests as req
 from minio.error import S3Error
-from fuzzywuzzy import fuzz
-import logging
 from engine.Engine import Engine
-from engine.EngineHelper import Scrape
+from engine.EngineHelper import GenerateFileName, CreateCSVLine, BytesToLines, CleanAddress, PatternSplit, PostalSplit, Geocode
+from io import BytesIO
 from redis import Redis
 from rq import Connection, Worker
 from rq.queue import Queue
 from rq.job import Job 
+from fuzzywuzzy import fuzz
 
 class RQPreparator(Engine):
     ADDR_COL_INDEX=6
-    TEMP_FOLDERS={'mapped':'tmp_mapped','unmapped':'tmp_unmapped','result':'result'}
+    TEMP_FOLDERS={'mapped':'tmp_mapped','unmapped':'tmp_unmapped','result':'result','failed':'failed'}
     TFM_WORK={'clean':'cln','postal_mapping':'psp','pattern_matching':'ptm','geocode':'gcd'}
     TFM_WAIT_TIME=5
 
@@ -57,7 +50,7 @@ class RQPreparator(Engine):
         success, errormsg = self._transform_in_rq(dimension, year)
         logging.debug('Do Geocoding...')
         if success and not errormsg:
-            success, errormsg = self._geocoding(dimension, year)
+            success, errormsg = self._geocoding_in_rq(dimension, year)
         logging.debug('Updating Job Status...')
         self._redis_update_stat_after(key, self.job, success, errormsg)
         #success, errormsg = self._transform_in_rq('ptn', 2018) #for debugging
@@ -69,28 +62,39 @@ class RQPreparator(Engine):
         try:
             data_output = self._fetch_file_from_minio(self.previous_bucket, file_name)
             line_list = BytesToLines(data_output, line_list=True) if data_output else None
+            if not line_list: raise Exception('405: File Not Fetched')
             data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_file_region)
             std_file = json.load(BytesIO(data_output))
             
+            #cleaning the data
             ll_cleaned = self._rq_cleaning(line_list, self.ADDR_COL_INDEX)
-            ll_mapped_postal, ll_unmapped = self._rq_postal_split(ll_cleaned, std_file, self.ADDR_COL_INDEX)
-            ll_mapped_pattern, ll_unmapped = self._rq_pattern_split(ll_unmapped, std_file, self.ADDR_COL_INDEX)
-
+            
+            #splitting the data based on postal code
+            ll_mapped_postal, ll_unmapped = self._rq_split(ll_cleaned, std_file, self.TFM_WORK['postal_mapping'], self.ADDR_COL_INDEX)
+            if not ll_unmapped:
+                self._save_data_to_minio(ll_mapped_postal, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['result'])
+                return True, True
+            
+            #splitting the data based on pattern matching
+            ll_mapped_pattern, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['pattern_matching'],self.ADDR_COL_INDEX)
             mapped_lines=[]
-            for line in ll_mapped_postal:
-                mapped_lines.append(CreateCSVLine(line))
-            for line in ll_mapped_pattern:
-                mapped_lines.append(CreateCSVLine(line))
+            if ll_mapped_postal:
+                for line in ll_mapped_postal:
+                    mapped_lines.append(CreateCSVLine(line))
+            if ll_mapped_pattern:
+                for line in ll_mapped_pattern:
+                    mapped_lines.append(CreateCSVLine(line))
+            if not ll_unmapped:
+                self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['result'])
+                return True, True
+            
+            #saving the data separately if there are still unmapped records (note: it can be that there's no mapped record)
+            if mapped_lines:
+                self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['mapped'])
             unmapped_lines = []
             for line in ll_unmapped:
                 unmapped_lines.append(CreateCSVLine(line))
-            
-            if mapped_lines and not unmapped_lines:
-                self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['result'])
-                return True, True
-            else:
-                self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['mapped'])
-                self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['unmapped'])
+            self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['unmapped'])
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
@@ -162,7 +166,7 @@ class RQPreparator(Engine):
             time.sleep(self.TFM_WAIT_TIME)     
         return ll_cleaned
 
-    def _rq_split(self, line_list, std_file, tfm_work, col_idx=6):
+    def _rq_split(self, line_list, std_file, tfm_work, col_idx=6, api_config=None):
         job_id = []
         for line in line_list:
             with Connection():
@@ -170,6 +174,8 @@ class RQPreparator(Engine):
                     job = self.queue[tfm_work].enqueue(PostalSplit, args=(line, std_file, col_idx))
                 elif tfm_work==self.TFM_WORK['pattern_matching']:
                     job = self.queue[tfm_work].enqueue(PatternSplit, args=(line, std_file, col_idx))
+                elif tfm_work==self.TFM_WORK['geocode']:
+                    job = self.queue[tfm_work].enqueue(Geocode, args=(line, std_file, api_config, col_idx))
                 job_id.append(job.id)
         ll_mapped=[];ll_unmapped=[]
         while True:
@@ -187,106 +193,44 @@ class RQPreparator(Engine):
             time.sleep(self.TFM_WAIT_TIME)     
         return ll_mapped, ll_unmapped
 
-    def _geocoding(self, dimension, year):
+    def _geocoding_in_rq(self, dimension, year):
+        #set api config
+        API_CONFIG={}
         mapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.TEMP_FOLDERS['mapped'])
+        unmapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.TEMP_FOLDERS['unmapped'])
         try:
-            #open unmapped dataset
-            unmapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.TEMP_FOLDERS['unmapped'])
             data_output = self._fetch_file_from_minio(self.bucket, unmapped_fname)
-            df = BytesToDataFrame(data_output, self.column_names) if data_output else None
+            ll_unmapped = BytesToLines(data_output, line_list=True) if data_output else None
+            if not ll_unmapped: raise Exception('405: File Not Fetched')
             data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_file_region)
             std_file = json.load(BytesIO(data_output))
             
-            #geocode unmapped data in spark
-            #bisa _geocoding_in_rq atau _geocoding_bare
-            df_geocoded = self._spark_geocoding(df, self.column_names[-1])
-            _df_mapped = self._spark_mapping_gc(df_geocoded, std_file, self.column_names[-1])
+            #geocoding and mapping data in spark
+            ll_geomapped, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['geocode'], self.ADDR_COL_INDEX, API_CONFIG)
 
-            #open mapped dataset
-            mapped_fname = GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.TEMP_FOLDERS['mapped'])
+            #open previously mapped dataset
             data_output = self._fetch_file_from_minio(self.bucket, mapped_fname)
-            df = BytesToDataFrame(data_output, self.column_names) if data_output else None
+            ll_mapped = BytesToLines(data_output, self.column_names) if data_output else None
 
-            #join and save mapped and geocoded data
-            df_mapped = df.append(_df_mapped)
-            mapped_lines = []
-            for mapped_values in df_mapped.values.tolist():
-                mapped_lines.append(CreateCSVLine(mapped_values))
-            self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['result']) #buat bucket khusus?
+            #saving joined mapped dataset and failed to transform dataset
+            mapped_lines=[]
+            if ll_mapped:
+                for line in ll_mapped:
+                    mapped_lines.append(CreateCSVLine(line))
+            if ll_geomapped:
+                for line in ll_geomapped:
+                    mapped_lines.append(CreateCSVLine(line))
+            if mapped_lines:
+                self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['result'])
+            if ll_unmapped:
+                unmapped_lines=[]
+                for line in ll_unmapped:
+                    unmapped_lines.append(CreateCSVLine(line))
+                self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['failed'])
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
             return False, errormsg
-        pass
-        
-    def _spark_geocoding(self, dataframe, col_name="_c6"):
-        #setup spark udfs
-        def geocode(s,_config):
-            #config request sesuai APInya
-            #hit api
-            #parse response
-            #return parsed response
-            pass
-        
-        def udf_geocode(_config):
-            return udf(lambda x: geocode(x,_config), StringType())
-        
-        #setup config
-        _config={} #sesuain sama APInya
-
-        #setup spark
-        spark_conf = self._setup_spark(app_name='data_splitting_postal')
-        spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
-        spark_context = spark_session.sparkContext
-        spark_context.setLogLevel("ERROR")
-        
-        #geocoding based on bare address
-        df = spark_session.createDataFrame(dataframe)
-        df_geocoded = df.withColumn(col_name, udf_geocode(_config)(col(col_name))).toPandas()
-        
-        spark_session.stop()
-        return df_geocoded
-
-    def _spark_mapping_gc(self, dataframe, std_file, col_name="_c6"):
-        #setup spark udfs
-        def map_geocode(s,std_file):
-            fuzz_calc=lambda x,y: (fuzz.ratio(x,y)+fuzz.partial_ratio(x,y)+fuzz.token_sort_ratio(x,y)+fuzz.token_set_ratio(x,y))/4
-            maxRtg, maxLoc = 0, None
-            locs=s.strip().split('\t') #sesuain format hasil parsing geocode, misal <city>\t<province>
-            fuzz_calc=lambda x,y: (fuzz.ratio(x,y)+fuzz.partial_ratio(x,y)+fuzz.token_sort_ratio(x,y)+fuzz.token_set_ratio(x,y))/4
-            for rec in std_file:
-                _prov = rec['province'].lower()
-                _city = rec['city'].lower()
-                rating = (fuzz_calc(locs[0],_city)+fuzz_calc(locs[1],_prov))/2
-                if rating>maxRtg:
-                    maxLoc=rec['city']+'\t'+rec['province']
-            return maxLoc if maxLoc else 'GEOCODE_MAPPING_ERROR'
-        
-        def udf_map_geocode(std_file):
-            return udf(lambda x: map_geocode(x,std_file), StringType())
-
-        #setup spark
-        spark_conf = self._setup_spark(app_name='data_splitting_postal')
-        spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
-        spark_context = spark_session.sparkContext
-        spark_context.setLogLevel("ERROR")
-        
-        #mapping geocoded address
-        df = spark_session.createDataFrame(dataframe)
-        df_mapped = df.withColumn(col_name, udf_map_geocode(std_file)(col(col_name))).toPandas()
-        
-        spark_session.stop()
-        return df_mapped
-
-    def _geocoding_in_rq(self, dimension, year):
-        #set request list
-        #loop to enqueue
-        #wait for job
-        #return result
-        pass
-        
-    def _geocoding_bare(self, dimension, year):
-        pass
 
     def start(self):
         setup_rq = self._setup_rq()

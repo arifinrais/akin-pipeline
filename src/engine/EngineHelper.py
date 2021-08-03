@@ -105,6 +105,35 @@ def PatternSplit(line, std_file, col_idx=6, fuzz_offset=88):
             return line, None
     return None, line
 
+def Geocode(line, std_file, api_config, col_idx=6):
+    #hit api with api_config
+    resp='some json file that has to be loaded'
+
+    #parse response
+    #if response > 1 loop parse until get a city
+    resp_city='some city'
+    #if theres also province attribute, get the province
+    resp_province='some province'
+    
+    #if there's no city, failed geocode
+    if not resp_city: return None, line
+
+    fuzz_calc=lambda x,y: (fuzz.ratio(x,y)+fuzz.partial_ratio(x,y)+fuzz.token_sort_ratio(x,y)+fuzz.token_set_ratio(x,y))/4
+    max_rating, max_city, max_province = 0, None, None
+    for region in std_file:
+        reg_city = region['city'].lower()
+        reg_province = region['province'].lower()
+        if resp_province:
+            rating = (fuzz_calc(resp_city,reg_city)+fuzz_calc(resp_province,reg_province))/2
+        if rating>max_rating:
+            max_city = region['city']
+            max_province = region['province']
+    if max_rating>50:
+        line.append(max_city)
+        line.append(max_province)
+        return line, None
+    return None, line
+
 def GenerateFileName(bucket_base, dimension, year, extension, file_id=None, temp_folder=None):    
     _temp_folder = temp_folder+'/' if temp_folder else ''
     if file_id:
