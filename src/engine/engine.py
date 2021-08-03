@@ -6,7 +6,9 @@ from engine.EngineHelper import GenerateFileName
 from datetime import datetime
 from rejson import Client, Path
 from minio import Minio
+from minio.error import S3Error
 from io import BytesIO,StringIO
+#from copy import deepcopy #for minio fetching
 
 class Engine(object):
     def __init__(self):
@@ -115,9 +117,27 @@ class Engine(object):
         else: 
             return False
 
-    def _save_lines_to_minio_in_csv(self, lines, bucket_name, dimension, year):
-        file_name=GenerateFileName(bucket_name, dimension, year,'.csv')
-        csv_file = StringIO(newline='\n')
-        for line in lines: csv_file.writelines(line)
-        content = BytesIO(csv_file.getvalue().encode('utf-8'))
-        self.minio_client.put_object(bucket_name, file_name, content, length=-1, part_size=5*1024*1024, content_type='application/csv') #assuming maximum csv filesize 50kb
+    def _save_data_to_minio(self, data_input, bucket_name, dimension, year, extension='csv'):
+        file_name=GenerateFileName(bucket_name, dimension, year, extension)
+        if extension=='csv':
+            csv_file = StringIO(newline='\n')
+            for line in data_input: csv_file.writelines(line)
+            content = BytesIO(csv_file.getvalue().encode('utf-8'))
+            self.minio_client.put_object(bucket_name, file_name, content, length=-1, part_size=5*1024*1024, content_type='application/csv') #assuming maximum csv filesize 50kb
+            return True
+        elif extension=='json':
+            json_file = json.dumps(data_input, ensure_ascii=False, indent=4)
+            content = BytesIO(json_file.encode('utf-8')) # convert dict to bytes
+            self.minio_client.put_object(bucket_name, file_name, content, length=-1, part_size=5*1024*1024, content_type='application/json') #assuming maximum json filesize 1MB, minimum 5MiB
+            return True
+        return False
+
+    def _fetch_file_from_minio(self, bucket_name, file_name, extension):
+        try:
+            resp = self.minio_client.get_object(bucket_name, file_name)
+            data_output = resp.data #deepcopy(resp.data)
+        except S3Error: raise S3Error
+        finally:
+            resp.close()
+            resp.release_conn() 
+            return data_output

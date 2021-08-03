@@ -49,9 +49,9 @@ def GenerateFileName(bucket_base, dimension, year, extension, file_id=None):
     if file_id:
         zero_prefix= '00' if file_id<10 else '0' if file_id <100 else ''
         _file_id = zero_prefix+str(file_id)
-        return dimension+'/'+str(year)+'/'+bucket_base+'_'+dimension+'_'+str(year)+'_'+_file_id+extension       
+        return dimension+'/'+str(year)+'/'+bucket_base+'_'+dimension+'_'+str(year)+'_'+_file_id+'.'+extension       
     else:
-        return dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+extension
+        return dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+'.'+extension
 
 def CreateCSVLine(fields, delimiter="\t", lineterminator='\n'):
     line = ""
@@ -63,12 +63,15 @@ def CreateCSVLine(fields, delimiter="\t", lineterminator='\n'):
     return line
 
 def BytesToDataFrame(databytes, fields, delimiter="\t", lineterminator='\n'):
-    output = StringIO()
-    output.write(CreateCSVLine(fields))
-    output.write(databytes.decode('utf-8'))
-    output.seek(0)
-    df = pd.read_csv(output,delimiter=delimiter,lineterminator=lineterminator)
-    return df
+    try:
+        output = StringIO()
+        output.write(CreateCSVLine(fields))
+        output.write(databytes.decode('utf-8'))
+        output.seek(0)
+        df = pd.read_csv(output,delimiter=delimiter,lineterminator=lineterminator)
+        return df
+    except:
+        return None
 
 def LinesToDataFrame(lines, fields, delimiter="\t", lineterminator='\n'):
     output = StringIO()
