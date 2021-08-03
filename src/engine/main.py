@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from engine import Engine, Ingestor, Aggregator, Preparator, Analytics#, Scraper
+from engine import Engine, Ingestor, Aggregator, Preparator, Analytics, RQPreparator#, Scraper
 from engine.EngineHelper import WrongInputHandler
 import sys, logging
 
@@ -16,8 +16,11 @@ def main():
         elif command=='aggregate':
             engine = Aggregator.Aggregator()
             engine.start()
+        elif command=='prepare':
+            engine = RQPreparator.RQPreparator()
+            engine.prepare()
         elif command=='transform':
-            engine = Preparator.Preparator()
+            engine = RQPreparator.RQPreparator()
             engine.start()
         elif command=='analyze':
             engine = Analytics.Analytics()
