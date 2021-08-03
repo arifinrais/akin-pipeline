@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 import sys, time, logging, json, regex as re, csv, traceback
-from typing import Pattern #, os, logging
 import requests as req
 import pandas as pd
 from engine.Engine import Engine
-from engine.EngineHelper import GenerateFileName, BytesToDataFrame, CreateCSVLine, LinesToDataFrame
-from datetime import datetime
-from io import BytesIO, StringIO
-from copy import deepcopy
+from engine.EngineHelper import GenerateFileName, BytesToDataFrame, CreateCSVLine
+from io import BytesIO
 from redis import Redis
 from minio import Minio
 from minio.error import S3Error
