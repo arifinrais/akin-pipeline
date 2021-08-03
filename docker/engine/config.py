@@ -29,7 +29,7 @@ MIN_INGEST_YEAR = 2000
 
 # spark settings
 SPARK_MASTER = 'spark://spark:7077'
-SPARK_APP_NAME = 'preparator'
+SPARK_APP_NAME = 'data_transform'
 SPARK_SUBMIT_DEPLOY_MODE = 'client'
 SPARK_UI_SHOW_CONSOLE_PROGRESS = 'true'
 SPARK_EVENT_LOG_ENABLED = 'false'

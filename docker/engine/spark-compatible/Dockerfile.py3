@@ -10,7 +10,7 @@ WORKDIR /usr/src/app
 
 # install requirements
 #COPY src/utils /usr/src/utils
-COPY docker/engine/requirements.txt /usr/src/app
+COPY docker/engine/spark-compatible/requirements.txt /usr/src/app
 RUN pip install --no-cache-dir -r requirements.txt
 #RUN rm -rf /usr/src/utils
 
