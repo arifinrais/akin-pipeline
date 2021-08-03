@@ -8,24 +8,3 @@ minio==7.1.0
 pymongo==3.12.0
 pyspark==3.1.2
 rq==1.9.0
-
-#import sys, time, json, csv, traceback #, os, logging
-#from engine.Engine import Engine
-#import requests as req
-#from os import stat
-#from tenacity import retry
-#from jsonschema import validate
-#from abc import ABC, abstractmethod
-#from datetime import datetime
-#from redis import Redis
-#from rejson import Client, Path
-#from rq import Connection as RedisQueueConnection
-#from rq.queue import Queue
-#from rq.job import Job 
-#from minio import Minio
-#from minio.error import S3Error
-#from io import BytesIO, StringIO
-#from copy import deepcopy
-#from pyspark.conf import SparkConf
-#from pyspark import sql
-#from pymongo import MongoClient
