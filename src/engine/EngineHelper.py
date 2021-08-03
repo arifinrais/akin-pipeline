@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, sys, json, traceback, requests as req, pandas as pd #, time, csv, os, logging
+import json, sys, json, traceback, requests as req, pandas as pd, regex as re #, time, csv, os, logging
 from urllib.parse import quote
 #import requests as req
 from minio import Minio
@@ -45,6 +45,34 @@ def Scrape(req_item, dimension, year, minio_settings, file_id=None):
         emssg, b, c =sys.exc_info()
         return emssg
 
+def CleanAddress(line, regexp_list, country_list, col_idx=6):
+    for regex_pair in regexp_list:
+        rgxpattern, replacement = regex_pair
+        line[col_idx] = re.sub(rgxpattern, replacement, line[col_idx])
+    for country in country_list:
+        if country in line[col_idx]: return None
+    return line
+
+def PostalSplit(line, std_file, col_idx=6):
+    regex_address_postal = '(\s|-|,|\.|\()\d{5}($|\s|,|\)|\.|-)'; regex_postal = '\d{5}'
+    postal_find = re.findall(regex_address_postal, line[col_idx])
+    postal_code = None
+    if len(postal_find)==1:
+        postal_code=re.findall(regex_postal, postal_find[0])[0]
+    if postal_code:
+        for region in std_file:
+            postal_range=region['postal_range'].strip().split('-')
+            if int(postal_code)>=int(postal_range[0]) and int(postal_code)<=int(postal_range[1]): 
+                line.append(region['city'])
+                line.append(region['province'])
+                return line, None
+        return None, line
+    else:
+        return None, line
+
+def PatternSplit(rec_list, std_file, col_idx=6):
+    pass
+
 def GenerateFileName(bucket_base, dimension, year, extension, file_id=None, temp_folder=None):    
     _temp_folder = temp_folder+'/' if temp_folder else ''
     if file_id:
@@ -73,6 +101,13 @@ def BytesToDataFrame(databytes, fields, delimiter="\t", lineterminator='\n'):
         return df
     except:
         return None
+
+def BytesToLines(databytes, delimiter='\t', line_list=False):
+    in_file = StringIO(databytes.decode('utf-8'))
+    lines=[]
+    for line in in_file:
+        lines.append(line.strip().split(delimiter)) if line_list else lines.append(line)
+    return lines
 
 def LinesToDataFrame(lines, fields, delimiter="\t", lineterminator='\n'):
     output = StringIO()
