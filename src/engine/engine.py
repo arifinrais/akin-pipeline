@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import sys, time, json
-from typing import Type
 from engine import config
 from engine.EngineHelper import GenerateFileName
 from datetime import datetime
