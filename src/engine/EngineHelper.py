@@ -8,6 +8,7 @@ from datetime import datetime
 from rejson import Client, Path
 from minio import Minio
 from io import BytesIO, StringIO
+from fuzzywuzzy import fuzz
 
 def Scrape(req_item, dimension, year, minio_settings, file_id=None):
     try:
@@ -70,8 +71,39 @@ def PostalSplit(line, std_file, col_idx=6):
     else:
         return None, line
 
-def PatternSplit(rec_list, std_file, col_idx=6):
-    pass
+def PatternSplit(line, std_file, col_idx=6, fuzz_offset=88):
+    def fuzz_rating(possible_city, std_file):
+        max_rating, max_city, max_province = 0, None, None
+        ps_city = possible_city.strip().lower()
+        fuzz_calc = lambda x,y: (fuzz.ratio(x,y)+fuzz.partial_ratio(x,y)+fuzz.token_sort_ratio(x,y)+fuzz.token_set_ratio(x,y))/4
+        for region in std_file:
+            city1, city2, city3 = region['city'].lower(), region['city_official'].lower(), region['city_alias'].lower()
+            rating1, rating2, rating3 = fuzz_calc(ps_city, city1),fuzz_calc(ps_city, city2), fuzz_calc(ps_city, city3)
+            rating = rating1 if rating1>rating2 and rating1>rating3 else rating2 if rating2>rating3 else rating3
+            if rating==100: return 100, region['city'], region['province']
+            if rating>max_rating:
+                max_rating = rating
+                max_city = region['city']
+                max_province = region['province']
+        return max_rating, max_city, max_province
+    address_params = line[col_idx].split(',')
+    max_rating, max_city, max_province = 0, None, None
+    num_of_params = len(address_params) 
+    max_param = 3 if num_of_params>3 else 2 if num_of_params>2 else 1 if num_of_params>1 else 0
+    if max_param:
+        for i in range(max_param):
+            reg_rating, reg_city, reg_province = fuzz_rating(address_params[-i-1],std_file)
+            if reg_rating==100: 
+                line.append(reg_city)
+                line.append(reg_province)
+                return line, None
+            if reg_rating>max_rating:
+                max_rating, max_city, max_province = reg_rating, reg_city, reg_province
+        if max_rating>fuzz_offset:
+            line.append(max_city)
+            line.append(max_province)
+            return line, None
+    return None, line
 
 def GenerateFileName(bucket_base, dimension, year, extension, file_id=None, temp_folder=None):    
     _temp_folder = temp_folder+'/' if temp_folder else ''

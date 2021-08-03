@@ -3,7 +3,7 @@ import sys, time, logging, json, regex as re, csv, traceback
 import requests as req
 import pandas as pd
 from engine.Engine import Engine
-from engine.EngineHelper import GenerateFileName, BytesToDataFrame, CreateCSVLine, BytesToLines, CleanAddress
+from engine.EngineHelper import GenerateFileName, BytesToDataFrame, CreateCSVLine, BytesToLines, CleanAddress, PatternSplit, PostalSplit
 from io import BytesIO
 from redis import Redis
 from minio import Minio
@@ -20,7 +20,7 @@ from rq.job import Job
 class RQPreparator(Engine):
     ADDR_COL_INDEX=6
     TEMP_FOLDERS={'mapped':'tmp_mapped','unmapped':'tmp_unmapped','result':'result'}
-    TFM_QUEUE={'clean':'cln','postal_mapping':'psp','pattern_matching':'ptm','geocode':'gcd'}
+    TFM_WORK={'clean':'cln','postal_mapping':'psp','pattern_matching':'ptm','geocode':'gcd'}
     TFM_WAIT_TIME=5
 
     def __init__(self):
@@ -42,10 +42,10 @@ class RQPreparator(Engine):
                                 socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
                                 socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
             self.queue={}
-            self.queue[self.TFM_QUEUE['clean']] = Queue(self.TFM_QUEUE['clean'], connection=self.rq_conn)
-            self.queue[self.TFM_QUEUE['postal_mapping']]= Queue(self.TFM_QUEUE['postal_mapping'], connection=self.rq_conn)
-            self.queue[self.TFM_QUEUE['pattern_matching']] = Queue(self.TFM_QUEUE['pattern_matching'], connection=self.rq_conn)
-            self.queue[self.TFM_QUEUE['geocode']] = Queue(self.TFM_QUEUE['geocode'], connection=self.rq_conn)
+            self.queue[self.TFM_WORK['clean']] = Queue(self.TFM_WORK['clean'], connection=self.rq_conn)
+            self.queue[self.TFM_WORK['postal_mapping']]= Queue(self.TFM_WORK['postal_mapping'], connection=self.rq_conn)
+            self.queue[self.TFM_WORK['pattern_matching']] = Queue(self.TFM_WORK['pattern_matching'], connection=self.rq_conn)
+            self.queue[self.TFM_WORK['geocode']] = Queue(self.TFM_WORK['geocode'], connection=self.rq_conn)
             return True
         except:
             return False
@@ -146,7 +146,7 @@ class RQPreparator(Engine):
         job_id = []
         for line in line_list:
             with Connection():
-                job = self.queue[self.TFM_QUEUE['clean']].enqueue(CleanAddress, args=(line, REGEXP_LIST, COUNTRY_LIST, col_idx))
+                job = self.queue[self.TFM_WORK['clean']].enqueue(CleanAddress, args=(line, REGEXP_LIST, COUNTRY_LIST, col_idx))
                 job_id.append(job.id)
         ll_cleaned=[]
         while True:
@@ -162,13 +162,16 @@ class RQPreparator(Engine):
             time.sleep(self.TFM_WAIT_TIME)     
         return ll_cleaned
 
-    def _rq_postal_split(self, line_list, std_file, col_idx=6):
+    def _rq_split(self, line_list, std_file, tfm_work, col_idx=6):
         job_id = []
         for line in line_list:
             with Connection():
-                job = self.queue[self.TFM_QUEUE['clean']].enqueue(CleanAddress, args=(line, std_file, col_idx))
+                if tfm_work==self.TFM_WORK['postal_mapping']:
+                    job = self.queue[tfm_work].enqueue(PostalSplit, args=(line, std_file, col_idx))
+                elif tfm_work==self.TFM_WORK['pattern_matching']:
+                    job = self.queue[tfm_work].enqueue(PatternSplit, args=(line, std_file, col_idx))
                 job_id.append(job.id)
-        ll_mapped_postal=[];ll_unmapped=[]
+        ll_mapped=[];ll_unmapped=[]
         while True:
             if len(job_id):
                 for id in job_id:
@@ -176,103 +179,13 @@ class RQPreparator(Engine):
                     #print(job.result) #just checkin'
                     if job.get_status()=='finished':
                         if job.result: 
-                            line_mapped_postal, line_unmapped = job.result
-                            ll_mapped_postal.append(line_mapped_postal) if line_mapped_postal else ll_unmapped.append(line_unmapped)
+                            line_mapped, line_unmapped = job.result
+                            ll_mapped.append(line_mapped) if line_mapped else ll_unmapped.append(line_unmapped)
                         job_id.remove(id)
             else:
                 break
             time.sleep(self.TFM_WAIT_TIME)     
-        return ll_mapped_postal, ll_unmapped
-
-    def _spark_splitting_postal(self, dataframe, std_file, col_name="_c6"):
-        #setup spark udfs
-        def map_postal(s,std_file):
-            for rec in std_file:
-                p_range=rec['postal_range'].strip().split('-')
-                if int(s)>=int(p_range[0]) and int(s)<=int(p_range[1]):
-                    return rec['city']+';'+rec['province'] #format can be changed
-            return 'POSTAL_MAPPING_ERROR'
-        
-        def udf_map_postal(std_file):
-            return udf(lambda x: map_postal(x,std_file), StringType())
-
-        #setup spark
-        spark_conf = self._setup_spark(app_name='data_splitting_postal')
-        spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
-        spark_context = spark_session.sparkContext
-        spark_context.setLogLevel("ERROR")
-        df = spark_session.createDataFrame(dataframe)
-        
-        #split and map based on postal code
-        regex_address_postal = '(\s|-|,|\.|\()\d{5}($|\s|,|\)|\.|-)'; regex_postal = '\d{5}'
-        df_postal_mapped = df.filter(df[col_name].rlike(regex_address_postal)==True).\
-                            withColumn(col_name, regexp_extract(col_name, regex_address_postal, 0)).\
-                            withColumn(col_name, regexp_extract(col_name, regex_postal, 0)).\
-                            withColumn(col_name, udf_map_postal(std_file)(col(col_name))).cache() #mapping
-        df_unmapped = df.filter(df[col_name].rlike(regex_address_postal)==False).toPandas()
-        df_postal_mapped= df_postal_mapped.toPandas()
-        
-        spark_session.stop()
-        return df_postal_mapped, df_unmapped
-
-    def _spark_splitting_pattern(self, dataframe, std_file, col_name="_c6"):
-        #setup spark udfs
-        def map_pattern(s,std_file):
-            def fuzz_rating(city, std_file):
-                maxRtg=0; maxLoc=None
-                city=city.strip().lower()
-                fuzz_calc=lambda x,y: (fuzz.ratio(x,y)+fuzz.partial_ratio(x,y)+fuzz.token_sort_ratio(x,y)+fuzz.token_set_ratio(x,y))/4
-                for rec in std_file:
-                    _city = rec['city'].lower()
-                    rating1 = fuzz_calc(city,_city)
-                    _city = rec['city_official'].lower()
-                    rating2 = fuzz_calc(city,_city)
-                    if rec['city_alias']:
-                        _city = rec['city_alias'].lower()
-                        rating3 = fuzz_calc(city,_city)
-                    else: rating3=0
-                    rating = rating1 if rating1>rating2 and rating1>rating3 else rating2 if rating2>rating3 else rating3
-                    if rating==100: return 100, rec['city']+"\t"+rec['province']+'[ADDRESS_MATCHED]' #format can be changed
-                    if rating>maxRtg:
-                        maxRtg=rating
-                        maxLoc=rec['city']+"\t"+rec['province']+'[ADDRESS_MATCHED]' #format can be changed
-                return maxRtg, maxLoc
-            FUZZ_RATING_OFFSET=88
-            address_params = s.split(',')
-            max_rating, max_region = 0, ''
-            num_of_params = len(address_params) 
-            max_param = 3 if num_of_params>3 else 2 if num_of_params>2 else 1 if num_of_params>1 else 0
-            if max_param:
-                for i in range(max_param):
-                    r_loc, loc = fuzz_rating(address_params[-i-1],std_file)
-                    if r_loc==100: return loc
-                    if r_loc>max_rating:
-                        max_rating=r_loc
-                        max_region=loc
-            else:
-                return s
-            return max_region if max_rating>=FUZZ_RATING_OFFSET else s
-            
-        def udf_map_pattern(std_file):
-            return udf(lambda x: map_pattern(x,std_file),StringType())
-
-        #setup spark
-        spark_conf = self._setup_spark(app_name='data_splitting_pattern')
-        spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
-        spark_context = spark_session.sparkContext
-        spark_context.setLogLevel("ERROR")
-        df = spark_session.createDataFrame(dataframe)
-
-        #map and split based on address pattern
-        df = df.withColumn(col_name, udf_map_pattern(std_file)(col(col_name))).cache() #mapping
-        regex_address_pattern='\t.*\[ADDRESS_MATCHED\]'#sesuain format apa kasih flag aja?
-        df_pattern_mapped = df.filter(df[col_name].rlike(regex_address_pattern)==True).\
-                            withColumn(col_name, regexp_replace(col(col_name), '\[ADDRESS_MATCHED\]', ''))
-        df_mapped = df_pattern_mapped.toPandas()
-        df_unmapped = df.filter(df[col_name].rlike(regex_address_pattern)==False).toPandas()
-        
-        spark_session.stop()
-        return df_mapped, df_unmapped
+        return ll_mapped, ll_unmapped
 
     def _geocoding(self, dimension, year):
         mapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.TEMP_FOLDERS['mapped'])
@@ -389,7 +302,7 @@ class RQPreparator(Engine):
     def prepare(self):
         self._setup_rq()
         with Connection():
-            queues=[self.queue[self.TFM_QUEUE['clean']],self.queue[self.TFM_QUEUE['postal_mapping']],self.queue[self.TFM_QUEUE['pattern_matching']],self.queue[self.TFM_QUEUE['geocoding']]]
+            queues=[self.queue[self.TFM_WORK['clean']],self.queue[self.TFM_WORK['postal_mapping']],self.queue[self.TFM_WORK['pattern_matching']],self.queue[self.TFM_WORK['geocoding']]]
             worker = Worker(queues=queues, connection=self.rq_conn)
             worker.work()
             while True:
