@@ -45,13 +45,14 @@ def Scrape(req_item, dimension, year, minio_settings, file_id=None):
         emssg, b, c =sys.exc_info()
         return emssg
 
-def GenerateFileName(bucket_base, dimension, year, extension, file_id=None):    
+def GenerateFileName(bucket_base, dimension, year, extension, file_id=None, temp_folder=None):    
+    _temp_folder = temp_folder+'/' if temp_folder else ''
     if file_id:
         zero_prefix= '00' if file_id<10 else '0' if file_id <100 else ''
         _file_id = zero_prefix+str(file_id)
         return dimension+'/'+str(year)+'/'+bucket_base+'_'+dimension+'_'+str(year)+'_'+_file_id+'.'+extension       
     else:
-        return dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+'.'+extension
+        return _temp_folder+dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+'.'+extension
 
 def CreateCSVLine(fields, delimiter="\t", lineterminator='\n'):
     line = ""

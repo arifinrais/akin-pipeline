@@ -117,8 +117,8 @@ class Engine(object):
         else: 
             return False
 
-    def _save_data_to_minio(self, data_input, bucket_name, dimension, year, extension='csv'):
-        file_name=GenerateFileName(bucket_name, dimension, year, extension)
+    def _save_data_to_minio(self, data_input, bucket_name, dimension, year, extension='csv', temp_folder=None):
+        file_name=GenerateFileName(bucket_name, dimension, year, extension, temp_folder=temp_folder)
         if extension=='csv':
             csv_file = StringIO(newline='\n')
             for line in data_input: csv_file.writelines(line)
@@ -132,7 +132,7 @@ class Engine(object):
             return True
         return False
 
-    def _fetch_file_from_minio(self, bucket_name, file_name, extension):
+    def _fetch_file_from_minio(self, bucket_name, file_name):
         try:
             resp = self.minio_client.get_object(bucket_name, file_name)
             data_output = resp.data #deepcopy(resp.data)

@@ -26,6 +26,9 @@ class Preparator(Engine):
         self.resources_bucket = self.settings['MINIO_BUCKET_RESOURCES']
         self.standard_file_region = self.settings['FILE_REGION_STANDARD']
         self.standard_file_department = self.settings['FILE_DEPARTMENT_STANDARD']
+        self.mapped_folder = 'tmp_mapped'
+        self.unmapped_folder = 'tmp_unmapped'
+        self.result_folder = 'result'
         self.column_names = ['no_permohonan','no_sertifikat','status','tanggal_dimulai','tanggal_berakhir','daftar_kelas','alamat']
 
     def _setup_spark(self, app_name=None):
@@ -51,14 +54,17 @@ class Preparator(Engine):
         #logging.debug('Acquiring Lock for Transformation Jobs...')
         #key, dimension, year = self._redis_update_stat_before(self.job)
         #logging.debug('Transforming Records...')
-        #success, errormsg = self._transform_file(dimension, year)
+        #success, errormsg = self._transform_in_spark(dimension, year)
+        #logging.debug('Do Geocoding...')
+        #if success: success, errormsg = self._geocoding(dimension, year)
         #logging.debug('Updating Job Status...')
         #self._redis_update_stat_after(key, self.job, success, errormsg)
-        success, errormsg = self._transform_file('ptn', 2018) #for debugging
+        success, errormsg = self._transform_in_spark('ptn', 2018) #for debugging
+        #success, errormsg = self._geocoding('ptn', 2018) #for debugging
         print(success, errormsg)
 
-    def _transform_file(self, dimension, year):
-        file_name=GenerateFileName(self.previous_bucket, dimension, year, '.csv')
+    def _transform_in_spark(self, dimension, year):
+        file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv')
         try:
             data_output = self._fetch_file_from_minio(self.previous_bucket, file_name)
             df = BytesToDataFrame(data_output, self.column_names) if data_output else None
@@ -72,22 +78,20 @@ class Preparator(Engine):
             df_mapped_postal, df_unmapped = self._spark_splitting_postal(df_cleaned, std_file, self.column_names[-1])
             df_mapped_pattern, df_unmapped = self._spark_splitting_pattern(df_unmapped, std_file, self.column_names[-1])
             
-            #save mapped dataframes
+            #save mapped and unmapped dataframes
             df_mapped = df_mapped_postal.append(df_mapped_pattern)
             mapped_lines = []
             for mapped_values in df_mapped.values.tolist():
                 mapped_lines.append(CreateCSVLine(mapped_values))
-            self._save_data_to_minio(mapped_lines, self.bucket, dimension, year) #buat bucket khusus?
-
+            self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.mapped_folder)
             unmapped_lines = []
             for unmapped_values in df_unmapped.values.tolist():
                 unmapped_lines.append(CreateCSVLine(unmapped_values))
-            self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year) #buat bucket khusus?
+            self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year, temp_folder=self.unmapped_folder)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
             return False, errormsg
-
 
     '''
         Notes: Usually the address format is as follows,
@@ -186,7 +190,7 @@ class Preparator(Engine):
         df_postal_mapped = df.filter(df[col_name].rlike(regex_address_postal)==True).\
                             withColumn(col_name, regexp_extract(col_name, regex_address_postal, 0)).\
                             withColumn(col_name, regexp_extract(col_name, regex_postal, 0)).\
-                            withColumn(col_name,  udf_map_postal(std_file)(col(col_name))) #mapping
+                            withColumn(col_name, udf_map_postal(std_file)(col(col_name))) #mapping
         df_unmapped = df.filter(df[col_name].rlike(regex_address_postal)==False).toPandas()
         df_postal_mapped= df_postal_mapped.toPandas()
         
@@ -242,7 +246,7 @@ class Preparator(Engine):
         df = spark_session.createDataFrame(dataframe)
 
         #map and split based on address pattern
-        df = df.withColumn(col_name,  udf_map_pattern(std_file)(col(col_name))) #mapping
+        df = df.withColumn(col_name, udf_map_pattern(std_file)(col(col_name))) #mapping
         regex_address_pattern='\t.*\[ADDRESS_MATCHED\]'#sesuain format apa kasih flag aja?
         df_pattern_mapped = df.filter(df[col_name].rlike(regex_address_pattern)==True).toPandas() 
         df_unmapped = df.filter(df[col_name].rlike(regex_address_pattern)==False).toPandas()
@@ -250,19 +254,111 @@ class Preparator(Engine):
         spark_session.stop()
         return df_pattern_mapped, df_unmapped
 
+    def _geocoding(self, dimension, year):
+        mapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.mapped_folder)
+        try:
+            #open unmapped dataset
+            unmapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.unmapped_folder)
+            data_output = self._fetch_file_from_minio(self.bucket, unmapped_fname)
+            df = BytesToDataFrame(data_output, self.column_names) if data_output else None
+            data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_file_region)
+            std_file = json.load(BytesIO(data_output))
+            
+            #geocode unmapped data in spark
+            #bisa _geocoding_in_rq atau _geocoding_bare
+            df_geocoded = self._spark_geocoding(df, self.column_names[-1])
+            _df_mapped = self._spark_mapping_gc(df_geocoded, std_file, self.column_names[-1])
 
-    def _rq_geocoding(self, lines):
+            #open mapped dataset
+            mapped_fname = GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.mapped_folder)
+            data_output = self._fetch_file_from_minio(self.bucket, mapped_fname)
+            df = BytesToDataFrame(data_output, self.column_names) if data_output else None
+
+            #join and save mapped and geocoded data
+            df_mapped = df.append(_df_mapped)
+            mapped_lines = []
+            for mapped_values in df_mapped.values.tolist():
+                mapped_lines.append(CreateCSVLine(mapped_values))
+            self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.result_folder) #buat bucket khusus?
+            return True, None
+        except:
+            errormsg, b, c = sys.exc_info()
+            return False, errormsg
+        pass
+        
+    def _spark_geocoding(self, dataframe, col_name="_c6"):
+        #setup spark udfs
+        def geocode(s,_config):
+            #config request sesuai APInya
+            #hit api
+            #parse response
+            #return parsed response
+            pass
+        
+        def udf_geocode(_config):
+            return udf(lambda x: geocode(x,_config), StringType())
+        
+        #setup config
+        _config={} #sesuain sama APInya
+
+        #setup spark
+        spark_conf = self._setup_spark(app_name='data_splitting_postal')
+        spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
+        spark_context = spark_session.sparkContext
+        spark_context.setLogLevel("ERROR")
+        
+        #geocoding based on bare address
+        df = spark_session.createDataFrame(dataframe)
+        df_geocoded = df.withColumn(col_name, udf_geocode(_config)(col(col_name))).toPandas()
+        
+        spark_session.stop()
+        return df_geocoded
+
+    def _spark_mapping_gc(self, dataframe, std_file, col_name="_c6"):
+        #setup spark udfs
+        def map_geocode(s,std_file):
+            fuzz_calc=lambda x,y: (fuzz.ratio(x,y)+fuzz.partial_ratio(x,y)+fuzz.token_sort_ratio(x,y)+fuzz.token_set_ratio(x,y))/4
+            maxRtg, maxLoc = 0, None
+            locs=s.strip().split('\t') #sesuain format hasil parsing geocode, misal <city>\t<province>
+            fuzz_calc=lambda x,y: (fuzz.ratio(x,y)+fuzz.partial_ratio(x,y)+fuzz.token_sort_ratio(x,y)+fuzz.token_set_ratio(x,y))/4
+            for rec in std_file:
+                _prov = rec['province'].lower()
+                _city = rec['city'].lower()
+                rating = (fuzz_calc(locs[0],_city)+fuzz_calc(locs[1],_prov))/2
+                if rating>maxRtg:
+                    maxLoc=rec['city']+'\t'+rec['province']
+            return maxLoc if maxLoc else 'GEOCODE_MAPPING_ERROR'
+        
+        def udf_map_geocode(std_file):
+            return udf(lambda x: map_geocode(x,std_file), StringType())
+
+        #setup spark
+        spark_conf = self._setup_spark(app_name='data_splitting_postal')
+        spark_session = SparkSession.builder.config(conf=spark_conf).getOrCreate()
+        spark_context = spark_session.sparkContext
+        spark_context.setLogLevel("ERROR")
+        
+        #mapping geocoded address
+        df = spark_session.createDataFrame(dataframe)
+        df_mapped = df.withColumn(col_name, udf_map_geocode(std_file)(col(col_name))).toPandas()
+        
+        spark_session.stop()
+        return df_mapped
+
+    def _geocoding_in_rq(self, dimension, year):
         #set request list
         #loop to enqueue
         #wait for job
         #return result
         pass
         
+    def _geocoding_bare(self, dimension, year):
+        pass
+
     def start(self):
         setup_redis = self._setup_redis_conn()
         setup_minio = self._setup_minio_client()
-        logging.info("Preparator Engine Successfully Started") if  setup_redis and setup_minio and setup_spark else logging.warning("Problem in Starting Preparator Engine")
-        
+        logging.info("Preparator Engine Successfully Started") if  setup_redis and setup_minio else logging.warning("Problem in Starting Preparator Engine")    
         self._transform() #for debugging
         return
         while True:
