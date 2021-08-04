@@ -45,18 +45,20 @@ class RQPreparator(Engine):
             return False
 
     def _transform(self):
-        #logging.debug('Acquiring Lock for Transformation Jobs...')
-        #key, dimension, year = self._redis_update_stat_before(self.job)
-        #logging.debug('Transforming Records...')
-        #success, errormsg = self._transform_in_rq(dimension, year)
+        logging.debug('Acquiring Lock for Transformation Jobs...')
+        key, dimension, year = self._redis_update_stat_before(self.job)
+        logging.debug('Transforming Records...')
+        success, errormsg = self._transform_in_rq(dimension, year)
+        #TO BE IMPLEMENTED
         #logging.debug('Do Geocoding...')
         #if success and not errormsg:
         #    success, errormsg = self._geocoding_in_rq(dimension, year)
-        #logging.debug('Updating Job Status...')
-        #self._redis_update_stat_after(key, self.job, success, errormsg)
-        success, errormsg = self._transform_in_rq('ptn', 2018) #for debugging
+        logging.debug('Updating Job Status...')
+        self._redis_update_stat_after(key, self.job, success, errormsg)
+        #FOR DEBUGGING
+        #success, errormsg = self._transform_in_rq('ptn', 2018) #for debugging
         #success, errormsg = self._geocoding('ptn', 2018) #for debugging
-        print(success, errormsg)
+        #print(success, errormsg)
 
     def _transform_in_rq(self, dimension, year):
         file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv')
