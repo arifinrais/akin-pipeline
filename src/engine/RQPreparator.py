@@ -88,6 +88,14 @@ class RQPreparator(Engine):
             if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
             print(ll_mapped_pattern[0][7:], len(ll_mapped_pattern)) #DEBUGGING
             
+            with open('mapped_postal.csv', 'w') as f:
+                for line in mapped_lines:
+                    f.write(line)
+            with open('unmapped_postal.csv', 'w') as f:
+                for line in ll_unmapped:
+                    f.write(CreateCSVLine(line))
+            return True, None
+
             #saving the data separately if there are still unmapped records (note: it can be that there's no mapped record)
             if mapped_lines:
                 self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['mapped'])
