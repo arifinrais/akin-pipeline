@@ -84,31 +84,23 @@ class Ingestor(Engine):
 
     def _generate_parameters(self, dimension, year):
         if self._check_dimension_source('PDKI', dimension):
-            param_type=''
-            param_keywords=[]
-            param_dates=[]
+            param_type,param_keywords,param_dates='',[],[]
             _year=str(year)
             if dimension==self.settings['DIMENSION_PATENT']:
                 param_type='patent'
                 param_keywords=['PID','P00','S00','W00','P22']
             elif dimension==self.settings['DIMENSION_TRADEMARK']:
                 param_type='trademark'
-                param_keywords=['DID','D00','J00','K00','M00','R00','V00']
-            for i in range(len(param_keywords)):
-                param_keywords[i]=param_keywords[i]+_year
-            month_28=[2]
-            month_30=[4,6,9,11]
-            month_31=[1,3,5,7,8,10,12]
+                param_keywords=['DID','D00','J00','K00','M00','R00','V00','D22']
+            param_keywords = [keyword+_year for keyword in param_keywords]
+            month_28, month_30, month_31 =[2], [4,6,9,11], [1,3,5,7,8,10,12]
             for i in range(12):
                 _month=str(i+1)
                 if i+1<10: _month='0'+_month
                 date_base=_year+'-'+_month+'-'
-                if i+1 in month_28:
-                    param_dates.append([date_base+'01',date_base+'28'])
-                if i+1 in month_30:
-                    param_dates.append([date_base+'01',date_base+'30'])
-                if i+1 in month_31:
-                    param_dates.append([date_base+'01',date_base+'31'])
+                if i+1 in month_28: param_dates.append([date_base+'01',date_base+'28'])
+                if i+1 in month_30: param_dates.append([date_base+'01',date_base+'30'])
+                if i+1 in month_31: param_dates.append([date_base+'01',date_base+'31'])
             return param_type, param_keywords, param_dates
         elif self._check_dimension_source('SINTA', dimension):
             #add parameters for SINTA here
