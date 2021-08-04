@@ -69,7 +69,7 @@ DIMENSION_TRADEMARK = 'trd'
 DIMENSION_PUBLICATION = 'pub'
 
 RES_BASE_PATH = '/Users/arifinrais/Workspace/akin/akin-pipeline/src/engine/res/'
-RES_FILES = ['region_standard.json']#, 'department_standard.json']
+RES_FILES = ['region_standard.json', 'postal_mapping.json']#, 'department_standard.json']
 
 # main thread sleep time
 SLEEP_TIME = 1

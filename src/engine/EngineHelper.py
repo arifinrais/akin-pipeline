@@ -55,21 +55,17 @@ def CleanAddress(line, regexp_list, country_list, col_idx=6):
     return line
 
 def PostalSplit(line, std_file, col_idx=6):
-    regex_address_postal = '(\s|-|,|\.|\()\d{5}($|\s|,|\)|\.|-)'; regex_postal = '\d{5}'
+    regex_address_postal = '[\s,\-,\,,\.,\(]\d{5}(?!\d)'
     postal_find = re.findall(regex_address_postal, line[col_idx])
-    postal_code = None
-    if len(postal_find)==1:
-        postal_code=re.findall(regex_postal, postal_find[0])[0]
+    postal_code = postal_find[0][1:] if postal_find else None
     if postal_code:
-        for region in std_file:
-            postal_range=region['postal_range'].strip().split('-')
-            if int(postal_code)>=int(postal_range[0]) and int(postal_code)<=int(postal_range[1]): 
-                line.append(region['city'])
-                line.append(region['province'])
-                return line, None
-        return None, line
-    else:
-        return None, line
+        try:
+            line.append(std_file[postal_code]['city'])
+            line.append(std_file[postal_code]['province'])
+            return line, None
+        except:
+            return None, line
+    return None, line
 
 def PatternSplit(line, std_file, col_idx=6, fuzz_offset=88):
     def fuzz_rating(possible_city, std_file):
