@@ -130,6 +130,15 @@ class Engine(object):
             self.minio_client.put_object(bucket_name, file_name, content, length=-1, part_size=5*1024*1024, content_type='application/json') #assuming maximum json filesize 1MB, minimum 5MiB
             return True
         return False
+    
+    def _load_resources_to_minio(self):
+        base_path = self.settings['RES_BASE_PATH']
+        create_res_bucket = self._setup_minio_client(self.settings['MINIO_BUCKET_RESOURCES'])
+        if create_res_bucket:
+            for file in self.settings['RES_FILES']:
+                self.minio_client.fput_object(self._setup_minio_client(self.settings['MINIO_BUCKET_RESOURCES']), file, base_path+file)
+            return True
+        return False
 
     def _fetch_file_from_minio(self, bucket_name, file_name):
         try:

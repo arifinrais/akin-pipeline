@@ -8,7 +8,6 @@ from redis import Redis
 from rq import Connection, Worker
 from rq.queue import Queue
 from rq.job import Job 
-from fuzzywuzzy import fuzz
 
 class RQPreparator(Engine):
     ADDR_COL_INDEX=6
@@ -22,8 +21,6 @@ class RQPreparator(Engine):
         self.bucket = self.settings['MINIO_BUCKET_TRANSFORMED']
         self.previous_bucket = self.settings['MINIO_BUCKET_AGGREGATED']
         self.resources_bucket = self.settings['MINIO_BUCKET_RESOURCES']
-        self.standard_file_region = self.settings['FILE_REGION_STANDARD']
-        self.standard_file_department = self.settings['FILE_DEPARTMENT_STANDARD']
   
     def _setup_rq(self):
         try:
@@ -42,7 +39,7 @@ class RQPreparator(Engine):
             return True
         except:
             return False
-   
+            
     def _transform(self):
         logging.debug('Acquiring Lock for Transformation Jobs...')
         key, dimension, year = self._redis_update_stat_before(self.job)
@@ -65,18 +62,19 @@ class RQPreparator(Engine):
             if not line_list: raise Exception('405: File Not Fetched')
             data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_file_region)
             std_file = json.load(BytesIO(data_output))
-            
+            #print(std_file[0])
             #cleaning the data
             ll_cleaned = self._rq_cleaning(line_list, self.ADDR_COL_INDEX)
-            
+            #print(ll_cleaned[0], len(ll_cleaned))
             #splitting the data based on postal code
             ll_mapped_postal, ll_unmapped = self._rq_split(ll_cleaned, std_file, self.TFM_WORK['postal_mapping'], self.ADDR_COL_INDEX)
             if not ll_unmapped:
                 self._save_data_to_minio(ll_mapped_postal, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['result'])
                 return True, True
-            
+            #print(ll_mapped_postal[0], len(ll_mapped_postal))
             #splitting the data based on pattern matching
             ll_mapped_pattern, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['pattern_matching'],self.ADDR_COL_INDEX)
+            #print(ll_mapped_pattern[0], len(ll_mapped_pattern))
             mapped_lines=[]
             if ll_mapped_postal:
                 for line in ll_mapped_postal:
@@ -90,6 +88,7 @@ class RQPreparator(Engine):
             
             #saving the data separately if there are still unmapped records (note: it can be that there's no mapped record)
             if mapped_lines:
+                #print(mapped_lines)
                 self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['mapped'])
             unmapped_lines = []
             for line in ll_unmapped:
@@ -204,7 +203,7 @@ class RQPreparator(Engine):
             if not ll_unmapped: raise Exception('405: File Not Fetched')
             data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_file_region)
             std_file = json.load(BytesIO(data_output))
-            
+
             #geocoding and mapping data in spark
             ll_geomapped, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['geocode'], self.ADDR_COL_INDEX, API_CONFIG)
 
@@ -236,7 +235,9 @@ class RQPreparator(Engine):
         setup_rq = self._setup_rq()
         setup_redis = self._setup_redis_conn()
         setup_minio = self._setup_minio_client(self.bucket)
-        logging.info("Preparator Engine Successfully Started") if  setup_rq and setup_redis and setup_minio else logging.warning("Problem in Starting Preparator Engine")    
+        setup_resfile = self._load_resources_to_minio()
+        setup = setup_rq and setup_redis and setup_minio and setup_resfile
+        logging.info("Preparator Engine Successfully Started") if setup else logging.warning("Problem in Starting Preparator Engine")    
         #self._transform() #for debugging
         #return
         while True:

@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/engine /usr/src/app/engine
 COPY docker/engine/config.py /usr/src/app/engine
 COPY src/engine/main.py /usr/src/app
+COPY res /usr/src/app/res
 
 # override settings via config.py
 # COPY src/engine/localsettings.py /usr/src/app/localsettings.py

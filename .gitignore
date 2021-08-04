@@ -1,12 +1,14 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # resources
-/res
 /utils
+/previous
+/src/engine/res
 
 *.yml
 !docker-compose.yml
 *.log
+*.pyc
 
 __pycache__
 
