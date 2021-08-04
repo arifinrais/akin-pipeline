@@ -1,8 +1,20 @@
 version: '2'
 
 services:
+  preparator-engine:
+    image: arifinrais/akin-pipeline:engine-tfm-rq-dev
+    container_name: preparator
+    build:
+      context: .
+      dockerfile: docker/engine/Dockerfile.py3
+    depends_on:
+      - minio
+      - job-enqueuer
+      - rq-server
+    command: python main.py transform
+    restart: unless-stopped
   aggregator-engine:
-    image: arifinrais/akin-pipeline:engine-preparator-dev
+    image: arifinrais/akin-pipeline:engine-tfm-rq-dev
     container_name: aggregator
     build:
       context: .
@@ -13,7 +25,7 @@ services:
     command: python main.py aggregate
     restart: unless-stopped
   ingestor-engine:
-    image: arifinrais/akin-pipeline:engine-preparator-dev
+    image: arifinrais/akin-pipeline:engine-tfm-rq-dev
     container_name: ingestor
     build:
       context: .
@@ -52,7 +64,7 @@ services:
       - "6389:6389"
     restart: always
   rq-scraper:
-    image: arifinrais/akin-pipeline:engine-preparator-dev
+    image: arifinrais/akin-pipeline:engine-tfm-rq-dev
     build:
       context: .
       dockerfile: docker/engine/Dockerfile.py3
@@ -62,41 +74,16 @@ services:
       replicas: 3
     command: python main.py scrape
     restart: unless-stopped
-  spark:
-    image: docker.io/bitnami/spark:3.1.1
-    container_name: spark
-    environment:
-      - SPARK_MODE=master
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
-    ports:
-      - '8080:8080'
-      - '7077:7077'
-  spark-worker-1:
-    image: docker.io/bitnami/spark:3.1.1
-    container_name: spark-worker-1
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark:7077
-      - SPARK_WORKER_MEMORY=1G
-      - SPARK_WORKER_CORES=1
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
-  spark-worker-2:
-    image: docker.io/bitnami/spark:3.1.1
-    container_name: spark-worker-2
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark:7077
-      - SPARK_WORKER_MEMORY=1G
-      - SPARK_WORKER_CORES=1
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
+  rq-transform:
+    image: arifinrais/akin-pipeline:engine-tfm-rq-dev
+    build:
+      context: .
+      dockerfile: docker/engine/Dockerfile.py3
+    depends_on:
+      - rq-server
+    deploy:
+      replicas: 3
+    command: python main.py prepare
+    restart: unless-stopped
 volumes:
   minio-data: # used for minio
