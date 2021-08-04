@@ -68,8 +68,8 @@ DIMENSION_PATENT = 'ptn'
 DIMENSION_TRADEMARK = 'trd'
 DIMENSION_PUBLICATION = 'pub'
 
-RES_BASE_PATH = 'usr/src/app/res/' #harus sesuai sama imagenya
-RES_FILES = ['region_standard.json']#, 'department_standard.json']
+RES_BASE_PATH = 'res/' #harus sesuai sama imagenya
+RES_FILES = ['region_standard.json', 'postal_mapping.json']#, 'department_standard.json']
 
 # main thread sleep time
 SLEEP_TIME = 1
