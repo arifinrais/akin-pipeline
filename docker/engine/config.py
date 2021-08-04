@@ -22,6 +22,7 @@ MINIO_ROOT_PASSWORD = 'minio123'
 MINIO_BUCKET_INGESTED = 'raw'
 MINIO_BUCKET_AGGREGATED = 'agg'
 MINIO_BUCKET_TRANSFORMED = 'tfm'
+MINIO_BUCKET_RESOURCES = 'res'
 
 # ingestion settings
 MAX_INGEST_YEAR = 2018
@@ -66,6 +67,9 @@ STAT_ERROR = 'err'
 DIMENSION_PATENT = 'ptn'
 DIMENSION_TRADEMARK = 'trd'
 DIMENSION_PUBLICATION = 'pub'
+
+RES_BASE_PATH = 'res/'
+RES_FILES = ['region_standard.json']#, 'department_standard.json']
 
 # main thread sleep time
 SLEEP_TIME = 1

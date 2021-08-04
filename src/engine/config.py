@@ -69,7 +69,7 @@ DIMENSION_TRADEMARK = 'trd'
 DIMENSION_PUBLICATION = 'pub'
 
 RES_BASE_PATH = 'res/'
-RES_FILES = ['region_standard.json', 'department_standard.json']
+RES_FILES = ['region_standard.json']#, 'department_standard.json']
 
 # main thread sleep time
 SLEEP_TIME = 1
