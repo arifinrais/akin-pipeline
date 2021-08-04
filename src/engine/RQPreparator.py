@@ -39,7 +39,7 @@ class RQPreparator(Engine):
             return True
         except:
             return False
-            
+
     def _transform(self):
         logging.debug('Acquiring Lock for Transformation Jobs...')
         key, dimension, year = self._redis_update_stat_before(self.job)
@@ -247,7 +247,7 @@ class RQPreparator(Engine):
     def prepare(self):
         self._setup_rq()
         with Connection():
-            queues=[self.queue[self.TFM_WORK['clean']],self.queue[self.TFM_WORK['postal_mapping']],self.queue[self.TFM_WORK['pattern_matching']],self.queue[self.TFM_WORK['geocoding']]]
+            queues=[self.queue[self.TFM_WORK['clean']],self.queue[self.TFM_WORK['postal_mapping']],self.queue[self.TFM_WORK['pattern_matching']],self.queue[self.TFM_WORK['geocode']]]
             worker = Worker(queues=queues, connection=self.rq_conn)
             worker.work()
             while True:
