@@ -90,15 +90,15 @@ class Ingestor(Engine):
             _year=str(year)
             if dimension==self.settings['DIMENSION_PATENT']:
                 param_type='patent'
-                param_keywords=['PID','P00','S00','W00']
+                param_keywords=['PID','P00','S00','W00','P22']
             elif dimension==self.settings['DIMENSION_TRADEMARK']:
                 param_type='trademark'
                 param_keywords=['DID','D00','J00','K00','M00','R00','V00']
             for i in range(len(param_keywords)):
                 param_keywords[i]=param_keywords[i]+_year
             month_28=[2]
-            month_30=[1,3,5,7,8,10,12]
-            month_31=[4,6,9,11]
+            month_30=[4,6,9,11]
+            month_31=[1,3,5,7,8,10,12]
             for i in range(12):
                 _month=str(i+1)
                 if i+1<10: _month='0'+_month
