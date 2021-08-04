@@ -136,7 +136,7 @@ class Engine(object):
         create_res_bucket = self._setup_minio_client(self.settings['MINIO_BUCKET_RESOURCES'])
         if create_res_bucket:
             for file in self.settings['RES_FILES']:
-                self.minio_client.fput_object(self._setup_minio_client(self.settings['MINIO_BUCKET_RESOURCES']), file, base_path+file)
+                self.minio_client.fput_object(self.settings['MINIO_BUCKET_RESOURCES'], file, base_path+file)
             return True
         return False
 

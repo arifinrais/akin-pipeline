@@ -68,7 +68,7 @@ DIMENSION_PATENT = 'ptn'
 DIMENSION_TRADEMARK = 'trd'
 DIMENSION_PUBLICATION = 'pub'
 
-RES_BASE_PATH = 'res/'
+RES_BASE_PATH = '/Users/arifinrais/Workspace/akin/akin-pipeline/src/engine/res/'
 RES_FILES = ['region_standard.json']#, 'department_standard.json']
 
 # main thread sleep time
