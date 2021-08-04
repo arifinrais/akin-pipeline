@@ -61,40 +61,26 @@ class RQPreparator(Engine):
     def _transform_in_rq(self, dimension, year):
         file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv')
         try:
-            print('mashuk')
             data_output = self._fetch_file_from_minio(self.previous_bucket, file_name)
             line_list = BytesToLines(data_output, line_list=True) if data_output else None
             if not line_list: raise Exception('405: File Not Fetched')
             
             #cleaning the data
             ll_cleaned = self._rq_cleaning(line_list, self.ADDR_COL_INDEX)
-            print(ll_cleaned[0][6], len(ll_cleaned))
 
             #splitting the data based on postal code
             data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_postal)
             std_file = json.load(BytesIO(data_output))
-            print(std_file[0]) #DEBUGGING
             ll_mapped_postal, ll_unmapped = self._rq_split(ll_cleaned, std_file, self.TFM_WORK['postal_mapping'], self.ADDR_COL_INDEX)
             mapped_lines=LineListToLines(ll_mapped_postal)
             if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
-            print(ll_mapped_postal[0][7:], len(ll_mapped_postal)) #DEBUGGING
 
             #splitting the data based on pattern matching
             data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_region)
             std_file = json.load(BytesIO(data_output))
-            print(std_file[0]) #DEBUGGING
             ll_mapped_pattern, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['pattern_matching'],self.ADDR_COL_INDEX)
             mapped_lines=mapped_lines+LineListToLines(ll_mapped_pattern)
             if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
-            print(ll_mapped_pattern[0][7:], len(ll_mapped_pattern)) #DEBUGGING
-            
-            with open('mapped_postal.csv', 'w') as f:
-                for line in mapped_lines:
-                    f.write(line)
-            with open('unmapped_postal.csv', 'w') as f:
-                for line in ll_unmapped:
-                    f.write(CreateCSVLine(line))
-            return True, None
 
             #saving the data separately if there are still unmapped records (note: it can be that there's no mapped record)
             if mapped_lines:
@@ -109,7 +95,6 @@ class RQPreparator(Engine):
     def _is_all_mapped(self, mapped_lines, ll_unmapped, dimension, year):
         if not ll_unmapped:
             self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['result'])
-            print('All Mapped') #DEBUGGING
             return True
         return False
 
@@ -170,7 +155,6 @@ class RQPreparator(Engine):
             if len(job_id):
                 for id in job_id:
                     job = Job(id, self.rq_conn)
-                    #print(job.result) #just checkin'
                     if job.get_status()=='finished':
                         if job.result: ll_cleaned.append(job.result)
                         job_id.remove(id)
@@ -195,7 +179,6 @@ class RQPreparator(Engine):
             if len(job_id):
                 for id in job_id:
                     job = Job(id, self.rq_conn)
-                    #print(job.result) #just checkin'
                     if job.get_status()=='finished':
                         if job.result: 
                             line_mapped, line_unmapped = job.result

@@ -72,8 +72,9 @@ def PatternSplit(line, std_file, col_idx=6, fuzz_offset=88):
         ps_city = possible_city.strip().lower()
         fuzz_calc = lambda x,y: (fuzz.ratio(x,y)+fuzz.partial_ratio(x,y)+fuzz.token_sort_ratio(x,y)+fuzz.token_set_ratio(x,y))/4
         for region in std_file:
-            city1, city2, city3 = region['city'].lower(), region['city_official'].lower(), region['city_alias'].lower()
-            rating1, rating2, rating3 = fuzz_calc(ps_city, city1),fuzz_calc(ps_city, city2), fuzz_calc(ps_city, city3)
+            city1, city2 = region['city'].lower(), region['city_official'].lower()
+            rating1, rating2 = fuzz_calc(ps_city, city1),fuzz_calc(ps_city, city2)
+            rating3 = fuzz_calc(ps_city, region['city_alias'].lower()) if region['city_alias'] else 0
             rating = rating1 if rating1>rating2 and rating1>rating3 else rating2 if rating2>rating3 else rating3
             if rating==100: return 100, region['city'], region['province']
             if rating>max_rating:
