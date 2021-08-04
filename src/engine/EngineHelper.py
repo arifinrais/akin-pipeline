@@ -51,7 +51,7 @@ def CleanAddress(line, regexp_list, country_list, col_idx=6):
         rgxpattern, replacement = regex_pair
         line[col_idx] = re.sub(rgxpattern, replacement, line[col_idx])
     for country in country_list:
-        if country in line[col_idx]: return None
+        if country.lower() in line[col_idx].lower(): return None
     return line
 
 def PostalSplit(line, std_file, col_idx=6):
@@ -173,6 +173,12 @@ def LinesToDataFrame(lines, fields, delimiter="\t", lineterminator='\n'):
         if i==0: output.seek(0)
     df = pd.read_csv(output,delimiter=delimiter,lineterminator=lineterminator)
     return df
+
+def LineListToLines(line_list):
+    lines=[]
+    for line in line_list:
+        lines.append(CreateCSVLine(line))
+    return lines
 
 def ParseCSVLine(line, delimiter="\t"):
     return line.strip().split(delimiter)

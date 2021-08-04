@@ -2,7 +2,7 @@
 import sys, time, logging, json, regex as re, requests as req
 from minio.error import S3Error
 from engine.Engine import Engine
-from engine.EngineHelper import GenerateFileName, CreateCSVLine, BytesToLines, CleanAddress, PatternSplit, PostalSplit, Geocode
+from engine.EngineHelper import *
 from io import BytesIO
 from redis import Redis
 from rq import Connection, Worker
@@ -13,7 +13,7 @@ class RQPreparator(Engine):
     ADDR_COL_INDEX=6
     TEMP_FOLDERS={'mapped':'tmp_mapped','unmapped':'tmp_unmapped','result':'result','failed':'failed'}
     TFM_WORK={'clean':'cln','postal_mapping':'psp','pattern_matching':'ptm','geocode':'gcd'}
-    TFM_WAIT_TIME=5
+    TFM_WAIT_TIME=2
 
     def __init__(self):
         Engine.__init__(self)
@@ -21,6 +21,10 @@ class RQPreparator(Engine):
         self.bucket = self.settings['MINIO_BUCKET_TRANSFORMED']
         self.previous_bucket = self.settings['MINIO_BUCKET_AGGREGATED']
         self.resources_bucket = self.settings['MINIO_BUCKET_RESOURCES']
+        #dibikin suatu format di config?
+        #misal RES_FILES = [{'identifier': 'region_standard', 'filename': 'region_standard.json'}] buat bantu loader di engine juga
+        self.standard_region = self.settings['RES_FILES'][0]
+        self.standard_postal = self.settings['RES_FILES'][1]
   
     def _setup_rq(self):
         try:
@@ -41,63 +45,65 @@ class RQPreparator(Engine):
             return False
 
     def _transform(self):
-        logging.debug('Acquiring Lock for Transformation Jobs...')
-        key, dimension, year = self._redis_update_stat_before(self.job)
-        logging.debug('Transforming Records...')
-        success, errormsg = self._transform_in_rq(dimension, year)
-        logging.debug('Do Geocoding...')
-        if success and not errormsg:
-            success, errormsg = self._geocoding_in_rq(dimension, year)
-        logging.debug('Updating Job Status...')
-        self._redis_update_stat_after(key, self.job, success, errormsg)
-        #success, errormsg = self._transform_in_rq('ptn', 2018) #for debugging
+        #logging.debug('Acquiring Lock for Transformation Jobs...')
+        #key, dimension, year = self._redis_update_stat_before(self.job)
+        #logging.debug('Transforming Records...')
+        #success, errormsg = self._transform_in_rq(dimension, year)
+        #logging.debug('Do Geocoding...')
+        #if success and not errormsg:
+        #    success, errormsg = self._geocoding_in_rq(dimension, year)
+        #logging.debug('Updating Job Status...')
+        #self._redis_update_stat_after(key, self.job, success, errormsg)
+        success, errormsg = self._transform_in_rq('ptn', 2018) #for debugging
         #success, errormsg = self._geocoding('ptn', 2018) #for debugging
-        #print(success, errormsg)
+        print(success, errormsg)
 
     def _transform_in_rq(self, dimension, year):
         file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv')
         try:
+            print('mashuk')
             data_output = self._fetch_file_from_minio(self.previous_bucket, file_name)
             line_list = BytesToLines(data_output, line_list=True) if data_output else None
             if not line_list: raise Exception('405: File Not Fetched')
-            data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_file_region)
-            std_file = json.load(BytesIO(data_output))
-            #print(std_file[0])
+            
             #cleaning the data
             ll_cleaned = self._rq_cleaning(line_list, self.ADDR_COL_INDEX)
-            #print(ll_cleaned[0], len(ll_cleaned))
+            print(ll_cleaned[0][6], len(ll_cleaned))
+
             #splitting the data based on postal code
+            data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_postal)
+            std_file = json.load(BytesIO(data_output))
+            print(std_file[0]) #DEBUGGING
             ll_mapped_postal, ll_unmapped = self._rq_split(ll_cleaned, std_file, self.TFM_WORK['postal_mapping'], self.ADDR_COL_INDEX)
-            if not ll_unmapped:
-                self._save_data_to_minio(ll_mapped_postal, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['result'])
-                return True, True
-            #print(ll_mapped_postal[0], len(ll_mapped_postal))
+            mapped_lines=LineListToLines(ll_mapped_postal)
+            if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
+            print(ll_mapped_postal[0][7:], len(ll_mapped_postal)) #DEBUGGING
+
             #splitting the data based on pattern matching
+            data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_region)
+            std_file = json.load(BytesIO(data_output))
+            print(std_file[0]) #DEBUGGING
             ll_mapped_pattern, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['pattern_matching'],self.ADDR_COL_INDEX)
-            #print(ll_mapped_pattern[0], len(ll_mapped_pattern))
-            mapped_lines=[]
-            if ll_mapped_postal:
-                for line in ll_mapped_postal:
-                    mapped_lines.append(CreateCSVLine(line))
-            if ll_mapped_pattern:
-                for line in ll_mapped_pattern:
-                    mapped_lines.append(CreateCSVLine(line))
-            if not ll_unmapped:
-                self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['result'])
-                return True, True
+            mapped_lines=mapped_lines+LineListToLines(ll_mapped_pattern)
+            if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
+            print(ll_mapped_pattern[0][7:], len(ll_mapped_pattern)) #DEBUGGING
             
             #saving the data separately if there are still unmapped records (note: it can be that there's no mapped record)
             if mapped_lines:
-                #print(mapped_lines)
                 self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['mapped'])
-            unmapped_lines = []
-            for line in ll_unmapped:
-                unmapped_lines.append(CreateCSVLine(line))
+            unmapped_lines = LineListToLines(ll_unmapped)
             self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['unmapped'])
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
             return False, errormsg
+
+    def _is_all_mapped(self, mapped_lines, ll_unmapped, dimension, year):
+        if not ll_unmapped:
+            self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['result'])
+            print('All Mapped') #DEBUGGING
+            return True
+        return False
 
     def _rq_cleaning(self, line_list, col_idx=6):
         REGEXP_LIST = [
@@ -141,7 +147,7 @@ class RQPreparator(Engine):
             'italy', 
             'belgium', 
             'philippines', 
-            'malaysia', 
+            'malaysia', 'kuching',
             'france', 
             'norway', 
             'united kingdom', 
@@ -201,7 +207,7 @@ class RQPreparator(Engine):
             data_output = self._fetch_file_from_minio(self.bucket, unmapped_fname)
             ll_unmapped = BytesToLines(data_output, line_list=True) if data_output else None
             if not ll_unmapped: raise Exception('405: File Not Fetched')
-            data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_file_region)
+            data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_region)
             std_file = json.load(BytesIO(data_output))
 
             #geocoding and mapping data in spark
