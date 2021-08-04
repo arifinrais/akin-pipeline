@@ -59,12 +59,11 @@ def PostalSplit(line, std_file, col_idx=6):
     postal_find = re.findall(regex_address_postal, line[col_idx])
     postal_code = postal_find[0][1:] if postal_find else None
     if postal_code:
-        try:
-            line.append(std_file[postal_code]['city'])
-            line.append(std_file[postal_code]['province'])
-            return line, None
-        except:
-            return None, line
+        for region in std_file:
+            if postal_code in region['postal_codes']:
+                line.append(region['city'])
+                line.append(region['province'])
+                return line, None
     return None, line
 
 def PatternSplit(line, std_file, col_idx=6, fuzz_offset=88):
