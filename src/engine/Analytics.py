@@ -1,27 +1,14 @@
 #!/usr/bin/env python3
-import sys, time, json, csv, traceback #, os, logging
-import requests as req
-#from os import stat
-#from tenacity import retry
-#from jsonschema import validate
-#from abc import ABC, abstractmethod
+import sys, time, pandas as pd
 from engine.Engine import Engine
 from engine.EngineHelper import GenerateFileName, BytesToLines
 from datetime import datetime
 from io import BytesIO, StringIO
-from copy import deepcopy
-from redis import Redis
-from rejson import Client, Path
-from rq import Connection as RedisQueueConnection
-from rq.queue import Queue
-from rq.job import Job 
-from minio import Minio
-from minio.error import S3Error
-from pyspark.conf import SparkConf
-from pyspark import sql
 from pymongo import MongoClient
 
 class Analytics(Engine):
+    COLUMNS=['id_base_class','id_detail_class','id_city','id_province','id_island', 'id_dev_econ', 'id_dev_main', 'weight']   
+
     def __init__(self):
         Engine.__init__(self)
         self.job = self.settings['JOB_ANALYZE']
@@ -44,34 +31,35 @@ class Analytics(Engine):
         try:
             line_list = self._fetch_and_parse(self.previous_bucket, file_name, 'csv')
 
-            ll_encoded = self._encode(line_list, dimension)
+            df_encoded = self._encode(line_list, dimension, self.COLUMNS)
             #_class_base, _class_detail, weight, _city, _province, _island, _dev_main, _dev_econ
-            
-            viz_schemes = self._translate_viz(ll_encoded, dimension, year)
+            df_sums = self._summarize(df_encoded)
+
+            viz_schemes = self._translate_viz(df_sums, dimension, year)
             self._save_to_mongodb(viz_schemes, dimension, year)
 
-            anl_schemes = self._complexity_analysis(ll_encoded, dimension, year)
+            anl_schemes = self._complexity_analysis(df_sums, dimension, year)
             self._save_to_mongodb(anl_schemes, dimension, year)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
             return False, errormsg
     
-    def _encode(self, line_list, dimension, delimiter='\t', class_delimiter=';', decimal_places=2):
+    def _encode(self, line_list, dimension, columns, class_delimiter=';', decimal_places=2):
         std_file = self._fetch_and_parse(self.resources_bucket, self.encoder_dictionary, 'json')
         ll_encoded = []
         for line in line_list:
-            _line = line.strip().split(delimiter)
-            classes, city, province = _line[5], _line[7], _line[8]
+            classes, city, province = line[5], line[7], line[8]
             _city, _province, _island, _dev_main, _dev_econ = self._encode_region(city, province, std_file)
             _classes = classes.split(class_delimiter)
             if _island!=-1 and _dev_main!=-1:
-                weight = round*((1/len(_classes)), decimal_places)
+                weight = round((1/len(_classes)), decimal_places)
                 for _class in _classes:
                     _class_base, _class_detail = self._encode_class(_class, std_file, dimension)
                     if _class_base!=-1 and  _class_detail!=-1:
-                        ll_encoded.append([_class_base, _class_detail, weight, _city, _province, _island, _dev_main, _dev_econ])
-        return ll_encoded
+                        ll_encoded.append([_class_base, _class_detail, _city, _province, _island, _dev_econ, _dev_main, weight])
+        df_encoded = pd.DataFrame(ll_encoded,columns=columns)
+        return df_encoded
     
     def _encode_region(self, city, province, std_file):
         _city, _province, _island, _dev_main, _dev_econ = -1, -1, -1, -1, -1
@@ -111,6 +99,15 @@ class Analytics(Engine):
         elif dimension==self.settings['DIMENSION_PUBLICATION']:
             None #tar define buat SINTA
         return _class_base, _class_detail
+
+    def _summarize(self, dataframe):
+        df_sums={} #national, provincial, urban, insular, dev
+        df_national = dataframe.drop(['id_detail_class','id_city','id_province','id_island', 'id_dev_main', 'id_dev_econ'], axis=1)
+        df_national = df_national.groupby('id_base_class').sum()
+        #['id_base_class','id_detail_class','id_city','id_province','id_island', 'id_dev_econ', 'id_dev_main', 'weight']  
+        df_regional_adm = dataframe.drop(['id_base_class','id_island'], axis=1)
+        df_regional_adm = df_regional_adm.groupby(['id_dev_econ', 'id_dev_main',''])
+        pass
 
     def _translate_viz(line_list, dimension, year):
 
