@@ -24,8 +24,8 @@ class RQPreparator(Engine):
         self.TEMP_FOLDERS['result']=self.settings['MINIO_RESULT_FOLDER']
         #dibikin suatu format di config?
         #misal RES_FILES = [{'id': 'region_standard', 'fname': 'region_standard.json'}] buat bantu loader di engine juga
-        self.standard_region = self.settings['RES_FILES'][0]
-        self.standard_postal = self.settings['RES_FILES'][1]
+        self.standard_region = self.settings['RES_FILES']['TFM_PTM_STD']
+        self.standard_postal = self.settings['RES_FILES']['TFM_PSM_STD']
         self.rq_queue = [self.TFM_WORK['clean'],self.TFM_WORK['postal_mapping'],self.TFM_WORK['pattern_matching'],self.TFM_WORK['geocode']]
 
     def _transform(self):
@@ -57,13 +57,13 @@ class RQPreparator(Engine):
             ll_mapped_postal, ll_unmapped = self._rq_split(ll_cleaned, std_file, self.TFM_WORK['postal_mapping'], self.ADDR_COL_INDEX)
             mapped_lines=LineListToLines(ll_mapped_postal)
             if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
-
+            
             #splitting the data based on pattern matching
             std_file = self._fetch_and_parse(self.resources_bucket, self.standard_region, 'json')
             ll_mapped_pattern, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['pattern_matching'],self.ADDR_COL_INDEX)
             mapped_lines=mapped_lines+LineListToLines(ll_mapped_pattern)
             if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
-
+            
             unmapped_lines=LineListToLines(ll_unmapped)
             self._save_to_temp_folders(mapped_lines, unmapped_lines, dimension, year)
             return True, None

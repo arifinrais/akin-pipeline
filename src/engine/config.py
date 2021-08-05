@@ -25,7 +25,12 @@ MINIO_BUCKET_TRANSFORMED = 'tfm'
 MINIO_BUCKET_RESOURCES = 'res'
 MINIO_RESULT_FOLDER = 'tmp_mapped' #defaultnya result, tapi sebelum geocoding pake tmp_mapped dulu
 RES_BASE_PATH = '/Users/arifinrais/Workspace/akin/akin-pipeline/src/engine/res/'
-RES_FILES = ['region_standard.json', 'postal_mapping.json']#, 'department_standard.json']
+RES_FILES = {'TFM_PTM_STD': 'region_mapping.json',
+            'TFM_PSM_STD': 'postal_mapping.json',
+            'ANL_ENC_STD': 'encoder_dictionary.json'}
+            #'TFM_DPM_STD': 'departmental_mapping.json'
+            #'ANL_IPC_STD': 'ipc_mapping.json'
+            #'ANL_NCL_STD': 'ncl_mapping.json'
 
 # mongodb host information
 MONGO_HOST = 'localhost'
