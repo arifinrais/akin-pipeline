@@ -44,10 +44,10 @@ class Analytics(Engine):
         try:
             line_list = self._fetch_and_parse(self.previous_bucket, file_name, 'csv')
 
-            ll_encoded = self._encode(line_list)
-            #_class_enc, weight, _city, _province, _island, _dev_main, _dev_econ
+            ll_encoded = self._encode(line_list, dimension)
+            #_class_base, _class_detail, weight, _city, _province, _island, _dev_main, _dev_econ
             
-            viz_schemes = self._translate_viz(ll_encoded,dimension, year)
+            viz_schemes = self._translate_viz(ll_encoded, dimension, year)
             self._save_to_mongodb(viz_schemes, dimension, year)
 
             anl_schemes = self._complexity_analysis(ll_encoded, dimension, year)
@@ -65,13 +65,12 @@ class Analytics(Engine):
             classes, city, province = _line[5], _line[7], _line[8]
             _city, _province, _island, _dev_main, _dev_econ = self._encode_region(city, province, std_file)
             _classes = classes.split(class_delimiter)
-            if _island!=-1 or _dev_main!=-1:
+            if _island!=-1 and _dev_main!=-1:
                 weight = round*((1/len(_classes)), decimal_places)
                 for _class in _classes:
-                    _class_enc = self._encode_class(_class, std_file['ipc_class2']) if dimension==self.settings['DIMENSION_PATENT']\
-                        else self._encode_class(_class, std_file['ncl_class1']) #nanti add buat SINTA (pub)
-                    if _class_enc!=-1:
-                        ll_encoded.append([_class_enc, weight, _city, _province, _island, _dev_main, _dev_econ])
+                    _class_base, _class_detail = self._encode_class(_class, std_file, dimension)
+                    if _class_base!=-1 and  _class_detail!=-1:
+                        ll_encoded.append([_class_base, _class_detail, weight, _city, _province, _island, _dev_main, _dev_econ])
         return ll_encoded
     
     def _encode_region(self, city, province, std_file):
@@ -92,15 +91,30 @@ class Analytics(Engine):
                 break
         return _city, _province, _island, _dev_main, _dev_econ
 
-    def _encode_class(self, _class, std_class):
-        __class=-1
-        for rec in std_class:
-            if _class==rec['class']:
-                __class=rec['id']
-                break
-        return __class
+    def _encode_class(self, _class, std_file, dimension):
+        _class_base, _class_detail = -1, -1
+        if dimension==self.settings['DIMENSION_PATENT']:
+            for rec in std_file['ipc_base']:
+                if _class[0]==rec['class']:
+                    _class_base=rec['id']
+                    break
+            for rec in std_file['ipc_class2']:
+                if _class==rec['class']:
+                    _class_detail=rec['id']
+                    break
+        elif dimension==self.settings['DIMENSION_TRADEMARK']:
+            for rec in std_file['ncl_class1']:
+                if _class==rec['class']:
+                    _class_detail=rec['id']
+                    _class_base=rec['parent_id']
+                    break
+        elif dimension==self.settings['DIMENSION_PUBLICATION']:
+            None #tar define buat SINTA
+        return _class_base, _class_detail
 
     def _translate_viz(line_list, dimension, year):
+
+        #_class_base, _class_detail, weight, _city, _province, _island, _dev_main, _dev_econ
         #translate
         #save to mongodb
         pass
