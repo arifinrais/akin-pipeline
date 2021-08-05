@@ -24,8 +24,7 @@ class Analytics(Engine):
         #self._redis_update_stat_after(key, self.job, success, errormsg)
         success, errormsg = self._analyze_file('ptn', 2018)
         print(success, errormsg)
-
-    
+   
     def _analyze_file(self, dimension, year):
         file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv', temp_folder=self.result_folder)
         try:
@@ -100,6 +99,23 @@ class Analytics(Engine):
             None #tar define buat SINTA
         return _class_base, _class_detail
 
+    def _decode(self, code, enc_type, enc_dimension):
+        std_file = self._fetch_and_parse(self.resources_bucket, self.encoder_dictionary, 'json')
+        if enc_type not in ['region','class']: raise Exception('403: Encoder Type Not Recognized')
+        for rec in std_file[enc_dimension]:
+            if rec['id']==code:
+                if enc_type=='region': return rec[enc_dimension]
+                if enc_type=='class': return rec['class']
+        raise Exception('403: Code Not Recognized')
+
+    def _df_to_line_list(self, dataframe):
+        lines=[]
+        for row in dataframe.values.tolist():
+            line = [int(x) for x in row[:-1]]
+            line.append(row[-1])
+            lines.append(line)
+        return lines
+
     def _summarize(self, dataframe):
         df_sums={}
         df_sums['national'] = dataframe.drop(['id_detail_class','id_city','id_province','id_island', 'id_dev_main', 'id_dev_econ'], axis=1)\
@@ -127,15 +143,6 @@ class Analytics(Engine):
         #translate
         #save to mongodb
         pass
-
-    def _decode(self, code, enc_type, enc_dimension):
-        std_file = self._fetch_and_parse(self.resources_bucket, self.encoder_dictionary, 'json')
-        if enc_type not in ['region','class']: raise Exception('403: Encoder Type Not Recognized')
-        for rec in std_file[enc_dimension]:
-            if rec['id']==code:
-                if enc_type=='region': return rec[enc_dimension]
-                if enc_type=='class': return rec['class']
-        raise Exception('403: Code Not Recognized')
 
     def _translate_anl(line_list, dimension, year):
         pass
