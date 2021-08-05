@@ -117,7 +117,7 @@ class Analytics(Engine):
         return lines
 
     def _summarize(self, dataframe):
-        df_sums={}
+        df_sums={} #note: groupby automatically sort values
         df_sums['national'] = dataframe.drop(['id_detail_class','id_city','id_province','id_island', 'id_dev_main', 'id_dev_econ'], axis=1)\
             .groupby('id_base_class').sum().reset_index()
         df_sums['province'] = dataframe.drop(['id_island','id_dev_main','id_dev_econ','id_city'], axis=1)\
@@ -131,6 +131,43 @@ class Analytics(Engine):
         df_sums['island'] = dataframe.drop(['id_dev_main','id_dev_econ','id_province','id_city'], axis=1)\
             .groupby(['id_island','id_base_class','id_detail_class']).sum().reset_index()
         return df_sums
+
+    def _get_regional_count(self, dataframe, reg_dimension, cls_dimension):
+        col_id = 'id_'+reg_dimension
+        class_base, class_detail = self._get_class_classification(cls_dimension)
+        counts=[]
+        if reg_dimension=='national':
+            line_list = self._df_to_line_list(dataframe)
+            for line in line_list: counts.append({class_base: self._decode(line[0],'class',class_base),"total": line[1]})
+        else:
+            line_list = self._df_to_line_list(dataframe)
+            for line in line_list:
+                _count_found=False
+                for count in counts:
+                    if count[col_id]==line[0]:
+                        count["total"]+=line[-1]
+                        _class_found=False
+                        for _class in count["class"]:
+                            if _class[class_base]==line[1]:
+                                _class["total"]+=line[-1]
+                                _class["class2"].append({class_detail: self._decode(line[2],'class',class_detail), "total": line[-1]})
+                                _class_found=True
+                                continue
+                        if not _class_found:
+                            count["class"].append({class_base: self._decode(line[1],'class',class_base), "total": line[-1],
+                                "class2":[{class_detail: self._decode(line[2],'class',class_detail), "total": line[-1]}]})
+                        _count_found=True
+                        continue
+                if not _count_found:
+                    counts.append({col_id: line[0], "total": line[-1], \
+                        "class":[{class_base: self._decode(line[1],'class',class_base), "total": line[-1],
+                            "class2":[{class_detail: self._decode(line[2],'class',class_detail), "total": line[-1]}]}]})
+        return counts
+
+    def _get_class_classification(self, dimension):
+        if dimension==self.settings['DIMENSION_PATENT']: return 'ipc_base', 'ipc_class2'
+        if dimension==self.settings['DIMENSION_TRADEMARK']: return 'ncl_base', 'ncl_class1'
+        if dimension==self.settings['DIMENSION_PUBLICATION']: return 'cip_base', 'cip_class2'
 
     def _translate_viz(self, dataframes, dimension, year):
         if dimension==self.settings['DIMENSION_PATENT']:

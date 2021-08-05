@@ -39,7 +39,9 @@ MONGO_USER = 'root'
 MONGO_PASSWORD = 'mongo123'
 MONGO_URI = 'mongodb://'+MONGO_USER+':'+MONGO_PASSWORD+'@'+MONGO_HOST+':'+MONGO_PORT+'/?authSource=admin&readPreference=primary&appname=Engine%&ssl=false'
 MONGO_DATABASE = 'akin'
-MONGO_COLLECTIONS = {'viz':'visualization','anl':'analysis'}
+MONGO_COLLECTIONS = {'VIZ_PATENT':'viz_ptn','ANL_PATENT':'anl_ptn',
+    'VIZ_TRADEMARK':'viz_trd','ANL_TRADEMARK':'anl_trd',
+    'VIZ_PUBLICATION':'viz_pub','ANL_PUBLICATION':'anl_pub'}
 
 # ingestion settings
 MAX_INGEST_YEAR = 2018
