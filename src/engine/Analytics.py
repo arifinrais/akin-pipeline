@@ -116,12 +116,26 @@ class Analytics(Engine):
             .groupby(['id_island','id_base_class','id_detail_class']).sum().reset_index()
         return df_sums
 
-    def _translate_viz(line_list, dimension, year):
-
+    def _translate_viz(self, dataframes, dimension, year):
+        if dimension==self.settings['DIMENSION_PATENT']:
+            None
+        elif dimension==self.settings['DIMENSION_TRADEMARK']:
+            None
+        elif dimension==self.settings['DIMENSION_PUBLICATION']:
+            None
         #_class_base, _class_detail, weight, _city, _province, _island, _dev_main, _dev_econ
         #translate
         #save to mongodb
         pass
+
+    def _decode(self, code, enc_type, enc_dimension):
+        std_file = self._fetch_and_parse(self.resources_bucket, self.encoder_dictionary, 'json')
+        if enc_type not in ['region','class']: raise Exception('403: Encoder Type Not Recognized')
+        for rec in std_file[enc_dimension]:
+            if rec['id']==code:
+                if enc_type=='region': return rec[enc_dimension]
+                if enc_type=='class': return rec['class']
+        raise Exception('403: Code Not Recognized')
 
     def _translate_anl(line_list, dimension, year):
         pass
