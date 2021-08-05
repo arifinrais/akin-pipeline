@@ -27,6 +27,11 @@ MINIO_RESULT_FOLDER = 'tmp_mapped' #defaultnya result, tapi sebelum geocoding pa
 RES_BASE_PATH = '/Users/arifinrais/Workspace/akin/akin-pipeline/src/engine/res/'
 RES_FILES = ['region_standard.json', 'postal_mapping.json']#, 'department_standard.json']
 
+# mongodb host information
+MONGODB_URI = ''
+MONGODB_DATABASE = 'akin'
+MONGODB_COLLECTIONS = ['visualization','analysis']
+
 # ingestion settings
 MAX_INGEST_YEAR = 2018
 MIN_INGEST_YEAR = 2000
@@ -70,9 +75,6 @@ STAT_ERROR = 'err'
 DIMENSION_PATENT = 'ptn'
 DIMENSION_TRADEMARK = 'trd'
 DIMENSION_PUBLICATION = 'pub'
-
-RES_BASE_PATH = '/Users/arifinrais/Workspace/akin/akin-pipeline/src/engine/res/'
-RES_FILES = ['region_standard.json', 'postal_mapping.json']#, 'department_standard.json']
 
 # main thread sleep time
 SLEEP_TIME = 1

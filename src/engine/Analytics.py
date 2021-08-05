@@ -27,6 +27,7 @@ class Analytics(Engine):
         self.job = self.settings['JOB_ANALYZE']
         self.previous_bucket = self.settings['MINIO_BUCKET_TRANSFORMED']
         self.result_folder = self.settings['MINIO_RESULT_FOLDER']
+        self.mongo_collections = [self.]
 
     def _analyze(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
@@ -36,18 +37,26 @@ class Analytics(Engine):
     def _analyze_file(self, dimension, year):
         file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv', temp_folder=self.result_folder)
         try:
-            data_output = self._fetch_file_from_minio(self.previous_bucket, file_name)
-            line_list = BytesToLines(data_output, line_list=True) if data_output else None
+            line_list = self._fetch_and_parse(self.previous_bucket, file_name, 'csv')
             
-            analyses = self._complexity_analysis(resp_utf, dimension, year)
-            self._save_to_mongodb(resp_utf, analyses, dimension, year)
+            viz_schemes = self._translate_viz(line_list,dimension, year)
+            self._save_to_mongodb(viz_schemes, dimension, year)
+
+            anl_schemes = self._complexity_analysis(line_list, dimension, year)
+            self._save_to_mongodb(anl_schemes, dimension, year)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
             return False, errormsg
     
+    def _translate_viz(line_list, dimension, year):
+        pass
+
+    def _translate_anl(line_list, dimension, year):
+        pass
+
     def _complexity_analysis(self, resp, dimension, year):
-        None
+        pass
 
     def _save_to_mongodb(self, resp, analyses, year):
         complexity_collection = self.mongo_database[self.settings['MONGODB_COLLECTION_REGIONAL_PATENT']]
