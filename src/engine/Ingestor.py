@@ -14,23 +14,7 @@ class Ingestor(Engine):
         self.job = self.settings['JOB_INGEST']
         self.bucket = self.settings['MINIO_BUCKET_INGESTED']
         self.scrape_wait_time = scrape_wait_time
-
-    def _setup_rq(self):
-        try:
-            self.rq_conn = Redis(host=self.settings['RQ_REDIS_HOST'], 
-                                port=self.settings['RQ_REDIS_PORT'], 
-                                password=self.settings['RQ_REDIS_PASSWORD'],
-                                db=self.settings['RQ_REDIS_DB'],
-                                decode_responses=False, #koentji
-                                socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
-                                socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
-            self.queue={}
-            self.queue[self.settings['DIMENSION_PATENT']] = Queue(self.settings['DIMENSION_PATENT'], connection=self.rq_conn)
-            self.queue[self.settings['DIMENSION_TRADEMARK']]= Queue(self.settings['DIMENSION_TRADEMARK'], connection=self.rq_conn)
-            self.queue[self.settings['DIMENSION_PUBLICATION']] = Queue(self.settings['DIMENSION_PUBLICATION'], connection=self.rq_conn)
-            return True
-        except:
-            return False
+        self.rq_queue = [self.settings['DIMENSION_PATENT'],self.settings['DIMENSION_TRADEMARK'],self.settings['DIMENSION_PUBLICATION']]
 
     def _ingest(self):
         logging.debug('Acquiring Lock for Ingestion Jobs...')
@@ -148,7 +132,7 @@ class Ingestor(Engine):
 
     def start(self):
         logging.info("Starting Ingestion Engine...")
-        setup_rq = self._setup_rq()
+        setup_rq = self._setup_rq(self.rq_queue)
         setup_redis = self._setup_redis_conn()
         setup_minio = self._setup_minio_client(self.bucket)
         logging.info("Ingestion Engine Successfully Started") if setup_rq and setup_redis and setup_minio else logging.warning("Problem in Starting Ingestion Engine")
@@ -157,9 +141,9 @@ class Ingestor(Engine):
             time.sleep(self.settings['SLEEP_TIME'])
 
     def scrape(self):
-        self._setup_rq()
+        self._setup_rq(self.rq_queue)
+        queues = [value for key, value in self.queue.iteritems()]
         with Connection():
-            queues=[self.queue[self.settings['DIMENSION_PATENT']],self.queue[self.settings['DIMENSION_TRADEMARK']],self.queue[self.settings['DIMENSION_PUBLICATION']]]
             worker = Worker(queues=queues, connection=self.rq_conn)
             worker.work()
             while True:

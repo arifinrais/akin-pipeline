@@ -3,6 +3,8 @@ import sys, time, json
 from engine import config
 from engine.EngineHelper import GenerateFileName
 from datetime import datetime
+from redis import Redis
+from rq.queue import Queue
 from rejson import Client, Path
 from minio import Minio
 from minio.error import S3Error
@@ -29,6 +31,22 @@ class Engine(object):
             }
         except:
             self.error_handler(sys.exc_info())
+    
+    def _setup_rq(self, queue_list):
+        try:
+            self.rq_conn = Redis(host=self.settings['RQ_REDIS_HOST'], 
+                                port=self.settings['RQ_REDIS_PORT'], 
+                                password=self.settings['RQ_REDIS_PASSWORD'],
+                                db=self.settings['RQ_REDIS_DB'],
+                                decode_responses=False, #koentji
+                                socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
+                                socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
+            self.queue={}
+            for queue_name in queue_list:
+                self.queue[queue_name]=Queue(queue_name, connection=self.rq_conn)
+            return True
+        except:
+            return False
     
     def _setup_redis_conn(self):
         try:

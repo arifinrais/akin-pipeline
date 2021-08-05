@@ -25,24 +25,7 @@ class RQPreparator(Engine):
         #misal RES_FILES = [{'identifier': 'region_standard', 'filename': 'region_standard.json'}] buat bantu loader di engine juga
         self.standard_region = self.settings['RES_FILES'][0]
         self.standard_postal = self.settings['RES_FILES'][1]
-  
-    def _setup_rq(self):
-        try:
-            self.rq_conn = Redis(host=self.settings['RQ_REDIS_HOST'], 
-                                port=self.settings['RQ_REDIS_PORT'], 
-                                password=self.settings['RQ_REDIS_PASSWORD'],
-                                db=self.settings['RQ_REDIS_DB'],
-                                decode_responses=False, #koentji
-                                socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
-                                socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
-            self.queue={}
-            self.queue[self.TFM_WORK['clean']] = Queue(self.TFM_WORK['clean'], connection=self.rq_conn)
-            self.queue[self.TFM_WORK['postal_mapping']]= Queue(self.TFM_WORK['postal_mapping'], connection=self.rq_conn)
-            self.queue[self.TFM_WORK['pattern_matching']] = Queue(self.TFM_WORK['pattern_matching'], connection=self.rq_conn)
-            self.queue[self.TFM_WORK['geocode']] = Queue(self.TFM_WORK['geocode'], connection=self.rq_conn)
-            return True
-        except:
-            return False
+        self.rq_queue = [self.TFM_WORK['clean'],self.TFM_WORK['postal_mapping'],self.TFM_WORK['pattern_matching'],self.TFM_WORK['geocode']]
 
     def _transform(self):
         logging.debug('Acquiring Lock for Transformation Jobs...')
@@ -231,7 +214,8 @@ class RQPreparator(Engine):
             return False, errormsg
 
     def start(self):
-        setup_rq = self._setup_rq()
+        logging.info("Starting Prearator Engine...")
+        setup_rq = self._setup_rq(self.rq_queue)
         setup_redis = self._setup_redis_conn()
         setup_minio = self._setup_minio_client(self.bucket)
         setup_resfile = self._load_resources_to_minio()
@@ -244,9 +228,9 @@ class RQPreparator(Engine):
             time.sleep(self.settings['SLEEP_TIME'])
     
     def prepare(self):
-        self._setup_rq()
+        self._setup_rq(self.rq_queue)
+        queues = [value for key, value in self.queue.iteritems()]
         with Connection():
-            queues=[self.queue[self.TFM_WORK['clean']],self.queue[self.TFM_WORK['postal_mapping']],self.queue[self.TFM_WORK['pattern_matching']],self.queue[self.TFM_WORK['geocode']]]
             worker = Worker(queues=queues, connection=self.rq_conn)
             worker.work()
             while True:

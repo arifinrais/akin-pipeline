@@ -85,5 +85,18 @@ services:
       replicas: 3
     command: python main.py prepare
     restart: unless-stopped
+  mongo:
+    image: mongo:4.4.8-focal
+    container_name: mongo
+    volumes:
+      - mongo-data:/data
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: mongo123
+    restart: always
+
 volumes:
   minio-data: # used for minio
+  mongo-data: 

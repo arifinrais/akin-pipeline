@@ -31,10 +31,10 @@ class Analytics(Engine):
     
     def _analyze(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
-        success, errormsg = self._analyze_file(dimension, year)
+        success, errormsg = self._encode_translate_analyze(dimension, year)
         self._redis_update_stat_after(key, self.job, success, errormsg)
     
-    def _analyze_file(self, dimension, year):
+    def _encode_translate_analyze(self, dimension, year):
         bucket_name=self.settings['MINIO_BUCKET_TRANSFORMED']
         file_name=self._generate_file_name(bucket_name, dimension, year, '.csv')
         try:
