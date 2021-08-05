@@ -40,11 +40,11 @@ class Analytics(Engine):
             df_sums = self._summarize(df_encoded)
             #region, class_base, class_detail, weight
 
-            viz_schemes = self._translate_viz(df_sums, dimension, year)
-            self._save_to_mongodb(viz_schemes, dimension, year)
+            viz_scheme = self._translate_viz(df_sums, dimension, year)
+            self._save_to_mongodb(viz_scheme, dimension, year)
 
-            anl_schemes = self._complexity_analysis(df_sums, dimension, year)
-            self._save_to_mongodb(anl_schemes, dimension, year)
+            anl_scheme = self._complexity_analysis(df_sums, dimension, year)
+            self._save_to_mongodb(anl_scheme, dimension, year)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
@@ -183,15 +183,14 @@ class Analytics(Engine):
         viz_schemes["island"]=self._get_regional_count(dataframes["island"],"island",dimension)
         return viz_schemes
 
-    def _translate_anl(line_list, dimension, year):
+    def _translate_anl(self, dataframes, dimension, year):
         pass
 
-    def _complexity_analysis(self, resp, dimension, year):
+    def _complexity_analysis(self, dataframes, dimension, year):
         pass
 
-    def _save_to_mongodb(self, resp, analyses, year):
-        complexity_collection = self.mongo_database[self.settings['MONGODB_COLLECTION_REGIONAL_PATENT']]
-        None
+    def _save_to_mongodb(self, scheme, dimension, year):
+        pass
 
     def start(self):
         self._setup_redis_conn()
