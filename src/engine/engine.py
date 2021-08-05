@@ -32,22 +32,6 @@ class Engine(object):
         except:
             self.error_handler(sys.exc_info())
     
-    def _setup_rq(self, queue_list):
-        try:
-            self.rq_conn = Redis(host=self.settings['RQ_REDIS_HOST'], 
-                                port=self.settings['RQ_REDIS_PORT'], 
-                                password=self.settings['RQ_REDIS_PASSWORD'],
-                                db=self.settings['RQ_REDIS_DB'],
-                                decode_responses=False, #koentji
-                                socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
-                                socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
-            self.queue={}
-            for queue_name in queue_list:
-                self.queue[queue_name]=Queue(queue_name, connection=self.rq_conn)
-            return True
-        except:
-            return False
-    
     def _setup_redis_conn(self):
         try:
             self.redis_conn = Client(host=self.settings['JOB_REDIS_HOST'], 
@@ -60,33 +44,6 @@ class Engine(object):
             return True
         except:
             return False
-
-    def _setup_minio_client(self, bucket_name=None):
-        self.minio_client = Minio(
-            self.settings['MINIO_HOST']+':'+str(self.settings['MINIO_PORT']),
-            access_key=self.settings['MINIO_ROOT_USER'],
-            secret_key=self.settings['MINIO_ROOT_PASSWORD'],
-            secure=False #koentji harus di set ntar di kubernetes kalau mau secure pake TLS
-        )
-        if bucket_name:
-            try: 
-                if not self.minio_client.bucket_exists(bucket_name):
-                    self.minio_client.make_bucket(bucket_name)
-            except:
-                return False
-        return True
-   
-    def _get_lock_name(self, job):
-        if job==self.settings['JOB_INGEST']: return self.settings['LOCK_INGEST']
-        if job==self.settings['JOB_AGGREGATE']: return self.settings['LOCK_AGGREGATE']
-        if job==self.settings['JOB_TRANSFORM']: return self.settings['LOCK_TRANSFORM']
-        if job==self.settings['JOB_ANALYZE']: return self.settings['LOCK_ANALYZE']
-    
-    def _get_after_job(self, job):
-        if job==self.settings['JOB_INGEST']: return self.settings['JOB_AGGREGATE']
-        if job==self.settings['JOB_AGGREGATE']: return self.settings['JOB_TRANSFORM']
-        if job==self.settings['JOB_TRANSFORM']: return self.settings['JOB_ANALYZE']
-        if job==self.settings['JOB_ANALYZE']: return self.settings['JOB_ANALYZE']
 
     def _redis_update_stat_before(self, job):
         key, dimension, year = '', '', 0
@@ -126,14 +83,37 @@ class Engine(object):
             except:
                 time.sleep(1)#self.settings['SLEEP_TIME'])
     
-    def _check_dimension_source(self, source, dimension):
-        if source=='PDKI': 
-            return dimension==self.settings['DIMENSION_PATENT'] or dimension==self.settings['DIMENSION_TRADEMARK']
-        elif source=='SINTA': 
-            return dimension==self.settings['DIMENSION_PUBLICATION']
-        else: 
+    def _setup_rq(self, queue_list):
+        try:
+            self.rq_conn = Redis(host=self.settings['RQ_REDIS_HOST'], 
+                                port=self.settings['RQ_REDIS_PORT'], 
+                                password=self.settings['RQ_REDIS_PASSWORD'],
+                                db=self.settings['RQ_REDIS_DB'],
+                                decode_responses=False, #koentji
+                                socket_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'],
+                                socket_connect_timeout=self.settings['RQ_REDIS_SOCKET_TIMEOUT'])
+            self.queue={}
+            for queue_name in queue_list:
+                self.queue[queue_name]=Queue(queue_name, connection=self.rq_conn)
+            return True
+        except:
             return False
-
+  
+    def _setup_minio_client(self, bucket_name=None):
+        self.minio_client = Minio(
+            self.settings['MINIO_HOST']+':'+str(self.settings['MINIO_PORT']),
+            access_key=self.settings['MINIO_ROOT_USER'],
+            secret_key=self.settings['MINIO_ROOT_PASSWORD'],
+            secure=False #koentji harus di set ntar di kubernetes kalau mau secure pake TLS
+        )
+        if bucket_name:
+            try: 
+                if not self.minio_client.bucket_exists(bucket_name):
+                    self.minio_client.make_bucket(bucket_name)
+            except:
+                return False
+        return True
+    
     def _save_data_to_minio(self, data_input, bucket_name, dimension, year, extension='csv', temp_folder=None):
         file_name=GenerateFileName(bucket_name, dimension, year, extension, temp_folder=temp_folder)
         if extension=='csv':
@@ -167,3 +147,23 @@ class Engine(object):
             resp.close()
             resp.release_conn() 
             return data_output
+
+    def _get_lock_name(self, job):
+        if job==self.settings['JOB_INGEST']: return self.settings['LOCK_INGEST']
+        if job==self.settings['JOB_AGGREGATE']: return self.settings['LOCK_AGGREGATE']
+        if job==self.settings['JOB_TRANSFORM']: return self.settings['LOCK_TRANSFORM']
+        if job==self.settings['JOB_ANALYZE']: return self.settings['LOCK_ANALYZE']
+    
+    def _get_after_job(self, job):
+        if job==self.settings['JOB_INGEST']: return self.settings['JOB_AGGREGATE']
+        if job==self.settings['JOB_AGGREGATE']: return self.settings['JOB_TRANSFORM']
+        if job==self.settings['JOB_TRANSFORM']: return self.settings['JOB_ANALYZE']
+        if job==self.settings['JOB_ANALYZE']: return self.settings['JOB_ANALYZE']
+
+    def _check_dimension_source(self, source, dimension):
+        if source=='PDKI': 
+            return dimension==self.settings['DIMENSION_PATENT'] or dimension==self.settings['DIMENSION_TRADEMARK']
+        elif source=='SINTA': 
+            return dimension==self.settings['DIMENSION_PUBLICATION']
+        else: 
+            return False
