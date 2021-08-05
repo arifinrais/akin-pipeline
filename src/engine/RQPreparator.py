@@ -12,7 +12,7 @@ from rq.job import Job
 class RQPreparator(Engine):
     ADDR_COL_INDEX=6
     TEMP_FOLDERS={'mapped':'tmp_mapped','unmapped':'tmp_unmapped','failed':'failed'}
-    TFM_WORK={'clean':'cln','postal_mapping':'psp','pattern_matching':'ptm','geocode':'gcd'}
+    TFM_WORK={'clean':'cln','postal_mapping':'psm','pattern_matching':'ptm','geocode':'gcd'}
     TFM_WAIT_TIME=2
 
     def __init__(self):
@@ -23,7 +23,7 @@ class RQPreparator(Engine):
         self.resources_bucket = self.settings['MINIO_BUCKET_RESOURCES']
         self.TEMP_FOLDERS['result']=self.settings['MINIO_RESULT_FOLDER']
         #dibikin suatu format di config?
-        #misal RES_FILES = [{'identifier': 'region_standard', 'filename': 'region_standard.json'}] buat bantu loader di engine juga
+        #misal RES_FILES = [{'id': 'region_standard', 'fname': 'region_standard.json'}] buat bantu loader di engine juga
         self.standard_region = self.settings['RES_FILES'][0]
         self.standard_postal = self.settings['RES_FILES'][1]
         self.rq_queue = [self.TFM_WORK['clean'],self.TFM_WORK['postal_mapping'],self.TFM_WORK['pattern_matching'],self.TFM_WORK['geocode']]
@@ -53,13 +53,13 @@ class RQPreparator(Engine):
             ll_cleaned = self._rq_cleaning(line_list, self.ADDR_COL_INDEX)
 
             #splitting the data based on postal code
-            std_file = self._fetch_and_parse(self.previous_bucket, self.standard_postal, 'json')
+            std_file = self._fetch_and_parse(self.resources_bucket, self.standard_postal, 'json')
             ll_mapped_postal, ll_unmapped = self._rq_split(ll_cleaned, std_file, self.TFM_WORK['postal_mapping'], self.ADDR_COL_INDEX)
             mapped_lines=LineListToLines(ll_mapped_postal)
             if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
 
             #splitting the data based on pattern matching
-            std_file = self._fetch_and_parse(self.previous_bucket, self.standard_region, 'json')
+            std_file = self._fetch_and_parse(self.resources_bucket, self.standard_region, 'json')
             ll_mapped_pattern, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['pattern_matching'],self.ADDR_COL_INDEX)
             mapped_lines=mapped_lines+LineListToLines(ll_mapped_pattern)
             if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
