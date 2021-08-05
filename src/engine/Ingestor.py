@@ -142,7 +142,7 @@ class Ingestor(Engine):
 
     def scrape(self):
         self._setup_rq(self.rq_queue)
-        queues = [value for key, value in self.queue.iteritems()]
+        queues = [value for key, value in self.queue.items()]
         with Connection():
             worker = Worker(queues=queues, connection=self.rq_conn)
             worker.work()

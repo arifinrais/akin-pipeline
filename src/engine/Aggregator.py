@@ -147,12 +147,14 @@ class Aggregator(Engine):
             for ipc in record_list:
                 category = ipc.strip().split()
                 if category[0] not in class_list:
-                    class_list.append(category[0])
+                    class_list.append(category[0][:-1]) #ambil tiga digit awal
         elif dimension==self.settings['DIMENSION_TRADEMARK']:
             class_list=[i['class_no'] for i in class_record]
             if len(class_list)==1 and ';' in class_list[0]: 
                 class_list=class_list[0].strip().split(';') #handle error in classes
-        return class_list
+        classes=''
+        for _class in class_list: classes=classes+_class+';'
+        return classes[:-1]
 
     def _uniquify(self, lines):
         unique_lines=[]

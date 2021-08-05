@@ -23,14 +23,26 @@ MINIO_BUCKET_INGESTED = 'raw'
 MINIO_BUCKET_AGGREGATED = 'agg'
 MINIO_BUCKET_TRANSFORMED = 'tfm'
 MINIO_BUCKET_RESOURCES = 'res'
+MINIO_RESULT_FOLDER = 'tmp_mapped' #defaultnya result, tapi sebelum geocoding pake tmp_mapped dulu
+RES_BASE_PATH = 'res/'
+RES_FILES = ['region_standard.json', 'postal_mapping.json']#, 'department_standard.json']
+
+# mongodb host information
+MONGO_HOST = 'mongo'
+MONGO_PORT = '27017'
+MONGO_USER = 'root'
+MONGO_PASSWORD = 'mongo123'
+MONGO_URI = 'mongodb://'+MONGO_USER+':'+MONGO_PASSWORD+'@'+MONGO_HOST+':'+MONGO_PORT+'/?authSource=admin&readPreference=primary&appname=Engine%&ssl=false'
+MONGO_DATABASE = 'akin'
+MONGO_COLLECTIONS = {'viz':'visualization','anl':'analysis'}
 
 # ingestion settings
 MAX_INGEST_YEAR = 2018
 MIN_INGEST_YEAR = 2000
 
 # spark settings
-SPARK_MASTER = 'spark://spark:7077'
-SPARK_APP_NAME = 'data_transform'
+SPARK_MASTER = 'spark://localhost:7077'
+SPARK_APP_NAME = 'preparator_'
 SPARK_SUBMIT_DEPLOY_MODE = 'client'
 SPARK_UI_SHOW_CONSOLE_PROGRESS = 'true'
 SPARK_EVENT_LOG_ENABLED = 'false'
@@ -68,9 +80,7 @@ DIMENSION_PATENT = 'ptn'
 DIMENSION_TRADEMARK = 'trd'
 DIMENSION_PUBLICATION = 'pub'
 
-RES_BASE_PATH = 'res/' #harus sesuai sama imagenya
-RES_FILES = ['region_standard.json', 'postal_mapping.json']#, 'department_standard.json']
-
 # main thread sleep time
 SLEEP_TIME = 1
+ENGINE_LOOP_TIME = 5 #to change sleep
 HEARTBEAT_TIMEOUT = 120
