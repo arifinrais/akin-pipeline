@@ -27,7 +27,7 @@ class Analytics(Engine):
         self.job = self.settings['JOB_ANALYZE']
         self.previous_bucket = self.settings['MINIO_BUCKET_TRANSFORMED']
         self.result_folder = self.settings['MINIO_RESULT_FOLDER']
-        self.mongo_collections = [self.]
+        self.collections = self.settings['MONGO_COLLECTIONS'] #viz, anl
 
     def _analyze(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
@@ -50,6 +50,8 @@ class Analytics(Engine):
             return False, errormsg
     
     def _translate_viz(line_list, dimension, year):
+        #translate
+        #save to mongodb
         pass
 
     def _translate_anl(line_list, dimension, year):

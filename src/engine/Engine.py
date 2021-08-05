@@ -160,8 +160,11 @@ class Engine(object):
 
     def _setup_mongo_client(self):
         try:
-            self.mongo_client = MongoClient(self.settings['MONGODB_URI'])
-            self.mongo_database = self.mongo_client[self.settings['MONGODB_DATABASE']]
+            self.mongo_client = MongoClient(self.settings['MONGO_URI'])
+            self.mongo_database = self.mongo_client[self.settings['MONGO_DATABASE']]
+            self.mongo_collections = {}
+            for key, value in self.settings['MONGO_COLLECTIONS']:
+                self.mongo_collections[value]=self.mongo_database[value]
             return True
         except:
             return False

@@ -28,9 +28,13 @@ RES_BASE_PATH = '/Users/arifinrais/Workspace/akin/akin-pipeline/src/engine/res/'
 RES_FILES = ['region_standard.json', 'postal_mapping.json']#, 'department_standard.json']
 
 # mongodb host information
-MONGODB_URI = ''
-MONGODB_DATABASE = 'akin'
-MONGODB_COLLECTIONS = ['visualization','analysis']
+MONGO_HOST = 'localhost'
+MONGO_PORT = '27017'
+MONGO_USER = 'root'
+MONGO_PASSWORD = 'mongo123'
+MONGO_URI = 'mongodb://'+MONGO_USER+':'+MONGO_PASSWORD+'@'+MONGO_HOST+':'+MONGO_PORT+'/?authSource=admin&readPreference=primary&appname=Engine%&ssl=false'
+MONGO_DATABASE = 'akin'
+MONGO_COLLECTIONS = {'viz':'visualization','anl':'analysis'}
 
 # ingestion settings
 MAX_INGEST_YEAR = 2018
