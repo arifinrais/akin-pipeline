@@ -17,6 +17,12 @@ class Analytics(Engine):
         self.result_folder = self.settings['MINIO_RESULT_FOLDER']
         self.collections = self.settings['MONGO_COLLECTIONS'] #viz, anl
         
+    def _load_encoder_dictionary(self):
+        while True:
+            self.encoder_dictionary = self._fetch_and_parse(self.resources_bucket, self.settings['RES_FILES']['ANL_ENC_STD'], 'json')
+            if self.encoder_dictionary: break
+            time.sleep(self.settings['SLEEP_TIME'])
+
     def _analyze(self):
         #key, dimension, year = self._redis_update_stat_before(self.job)
         #success, errormsg = self._analyze_file(dimension, year)
@@ -191,10 +197,7 @@ class Analytics(Engine):
         self._setup_redis_conn()
         self._setup_minio_client()
         self._setup_mongo_client()
-        while True:
-            self.encoder_dictionary = self._fetch_and_parse(self.resources_bucket, self.settings['RES_FILES']['ANL_ENC_STD'], 'json')
-            if self.encoder_dictionary: break
-            time.sleep(self.settings['SLEEP_TIME'])
+        self._load_encoder_dictionary()
         while True:
             self._analyze()
             time.sleep(self.settings['SLEEP_TIME'])
