@@ -152,7 +152,7 @@ class Analytics(Engine):
                         count["total"]+=line[-1]
                         _class_found=False
                         for _class in count["class"]:
-                            if _class[class_base]==line[1]:
+                            if _class[class_base]==self._decode(line[1],'class',class_base):
                                 _class["total"]+=line[-1]
                                 _class["class2"].append({class_detail: self._decode(line[2],'class',class_detail), "total": line[-1]})
                                 _class_found=True
