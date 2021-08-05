@@ -33,6 +33,7 @@ class Analytics(Engine):
             df_encoded = self._encode(line_list, dimension, self.COLUMNS)
             #_class_base, _class_detail, weight, _city, _province, _island, _dev_main, _dev_econ
             df_sums = self._summarize(df_encoded)
+            #region, class_base, class_detail, weight
 
             viz_schemes = self._translate_viz(df_sums, dimension, year)
             self._save_to_mongodb(viz_schemes, dimension, year)
@@ -170,16 +171,14 @@ class Analytics(Engine):
         if dimension==self.settings['DIMENSION_PUBLICATION']: return 'cip_base', 'cip_class2'
 
     def _translate_viz(self, dataframes, dimension, year):
-        if dimension==self.settings['DIMENSION_PATENT']:
-            None
-        elif dimension==self.settings['DIMENSION_TRADEMARK']:
-            None
-        elif dimension==self.settings['DIMENSION_PUBLICATION']:
-            None
-        #_class_base, _class_detail, weight, _city, _province, _island, _dev_main, _dev_econ
-        #translate
-        #save to mongodb
-        pass
+        viz_schemes={"year": year}
+        viz_schemes["national"]=self._get_regional_count(dataframes["national"],"national",dimension)
+        viz_schemes["province"]=self._get_regional_count(dataframes["province"],"province",dimension)
+        viz_schemes["city"]=self._get_regional_count(dataframes["city"],"city",dimension)
+        viz_schemes["dev_main"]=self._get_regional_count(dataframes["dev_main"],"dev_main",dimension)
+        viz_schemes["dev_econ"]=self._get_regional_count(dataframes["dev_econ"],"dev_econ",dimension)
+        viz_schemes["island"]=self._get_regional_count(dataframes["island"],"island",dimension)
+        return viz_schemes
 
     def _translate_anl(line_list, dimension, year):
         pass
