@@ -6,6 +6,7 @@ import requests as req
 #from jsonschema import validate
 #from abc import ABC, abstractmethod
 from engine.Engine import Engine
+from engine.EngineHelper import GenerateFileName, BytesToLines
 from datetime import datetime
 from io import BytesIO, StringIO
 from copy import deepcopy
@@ -24,27 +25,21 @@ class Analytics(Engine):
     def __init__(self):
         Engine.__init__(self)
         self.job = self.settings['JOB_ANALYZE']
+        self.previous_bucket = self.settings['MINIO_BUCKET_TRANSFORMED']
+        self.result_folder = self.settings['MINIO_RESULT_FOLDER']
 
-    def _setup_mongo_client(self):
-        self.mongo_client = MongoClient(self.settings['MONGODB_URI'])
-        self.mongo_database = self.mongo_client[self.settings['MONGODB_DATABASE']]
-    
     def _analyze(self):
         key, dimension, year = self._redis_update_stat_before(self.job)
-        success, errormsg = self._encode_translate_analyze(dimension, year)
+        success, errormsg = self._analyze_file(dimension, year)
         self._redis_update_stat_after(key, self.job, success, errormsg)
     
-    def _encode_translate_analyze(self, dimension, year):
-        bucket_name=self.settings['MINIO_BUCKET_TRANSFORMED']
-        file_name=self._generate_file_name(bucket_name, dimension, year, '.csv')
+    def _analyze_file(self, dimension, year):
+        file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv', temp_folder=self.result_folder)
         try:
-            try:
-                resp = self.minio_client.get_object(bucket_name, file_name)
-                resp_utf = resp.decode('utf-8')
-                analyses = self._complexity_analysis(resp_utf, dimension, year)
-            finally:
-                resp.close()
-                resp.release_conn()
+            data_output = self._fetch_file_from_minio(self.previous_bucket, file_name)
+            line_list = BytesToLines(data_output, line_list=True) if data_output else None
+            
+            analyses = self._complexity_analysis(resp_utf, dimension, year)
             self._save_to_mongodb(resp_utf, analyses, dimension, year)
             return True, None
         except:

@@ -23,6 +23,9 @@ MINIO_BUCKET_INGESTED = 'raw'
 MINIO_BUCKET_AGGREGATED = 'agg'
 MINIO_BUCKET_TRANSFORMED = 'tfm'
 MINIO_BUCKET_RESOURCES = 'res'
+MINIO_RESULT_FOLDER = 'tmp_mapped' #defaultnya result, tapi sebelum geocoding pake tmp_mapped dulu
+RES_BASE_PATH = '/Users/arifinrais/Workspace/akin/akin-pipeline/src/engine/res/'
+RES_FILES = ['region_standard.json', 'postal_mapping.json']#, 'department_standard.json']
 
 # ingestion settings
 MAX_INGEST_YEAR = 2018

@@ -11,7 +11,7 @@ from rq.job import Job
 
 class RQPreparator(Engine):
     ADDR_COL_INDEX=6
-    TEMP_FOLDERS={'mapped':'tmp_mapped','unmapped':'tmp_unmapped','result':'result','failed':'failed'}
+    TEMP_FOLDERS={'mapped':'tmp_mapped','unmapped':'tmp_unmapped','failed':'failed'}
     TFM_WORK={'clean':'cln','postal_mapping':'psp','pattern_matching':'ptm','geocode':'gcd'}
     TFM_WAIT_TIME=2
 
@@ -21,6 +21,7 @@ class RQPreparator(Engine):
         self.bucket = self.settings['MINIO_BUCKET_TRANSFORMED']
         self.previous_bucket = self.settings['MINIO_BUCKET_AGGREGATED']
         self.resources_bucket = self.settings['MINIO_BUCKET_RESOURCES']
+        self.TEMP_FOLDERS['result']=self.settings['MINIO_RESULT_FOLDER']
         #dibikin suatu format di config?
         #misal RES_FILES = [{'identifier': 'region_standard', 'filename': 'region_standard.json'}] buat bantu loader di engine juga
         self.standard_region = self.settings['RES_FILES'][0]
@@ -46,42 +47,48 @@ class RQPreparator(Engine):
     def _transform_in_rq(self, dimension, year):
         file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv')
         try:
-            data_output = self._fetch_file_from_minio(self.previous_bucket, file_name)
-            line_list = BytesToLines(data_output, line_list=True) if data_output else None
-            if not line_list: raise Exception('405: File Not Fetched')
+            line_list = self._fetch_and_parse(self.previous_bucket, file_name, 'csv')
             
             #cleaning the data
             ll_cleaned = self._rq_cleaning(line_list, self.ADDR_COL_INDEX)
 
             #splitting the data based on postal code
-            data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_postal)
-            std_file = json.load(BytesIO(data_output))
+            std_file = self._fetch_and_parse(self.previous_bucket, self.standard_postal, 'json')
             ll_mapped_postal, ll_unmapped = self._rq_split(ll_cleaned, std_file, self.TFM_WORK['postal_mapping'], self.ADDR_COL_INDEX)
             mapped_lines=LineListToLines(ll_mapped_postal)
             if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
 
             #splitting the data based on pattern matching
-            data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_region)
-            std_file = json.load(BytesIO(data_output))
+            std_file = self._fetch_and_parse(self.previous_bucket, self.standard_region, 'json')
             ll_mapped_pattern, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['pattern_matching'],self.ADDR_COL_INDEX)
             mapped_lines=mapped_lines+LineListToLines(ll_mapped_pattern)
             if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
 
-            #saving the data separately if there are still unmapped records (note: it can be that there's no mapped record)
-            if mapped_lines:
-                self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['mapped'])
-            unmapped_lines = LineListToLines(ll_unmapped)
-            self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['unmapped'])
+            self._save_to_temp_folders(mapped_lines,LineListToLines(ll_unmapped), dimension, year)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
             return False, errormsg
+
+    def _fetch_and_parse(self, bucket_name, file_name, extension='csv'):
+        data_output = self._fetch_file_from_minio(bucket_name, file_name)
+        if extension=='csv':
+            file = BytesToLines(data_output, line_list=True) if data_output else None
+        elif extension=='json':
+            file = json.load(BytesIO(data_output))
+        if not file: raise Exception('405: File Not Fetched')
+        return file
 
     def _is_all_mapped(self, mapped_lines, ll_unmapped, dimension, year):
         if not ll_unmapped:
             self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['result'])
             return True
         return False
+
+    def _save_to_temp_folders(self, mapped_lines, unmapped_lines, dimension, year):
+        if mapped_lines:
+            self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['mapped'])
+        self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['unmapped'])
 
     def _rq_cleaning(self, line_list, col_idx=6):
         REGEXP_LIST = [

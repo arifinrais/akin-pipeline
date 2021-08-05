@@ -9,6 +9,7 @@ from rejson import Client, Path
 from minio import Minio
 from minio.error import S3Error
 from io import BytesIO,StringIO
+from pymongo import MongoClient
 #from copy import deepcopy #for minio fetching
 
 class Engine(object):
@@ -147,6 +148,14 @@ class Engine(object):
             resp.close()
             resp.release_conn() 
             return data_output
+
+    def _setup_mongo_client(self):
+        try:
+            self.mongo_client = MongoClient(self.settings['MONGODB_URI'])
+            self.mongo_database = self.mongo_client[self.settings['MONGODB_DATABASE']]
+            return True
+        except:
+            return False
 
     def _get_lock_name(self, job):
         if job==self.settings['JOB_INGEST']: return self.settings['LOCK_INGEST']
