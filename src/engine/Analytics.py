@@ -17,11 +17,15 @@ class Analytics(Engine):
         self.result_folder = self.settings['MINIO_RESULT_FOLDER']
         self.collections = self.settings['MONGO_COLLECTIONS'] #viz, anl
         
-    def _load_encoder_dictionary(self):
+    def _load_encoder_dictionary(self, retry=3):
+        i=0 #retry mechanism bisa diganti tenacity(?)
         while True:
             self.encoder_dictionary = self._fetch_and_parse(self.resources_bucket, self.settings['RES_FILES']['ANL_ENC_STD'], 'json')
             if self.encoder_dictionary: break
+            i+=1
+            if i==retry: return False
             time.sleep(self.settings['SLEEP_TIME'])
+        return True
 
     def _analyze(self):
         #key, dimension, year = self._redis_update_stat_before(self.job)
