@@ -15,9 +15,8 @@ class Analytics(Engine):
         self.previous_bucket = self.settings['MINIO_BUCKET_TRANSFORMED']
         self.resources_bucket = self.settings['MINIO_BUCKET_RESOURCES']
         self.result_folder = self.settings['MINIO_RESULT_FOLDER']
-        self.encoder_dictionary = self.settings['RES_FILES']['ANL_ENC_STD']
         self.collections = self.settings['MONGO_COLLECTIONS'] #viz, anl
-
+        
     def _analyze(self):
         #key, dimension, year = self._redis_update_stat_before(self.job)
         #success, errormsg = self._analyze_file(dimension, year)
@@ -46,52 +45,51 @@ class Analytics(Engine):
             return False, errormsg
     
     def _encode(self, line_list, dimension, columns, class_delimiter=';', decimal_places=2):
-        std_file = self._fetch_and_parse(self.resources_bucket, self.encoder_dictionary, 'json')
         ll_encoded = []
         for line in line_list:
             classes, city, province = line[5], line[7], line[8]
-            _city, _province, _island, _dev_main, _dev_econ = self._encode_region(city, province, std_file)
+            _city, _province, _island, _dev_main, _dev_econ = self._encode_region(city, province)
             _classes = classes.split(class_delimiter)
             if _island!=-1 and _dev_main!=-1:
                 weight = round((1/len(_classes)), decimal_places)
                 for _class in _classes:
-                    _class_base, _class_detail = self._encode_class(_class, std_file, dimension)
+                    _class_base, _class_detail = self._encode_class(_class, dimension)
                     if _class_base!=-1 and  _class_detail!=-1:
                         ll_encoded.append([_class_base, _class_detail, _city, _province, _island, _dev_econ, _dev_main, weight])
         df_encoded = pd.DataFrame(ll_encoded,columns=columns)
         return df_encoded
     
-    def _encode_region(self, city, province, std_file):
+    def _encode_region(self, city, province):
         _city, _province, _island, _dev_main, _dev_econ = -1, -1, -1, -1, -1
-        for rec in std_file['city']:
+        for rec in self.encoder_dictionary['city']:
             if city==rec['city']:
                 _city=rec['id']
                 _province=rec['parent_id']
                 break
-        for rec in std_file['province']:
+        for rec in self.encoder_dictionary['province']:
             if _province==rec['id'] and province==rec['province']:
                 _island=rec['island_id']
                 _dev_econ=rec['parent_id']
                 break
-        for rec in std_file['dev_econ']:
+        for rec in self.encoder_dictionary['dev_econ']:
             if _dev_econ==rec['id']:
                 _dev_main=rec['parent_id']
                 break
         return _city, _province, _island, _dev_main, _dev_econ
 
-    def _encode_class(self, _class, std_file, dimension):
+    def _encode_class(self, _class, dimension):
         _class_base, _class_detail = -1, -1
         if dimension==self.settings['DIMENSION_PATENT']:
-            for rec in std_file['ipc_base']:
+            for rec in self.encoder_dictionary['ipc_base']:
                 if _class[0]==rec['class']:
                     _class_base=rec['id']
                     break
-            for rec in std_file['ipc_class2']:
+            for rec in self.encoder_dictionary['ipc_class2']:
                 if _class==rec['class']:
                     _class_detail=rec['id']
                     break
         elif dimension==self.settings['DIMENSION_TRADEMARK']:
-            for rec in std_file['ncl_class1']:
+            for rec in self.encoder_dictionary['ncl_class1']:
                 if _class==rec['class']:
                     _class_detail=rec['id']
                     _class_base=rec['parent_id']
@@ -101,9 +99,8 @@ class Analytics(Engine):
         return _class_base, _class_detail
 
     def _decode(self, code, enc_type, enc_dimension):
-        std_file = self._fetch_and_parse(self.resources_bucket, self.encoder_dictionary, 'json')
         if enc_type not in ['region','class']: raise Exception('403: Encoder Type Not Recognized')
-        for rec in std_file[enc_dimension]:
+        for rec in self.encoder_dictionary[enc_dimension]:
             if rec['id']==code:
                 if enc_type=='region': return rec[enc_dimension]
                 if enc_type=='class': return rec['class']
@@ -194,6 +191,10 @@ class Analytics(Engine):
         self._setup_redis_conn()
         self._setup_minio_client()
         self._setup_mongo_client()
+        while True:
+            self.encoder_dictionary = self._fetch_and_parse(self.resources_bucket, self.settings['RES_FILES']['ANL_ENC_STD'], 'json')
+            if self.encoder_dictionary: break
+            time.sleep(self.settings['SLEEP_TIME'])
         while True:
             self._analyze()
             time.sleep(self.settings['SLEEP_TIME'])
