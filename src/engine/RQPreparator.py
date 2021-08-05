@@ -64,20 +64,12 @@ class RQPreparator(Engine):
             mapped_lines=mapped_lines+LineListToLines(ll_mapped_pattern)
             if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
 
-            self._save_to_temp_folders(mapped_lines,LineListToLines(ll_unmapped), dimension, year)
+            unmapped_lines=LineListToLines(ll_unmapped)
+            self._save_to_temp_folders(mapped_lines, unmapped_lines, dimension, year)
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
             return False, errormsg
-
-    def _fetch_and_parse(self, bucket_name, file_name, extension='csv'):
-        data_output = self._fetch_file_from_minio(bucket_name, file_name)
-        if extension=='csv':
-            file = BytesToLines(data_output, line_list=True) if data_output else None
-        elif extension=='json':
-            file = json.load(BytesIO(data_output))
-        if not file: raise Exception('405: File Not Fetched')
-        return file
 
     def _is_all_mapped(self, mapped_lines, ll_unmapped, dimension, year):
         if not ll_unmapped:

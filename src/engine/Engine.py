@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys, time, json
 from engine import config
-from engine.EngineHelper import GenerateFileName
+from engine.EngineHelper import GenerateFileName, BytesToLines
 from datetime import datetime
 from redis import Redis
 from rq.queue import Queue
@@ -148,6 +148,15 @@ class Engine(object):
             resp.close()
             resp.release_conn() 
             return data_output
+
+    def _fetch_and_parse(self, bucket_name, file_name, extension='csv'):
+        data_output = self._fetch_file_from_minio(bucket_name, file_name)
+        if extension=='csv':
+            file = BytesToLines(data_output, line_list=True) if data_output else None
+        elif extension=='json':
+            file = json.load(BytesIO(data_output))
+        if not file: raise Exception('405: File Not Fetched')
+        return file
 
     def _setup_mongo_client(self):
         try:
