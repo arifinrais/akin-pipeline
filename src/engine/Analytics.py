@@ -101,13 +101,20 @@ class Analytics(Engine):
         return _class_base, _class_detail
 
     def _summarize(self, dataframe):
-        df_sums={} #national, provincial, urban, insular, dev
-        df_national = dataframe.drop(['id_detail_class','id_city','id_province','id_island', 'id_dev_main', 'id_dev_econ'], axis=1)
-        df_national = df_national.groupby('id_base_class').sum()
-        #['id_base_class','id_detail_class','id_city','id_province','id_island', 'id_dev_econ', 'id_dev_main', 'weight']  
-        df_regional_adm = dataframe.drop(['id_base_class','id_island'], axis=1)
-        df_regional_adm = df_regional_adm.groupby(['id_dev_econ', 'id_dev_main',''])
-        pass
+        df_sums={}
+        df_sums['national'] = dataframe.drop(['id_detail_class','id_city','id_province','id_island', 'id_dev_main', 'id_dev_econ'], axis=1)\
+            .groupby('id_base_class').sum().reset_index()
+        df_sums['province'] = dataframe.drop(['id_island','id_dev_main','id_dev_econ','id_city'], axis=1)\
+            .groupby(['id_province','id_base_class','id_detail_class']).sum().reset_index()
+        df_sums['city'] = dataframe.drop(['id_island','id_dev_main','id_dev_econ','id_province'], axis=1)\
+            .groupby(['id_city','id_base_class','id_detail_class']).sum().reset_index()
+        df_sums['dev_main'] = dataframe.drop(['id_island','id_dev_econ','id_province','id_city'], axis=1)\
+            .groupby(['id_dev_main','id_base_class','id_detail_class']).sum().reset_index()
+        df_sums['dev_econ'] = dataframe.drop(['id_island','id_dev_main','id_province','id_city'], axis=1)\
+            .groupby(['id_dev_econ','id_base_class','id_detail_class']).sum().reset_index()
+        df_sums['island'] = dataframe.drop(['id_dev_main','id_dev_econ','id_province','id_city'], axis=1)\
+            .groupby(['id_island','id_base_class','id_detail_class']).sum().reset_index()
+        return df_sums
 
     def _translate_viz(line_list, dimension, year):
 
