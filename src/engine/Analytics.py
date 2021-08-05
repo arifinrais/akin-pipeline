@@ -192,8 +192,13 @@ class Analytics(Engine):
     def _complexity_analysis(self, dataframes, dimension, year):
         pass
 
-    def _save_to_mongodb(self, scheme, dimension, year):
-        pass
+    def _save_to_mongodb(self, scheme, dimension, load_for):
+        collection = 'VIZ_' if load_for=='viz' else 'ANL_' if load_for=='anl' else ''
+        collection += 'PATENT' if dimension==self.settings['DIMENSION_PATENT'] else 'TRADEMARK'\
+            if dimension==self.settings['DIMENSION_TRADEMARK'] else 'PUBLICATION'\
+            if dimension==self.settings['DIMENSION_PUBLICATION'] else ''
+        if not collection: raise Exception('403: Load Purpose and/or Dimension Not Recognized')
+        self.mongo_collections[collection].insert_one(scheme)
 
     def start(self):
         self._setup_redis_conn()

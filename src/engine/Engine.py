@@ -163,8 +163,8 @@ class Engine(object):
             self.mongo_client = MongoClient(self.settings['MONGO_URI'])
             self.mongo_database = self.mongo_client[self.settings['MONGO_DATABASE']]
             self.mongo_collections = {}
-            for key, value in self.settings['MONGO_COLLECTIONS']:
-                self.mongo_collections[value]=self.mongo_database[value]
+            for key, value in self.settings['MONGO_COLLECTIONS'].items():
+                self.mongo_collections[key]=self.mongo_database[value]
             return True
         except:
             return False
