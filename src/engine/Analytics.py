@@ -140,11 +140,10 @@ class Analytics(Engine):
         col_id = 'id_'+reg_dimension
         class_base, class_detail = self._get_class_classification(cls_dimension)
         counts=[]
+        line_list = self._df_to_line_list(dataframe)
         if reg_dimension=='national':
-            line_list = self._df_to_line_list(dataframe)
             for line in line_list: counts.append({class_base: self._decode(line[0],'class',class_base),"total": line[1]})
         else:
-            line_list = self._df_to_line_list(dataframe)
             for line in line_list:
                 _count_found=False
                 for count in counts:
