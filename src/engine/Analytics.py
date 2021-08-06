@@ -205,8 +205,7 @@ class Analytics(Engine):
         return results
     
     def _complexity_index_calculation(self, reg_dimenson, cls_dimension, dataframe):
-        rca_matrix = self._create_RCA_matrix(reg_dimenson, cls_dimension, dataframe) #rca_cutoff can be added
-        mcp_matrix, diversity_vector, ubiquity_vector = self._create_MCP_matrix(rca_matrix) #does it need "num_of_winners", or specify rca_cutoff
+        rca_matrix, diversity_vector, ubiquity_vector = self._create_RCA_matrix(reg_dimenson, cls_dimension, dataframe) #rca_cutoff can be added
         #do kci, pci calculation
         #translate kci, pci to line_list
         pass
@@ -224,11 +223,8 @@ class Analytics(Engine):
             for j in range(num_of_class):
                 if national_class_share[j]==0: continue #class not being produced
                 matrix[i][j]/=total_per_region[i]*national_class_share[j]
-        return np.where(matrix>rca_cutoff,1,0)
-
-    def _create_MCP_matrix(self, rca_matrix, rca_cutoff=1):
-        pass
-
+        return np.where(matrix>rca_cutoff,1,0), np.sum(matrix,axis=1), np.sum(matrix,axis=0)
+        
     def _get_matrix_dimension(self, reg_dimension, cls_dimension):
         num_of_region = self.NUMBER_OF_CITIES if reg_dimension=='city' else self.NUMBER_OF_PROVINCES if reg_dimension=='province'\
             else self.NUMBER_OF_ISLAND if reg_dimension=='island' else self.NUMBER_OF_DEV_ECON if reg_dimension=='dev_main' else\
