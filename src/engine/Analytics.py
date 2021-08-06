@@ -53,10 +53,10 @@ class Analytics(Engine):
             #region, class_base, class_detail, weight
 
             viz_scheme = self._translate_viz(df_sums, dimension, year)
-            self._save_to_mongodb(viz_scheme, dimension, year)
+            self._save_to_mongodb(viz_scheme, dimension, 'viz')
 
             anl_scheme = self._complexity_analysis(df_sums, dimension, year)
-            self._save_to_mongodb(anl_scheme, dimension, year)
+            self._save_to_mongodb(anl_scheme, dimension, 'anl')
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
