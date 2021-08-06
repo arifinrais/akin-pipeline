@@ -36,11 +36,15 @@ class Analytics(Engine):
         return True
 
     def _analyze(self):
-        #key, dimension, year = self._redis_update_stat_before(self.job)
-        #success, errormsg = self._analyze_file(dimension, year)
-        #self._redis_update_stat_after(key, self.job, success, errormsg)
-        success, errormsg = self._analyze_file('ptn', 2018)
-        print(success, errormsg)
+        logging.debug('Acquiring Lock for Analysis Jobs...')
+        key, dimension, year = self._redis_update_stat_before(self.job)
+        logging.debug('Analyzing Dataset...')
+        success, errormsg = self._analyze_file(dimension, year)
+        logging.debug('Updating Job Status...')
+        self._redis_update_stat_after(key, self.job, success, errormsg)
+        #success, errormsg = self._analyze_file('ptn', 2018)
+        #print(success, errormsg)
+        #sys.exit()
    
     def _analyze_file(self, dimension, year):
         file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv', temp_folder=self.result_folder)
