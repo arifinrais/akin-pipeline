@@ -3,8 +3,8 @@
 # resources
 /utils
 /previous
-/docker/engine/spark-compatible
 /src/engine/res
+/src/data-server/.env
 
 *.yml
 !docker-compose.yml
