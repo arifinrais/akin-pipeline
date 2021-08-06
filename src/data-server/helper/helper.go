@@ -15,7 +15,7 @@ import (
 
 // ConnectDB : This is helper function to connect mongoDB
 // If you want to export your function. You must to start upper case function name. Otherwise you won't see your function when you import that on other class.
-func ConnectDB() *mongo.Collection {
+func ConnectDB() *mongo.Client {
 	config := GetConfiguration()
 	// Set client options
 	clientOptions := options.Client().ApplyURI(config.ConnectionString)
@@ -29,10 +29,22 @@ func ConnectDB() *mongo.Collection {
 
 	fmt.Println("Connected to MongoDB!")
 
-	collection := client.Database("go_rest_api").Collection("books")
-
-	return collection
+	return client
 }
+
+func CollectionName(ipr_dimension string, job_type string) string {
+	var collection = ""
+	if ipr_dimension=="patent"{
+		collection = job_type+"_ptn"
+	} else if ipr_dimension=="trademark" {
+		collection = job_type+"_trd"
+	} else if ipr_dimension=="publication" {
+		collection = job_type+"_pub"
+	} else {
+		log.Fatal("IPR Dimension Not Exist")
+	}
+	return collection
+} 
 
 // ErrorResponse : This is error model.
 type ErrorResponse struct {

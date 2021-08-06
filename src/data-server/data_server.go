@@ -5,37 +5,40 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-
+	"fmt"
 	"data-server/helper"
 	"data-server/models"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 //Connection mongoDB with helper class
-var collection = helper.ConnectDB()
+var mongoClient = helper.ConnectDB()
 
 func getVisualization(w http.ResponseWriter, r *http.Request) {
 	// set header
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	var visualization models.Visualization
 	// we get params with mux.
-	var params = mux.Vars(r)
-	year, ipr_dim, reg_dim := params["year"], params["ipr_dimension"], params["reg_dimension"]
+	var params = r.URL.Query()
+
+	fmt.Println(params["year"])
+	year, ipr_dim, reg_dim := params["year"][0], params["ipr_dim"][0], params["reg_dim"][0]
 
 	// We create filter. If it is unnecessary to sort data for you, you can use bson.M{}
-	filter := bson.M{"_id": id}
+	filter := bson.M{"year": year}
+	collection := mongoClient.Database("akin").Collection(helper.CollectionName(ipr_dim,"viz"))
 	err := collection.FindOne(context.TODO(), filter).Decode(&visualization)
 
 	if err != nil {
 		helper.GetError(err, w)
 		return
 	}
-
-	json.NewEncoder(w).Encode(visualization)
+	if reg_dim=="province" {
+		json.NewEncoder(w).Encode(visualization.Province)
+	}
 }
 
 func getAnalysis(w http.ResponseWriter, r *http.Request) {
@@ -44,19 +47,22 @@ func getAnalysis(w http.ResponseWriter, r *http.Request) {
 	//query: viz/anl ptn/trd/pub year province/city/.../kci/pci
 	var analysis models.Analysis
 	// we get params with mux.
-	var params = mux.Vars(r)
-	year, ipr_dim, reg_dim := params["year"], params["ipr_dimension"], params["reg_dimension"]
+	var params = r.URL.Query()
+	fmt.Println(params["year"])
+	year, ipr_dim, reg_dim := params["year"][0], params["ipr_dim"][0], params["reg_dim"][0]
 
 	// We create filter. If it is unnecessary to sort data for you, you can use bson.M{}
-	filter := bson.M{"_id": id}
+	filter := bson.M{"year": year}
+	collection := mongoClient.Database("akin").Collection(helper.CollectionName(ipr_dim,"anl"))
 	err := collection.FindOne(context.TODO(), filter).Decode(&analysis)
 
 	if err != nil {
 		helper.GetError(err, w)
 		return
 	}
-
-	json.NewEncoder(w).Encode(analysis)
+	if reg_dim=="province" {
+		json.NewEncoder(w).Encode(analysis.Province)
+	}
 }
 
 // var client *mongo.Client
