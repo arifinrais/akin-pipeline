@@ -205,13 +205,23 @@ class Analytics(Engine):
         return results
     
     def _complexity_index_calculation(self, reg_dimenson, cls_dimension, dataframe):
-        rca_matrix, diversity_vector, ubiquity_vector = self._create_RCA_matrix(reg_dimenson, cls_dimension, dataframe) #rca_cutoff can be added
-        #do kci, pci calculation
-        #translate kci, pci to line_list
-        pass
-
-    def _create_RCA_matrix(self, reg_dimenson, cls_dimension, dataframe, rca_cutoff=1):
         num_of_region, num_of_class = self._get_matrix_dimension(reg_dimenson,cls_dimension)
+        rca_matrix, diversity_vector, ubiquity_vector = self._create_rca_matrix(dataframe, num_of_region, num_of_class) #rca_cutoff can be added
+        kci = self._calculate_kci(rca_matrix, diversity_vector, ubiquity_vector)
+        ipci = self._calculate_ipci(rca_matrix, diversity_vector, ubiquity_vector)
+        return kci, ipci
+
+    def _get_matrix_dimension(self, reg_dimension, cls_dimension):
+        num_of_region = self.NUMBER_OF_CITIES if reg_dimension=='city' else self.NUMBER_OF_PROVINCES if reg_dimension=='province'\
+            else self.NUMBER_OF_ISLAND if reg_dimension=='island' else self.NUMBER_OF_DEV_ECON if reg_dimension=='dev_main' else\
+                self.NUMBER_OF_DEV_MAIN if reg_dimension=='dev_main' else 0
+        if not num_of_region: raise Exception('403: Regional Dimension Not Recognized')
+        num_of_class = self.NUMBER_OF_PATENT_CLASS if cls_dimension==self.settings['DIMENSION_PATENT'] else\
+            self.NUMBER_OF_TRADEMARK_CLASS if cls_dimension==self.settings['DIMENSION_TRADEMARK'] else 0 #tar tambahin SINTA
+        if not num_of_class: raise Exception('403: Class Dimension Not Recognized')
+        return num_of_region, num_of_class
+
+    def _create_rca_matrix(self, dataframe, num_of_region, num_of_class, rca_cutoff=1):
         matrix = np.zeros((num_of_region,num_of_class))
         line_list = self._df_to_line_list(dataframe.drop(['id_base_class'], axis=1))
         for line in line_list:
@@ -224,16 +234,32 @@ class Analytics(Engine):
                 if national_class_share[j]==0: continue #class not being produced
                 matrix[i][j]/=total_per_region[i]*national_class_share[j]
         return np.where(matrix>rca_cutoff,1,0), np.sum(matrix,axis=1), np.sum(matrix,axis=0)
-        
-    def _get_matrix_dimension(self, reg_dimension, cls_dimension):
-        num_of_region = self.NUMBER_OF_CITIES if reg_dimension=='city' else self.NUMBER_OF_PROVINCES if reg_dimension=='province'\
-            else self.NUMBER_OF_ISLAND if reg_dimension=='island' else self.NUMBER_OF_DEV_ECON if reg_dimension=='dev_main' else\
-                self.NUMBER_OF_DEV_MAIN if reg_dimension=='dev_main' else 0
-        if not num_of_region: raise Exception('403: Regional Dimension Not Recognized')
-        num_of_class = self.NUMBER_OF_PATENT_CLASS if cls_dimension==self.settings['DIMENSION_PATENT'] else\
-            self.NUMBER_OF_TRADEMARK_CLASS if cls_dimension==self.settings['DIMENSION_TRADEMARK'] else 0 #tar tambahin SINTA
-        if not num_of_class: raise Exception('403: Class Dimension Not Recognized')
-        return num_of_region, num_of_class
+
+    def _calculate_kci(self, rca_matrix, diversity_vector, ubiquity_vector):
+        region_tilde_matrix = np.nan_to_num(rca_matrix.dot(np.nan_to_num(rca_matrix/ubiquity_vector).T)/diversity_vector).T
+        reg_egval, reg_egvec = np.linalg.eig(region_tilde_matrix)
+        second_highest_idx = reg_egval.argsort()[-2]
+        kci = np.real(reg_egvec[:,second_highest_idx])
+        kci = (kci - kci.mean())/kci.std()
+        kci = pd.DataFrame(kci, columns=["kci"])
+        kci = self._fix_sign(diversity_vector, kci)
+        return kci
+
+    def _calculate_ipci(self, rca_matrix, diversity_vector, ubiquity_vector):
+        class_tilde_matrix = np.nan_to_num((rca_matrix.T).dot(np.nan_to_num(rca_matrix.T/diversity_vector).T)/ubiquity_vector).T
+        cls_egval, cls_egvec = np.linalg.eig(class_tilde_matrix)
+        second_highest_idx = cls_egval.argsort()[-2]
+        ipci = np.real(cls_egvec[:,second_highest_idx])
+        ipci = (ipci - ipci.mean())/ipci.std()
+        ipci = pd.DataFrame(ipci, columns=["ipci"])
+        ipci = self._fix_sign(diversity_vector, ipci)
+        return ipci*-1
+
+    def _fix_sign(self, diversity_vector, complexity_index):
+        corr = np.corrcoef(diversity_vector, complexity_index.iloc[:,0])[0,1]
+        corr_sign = np.sign(corr)
+        complexity_index *= corr_sign
+        return complexity_index
 
     def _save_to_mongodb(self, scheme, dimension, load_for):
         collection = 'VIZ_' if load_for=='viz' else 'ANL_' if load_for=='anl' else ''
