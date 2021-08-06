@@ -200,9 +200,15 @@ class Analytics(Engine):
     def _complexity_analysis(self, dataframes, dimension, year):
         for key in dataframes:
             if key!='national':
-                rca_matrix = self._create_RCA_matrix(key, dimension, dataframes[key])
+                kci, pci = self._complexity_index_calculation(key, dimension, dataframes[key])
         pass
     
+    def _complexity_index_calculation(self, reg_dimenson, cls_dimension, dataframe):
+        rca_matrix, total_per_patent, total_per_region = self._create_RCA_matrix(reg_dimenson, cls_dimension, dataframe)
+        mcp_matrix, diversity_vector, ubiquity_vector = self._create_MCP_matrix(rca_matrix) #does it need "num_of_winners", or specify rca_cutoff
+        #do kci, pci calculation
+        pass
+
     def _create_RCA_matrix(self, reg_dimenson, cls_dimension, dataframe):
         num_of_region, num_of_class = self._get_matrix_dimension(reg_dimenson,cls_dimension)
         base_matrix = np.zeros((num_of_region,num_of_class))
@@ -213,9 +219,11 @@ class Analytics(Engine):
         total_per_region = np.sum(base_matrix,axis=1)
         for i in range(num_of_region):
             for j in range(num_of_class):
-                #try to create in pyspark
+                #try to create in jupyter
                 pass
+        pass
 
+    def _create_MCP_matrix(self, rca_matrix, rca_cutoff=1):
         pass
 
     def _get_matrix_dimension(self, reg_dimension, cls_dimension):
