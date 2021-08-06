@@ -3,6 +3,7 @@
 # resources
 /utils
 /previous
+/docker/engine/spark-compatible
 /src/engine/res
 
 *.yml
