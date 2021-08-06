@@ -195,14 +195,32 @@ class Analytics(Engine):
         return viz_schemes
 
     def _translate_anl(self, dataframes, dimension, year):
-        pass
+        anl_schemes={"year": year}
+        for key in dataframes:
+            anl_schemes[key]['kci'], anl_schemes[key]['ipci']=self._df_to_object_list(dataframes[key], key, dimension)
+        return anl_schemes
+
+    def _df_to_object_list(self, dataframes, reg_dimension, cls_dimension):
+        i=0; kci_list=[]; ipci_list=[]
+        reg_id = 'id_'+reg_dimension
+        for row in dataframes['kci'].values.tolist():
+            kci_list.append({reg_id: i, "value": row[0]})
+            i+=1
+        i=0
+        for row in dataframes['ipci'].values.tolist():
+            ip_base, ip_detail = self._get_class_classification(cls_dimension)
+            ip_class = self._decode(i, 'class', cls_dimension)
+            ipci_list.append({ip_detail: ip_class, "value": row[0]})
+            i+=1
+        return kci_list, ipci_list
 
     def _complexity_analysis(self, dataframes, dimension, year):
         results={}
         for key in dataframes:
             if key!='national':
                 results[key]['kci'], results[key]['pci'] = self._complexity_index_calculation(key, dimension, dataframes[key])
-        return results
+        anl_schemes = self._translate_anl(results, dimension, year)
+        return anl_schemes
     
     def _complexity_index_calculation(self, reg_dimenson, cls_dimension, dataframe):
         num_of_region, num_of_class = self._get_matrix_dimension(reg_dimenson,cls_dimension)
@@ -235,7 +253,7 @@ class Analytics(Engine):
                 matrix[i][j]/=total_per_region[i]*national_class_share[j]
         return np.where(matrix>rca_cutoff,1,0), np.sum(matrix,axis=1), np.sum(matrix,axis=0)
 
-    def _calculate_kci(self, rca_matrix, diversity_vector, ubiquity_vector):
+    def _calculate_kci(self, rca_matrix, diversity_vector, ubiquity_vector, decimal_places=2):
         region_tilde_matrix = np.nan_to_num(rca_matrix.dot(np.nan_to_num(rca_matrix/ubiquity_vector).T)/diversity_vector).T
         reg_egval, reg_egvec = np.linalg.eig(region_tilde_matrix)
         second_highest_idx = reg_egval.argsort()[-2]
@@ -243,9 +261,9 @@ class Analytics(Engine):
         kci = (kci - kci.mean())/kci.std()
         kci = pd.DataFrame(kci, columns=["kci"])
         kci = self._fix_sign(diversity_vector, kci)
-        return kci
+        return np.round(kci, decimal_places)
 
-    def _calculate_ipci(self, rca_matrix, diversity_vector, ubiquity_vector):
+    def _calculate_ipci(self, rca_matrix, diversity_vector, ubiquity_vector, decimal_places=2):
         class_tilde_matrix = np.nan_to_num((rca_matrix.T).dot(np.nan_to_num(rca_matrix.T/diversity_vector).T)/ubiquity_vector).T
         cls_egval, cls_egvec = np.linalg.eig(class_tilde_matrix)
         second_highest_idx = cls_egval.argsort()[-2]
@@ -253,7 +271,7 @@ class Analytics(Engine):
         ipci = (ipci - ipci.mean())/ipci.std()
         ipci = pd.DataFrame(ipci, columns=["ipci"])
         ipci = self._fix_sign(diversity_vector, ipci)
-        return ipci*-1
+        return np.round(ipci*-1, decimal_places)
 
     def _fix_sign(self, diversity_vector, complexity_index):
         corr = np.corrcoef(diversity_vector, complexity_index.iloc[:,0])[0,1]
