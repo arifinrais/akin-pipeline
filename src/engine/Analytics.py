@@ -205,26 +205,26 @@ class Analytics(Engine):
         return results
     
     def _complexity_index_calculation(self, reg_dimenson, cls_dimension, dataframe):
-        rca_matrix, total_per_patent, total_per_region = self._create_RCA_matrix(reg_dimenson, cls_dimension, dataframe)
+        rca_matrix = self._create_RCA_matrix(reg_dimenson, cls_dimension, dataframe) #rca_cutoff can be added
         mcp_matrix, diversity_vector, ubiquity_vector = self._create_MCP_matrix(rca_matrix) #does it need "num_of_winners", or specify rca_cutoff
         #do kci, pci calculation
         #translate kci, pci to line_list
         pass
 
-    def _create_RCA_matrix(self, reg_dimenson, cls_dimension, dataframe):
+    def _create_RCA_matrix(self, reg_dimenson, cls_dimension, dataframe, rca_cutoff=1):
         num_of_region, num_of_class = self._get_matrix_dimension(reg_dimenson,cls_dimension)
-        base_matrix = np.zeros((num_of_region,num_of_class))
+        matrix = np.zeros((num_of_region,num_of_class))
         line_list = self._df_to_line_list(dataframe.drop(['id_base_class'], axis=1))
         for line in line_list:
-            base_matrix[line[0]][line[1]] += line[2]
-        total_per_class = np.sum(base_matrix,axis=0)
-        total_per_region = np.sum(base_matrix,axis=1)
+            matrix[line[0]][line[1]] += line[2]
+        national_class_share = np.sum(matrix,axis=0)/np.round(np.sum(matrix))
+        total_per_region = np.sum(matrix,axis=1)
         for i in range(num_of_region):
+            if total_per_region[i]==0: continue #region not producing
             for j in range(num_of_class):
-                #try to create in jupyter
-                #does it need total_per_class
-                pass
-        pass
+                if national_class_share[j]==0: continue #class not being produced
+                matrix[i][j]/=total_per_region[i]*national_class_share[j]
+        return np.where(matrix>rca_cutoff,1,0)
 
     def _create_MCP_matrix(self, rca_matrix, rca_cutoff=1):
         pass
