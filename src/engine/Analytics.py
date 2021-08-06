@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, time, pandas as pd
+import sys, time, pandas as pd, numpy as np
 from engine.Engine import Engine
 from engine.EngineHelper import GenerateFileName, BytesToLines
 from datetime import datetime
@@ -25,6 +25,14 @@ class Analytics(Engine):
             i+=1
             if i==retry: return False
             time.sleep(self.settings['SLEEP_TIME'])
+        self.NUMBER_OF_CITIES = len(self.encoder_dictionary['city'])
+        self.NUMBER_OF_PROVINCES = len(self.encoder_dictionary['province'])
+        self.NUMBER_OF_ISLAND = len(self.encoder_dictionary['island'])
+        self.NUMBER_OF_DEV_ECON = len(self.encoder_dictionary['dev_econ'])
+        self.NUMBER_OF_DEV_MAIN = len(self.encoder_dictionary['dev_main'])
+        self.NUMBER_OF_PATENT_CLASS = len(self.encoder_dictionary['ipc_class2'])
+        self.NUMBER_OF_TRADEMARK_CLASS = len(self.encoder_dictionary['ncl_class1'])
+        #self.NUMBER_OF_PUBLICATION_CLASS = len(self.encoder_dictionary['cip_class2'])
         return True
 
     def _analyze(self):
@@ -190,7 +198,35 @@ class Analytics(Engine):
         pass
 
     def _complexity_analysis(self, dataframes, dimension, year):
+        for key in dataframes:
+            if key!='national':
+                rca_matrix = self._create_RCA_matrix(key, dimension, dataframes[key])
         pass
+    
+    def _create_RCA_matrix(self, reg_dimenson, cls_dimension, dataframe):
+        num_of_region, num_of_class = self._get_matrix_dimension(reg_dimenson,cls_dimension)
+        base_matrix = np.zeros((num_of_region,num_of_class))
+        line_list = self._df_to_line_list(dataframe.drop(['id_base_class'], axis=1))
+        for line in line_list:
+            base_matrix[line[0]][line[1]] += line[2]
+        total_per_class = np.sum(base_matrix,axis=0)
+        total_per_region = np.sum(base_matrix,axis=1)
+        for i in range(num_of_region):
+            for j in range(num_of_class):
+                #try to create in pyspark
+                pass
+
+        pass
+
+    def _get_matrix_dimension(self, reg_dimension, cls_dimension):
+        num_of_region = self.NUMBER_OF_CITIES if reg_dimension=='city' else self.NUMBER_OF_PROVINCES if reg_dimension=='province'\
+            else self.NUMBER_OF_ISLAND if reg_dimension=='island' else self.NUMBER_OF_DEV_ECON if reg_dimension=='dev_main' else\
+                self.NUMBER_OF_DEV_MAIN if reg_dimension=='dev_main' else 0
+        if not num_of_region: raise Exception('403: Regional Dimension Not Recognized')
+        num_of_class = self.NUMBER_OF_PATENT_CLASS if cls_dimension==self.settings['DIMENSION_PATENT'] else\
+            self.NUMBER_OF_TRADEMARK_CLASS if cls_dimension==self.settings['DIMENSION_TRADEMARK'] else 0 #tar tambahin SINTA
+        if not num_of_class: raise Exception('403: Class Dimension Not Recognized')
+        return num_of_region, num_of_class
 
     def _save_to_mongodb(self, scheme, dimension, load_for):
         collection = 'VIZ_' if load_for=='viz' else 'ANL_' if load_for=='anl' else ''
