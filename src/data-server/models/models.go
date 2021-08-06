@@ -3,14 +3,30 @@ package models
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
 //Create Struct
-type Book struct {
-	ID     primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	Isbn   string             `json:"isbn,omitempty" bson:"isbn,omitempty"`
-	Title  string             `json:"title" bson:"title,omitempty"`
-	Author *Author            `json:"author" bson:"author,omitempty"`
+type Viz struct {
+	ID  		primitive.ObjectID 
+	Year		int
+	National	*ClassChild
+	Province	*Region
+	City		*Region
+	Island		*Region
+	DevMain		*Region
+	DevEcon		*Region
 }
 
-type Author struct {
-	FirstName string `json:"firstname,omitempty" bson:"firstname,omitempty"`
-	LastName  string `json:"lastname,omitempty" bson:"lastname,omitempty"`
+type ClassParent struct {
+	ClassID	string
+	Total	float32
+	Classes	*ClassChild
+}
+
+type ClassChild struct {
+	ClassID string
+	Total	float32
+}
+
+type Region struct {
+	RegionID	int
+	Total		float32
+	Classes		*ClassParent
 }

@@ -14,6 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+//query: viz/anl ptn/trd/pub year province/city/.../kci/pci
 //Connection mongoDB with helper class
 var collection = helper.ConnectDB()
 
