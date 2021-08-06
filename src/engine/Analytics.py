@@ -265,7 +265,7 @@ class Analytics(Engine):
         return rca_matrix, diversity_vector, ubiquity_vector, region_index, class_index
 
     def _calculate_kci(self, rca_matrix, diversity_vector, ubiquity_vector, decimal_places=2):
-        region_tilde_matrix = np.nan_to_num(rca_matrix.dot(np.nan_to_num(rca_matrix/ubiquity_vector).T)/diversity_vector).T
+        region_tilde_matrix = (rca_matrix.dot((rca_matrix/ubiquity_vector).T)/diversity_vector).T
         reg_egval, reg_egvec = np.linalg.eig(region_tilde_matrix)
         second_highest_idx = reg_egval.argsort()[-2]
         kci = np.real(reg_egvec[:,second_highest_idx])
@@ -275,7 +275,7 @@ class Analytics(Engine):
         return np.round(kci, decimal_places)
 
     def _calculate_ipci(self, rca_matrix, diversity_vector, ubiquity_vector, decimal_places=2):
-        class_tilde_matrix = np.nan_to_num((rca_matrix.T).dot(np.nan_to_num(rca_matrix.T/diversity_vector).T)/ubiquity_vector).T
+        class_tilde_matrix = ((rca_matrix.T).dot((rca_matrix.T/diversity_vector).T)/ubiquity_vector).T
         cls_egval, cls_egvec = np.linalg.eig(class_tilde_matrix)
         second_highest_idx = cls_egval.argsort()[-2]
         ipci = np.real(cls_egvec[:,second_highest_idx])
