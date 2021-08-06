@@ -198,15 +198,17 @@ class Analytics(Engine):
         pass
 
     def _complexity_analysis(self, dataframes, dimension, year):
+        results={}
         for key in dataframes:
             if key!='national':
-                kci, pci = self._complexity_index_calculation(key, dimension, dataframes[key])
-        pass
+                results[key]['kci'], results[key]['pci'] = self._complexity_index_calculation(key, dimension, dataframes[key])
+        return results
     
     def _complexity_index_calculation(self, reg_dimenson, cls_dimension, dataframe):
         rca_matrix, total_per_patent, total_per_region = self._create_RCA_matrix(reg_dimenson, cls_dimension, dataframe)
         mcp_matrix, diversity_vector, ubiquity_vector = self._create_MCP_matrix(rca_matrix) #does it need "num_of_winners", or specify rca_cutoff
         #do kci, pci calculation
+        #translate kci, pci to line_list
         pass
 
     def _create_RCA_matrix(self, reg_dimenson, cls_dimension, dataframe):
@@ -220,6 +222,7 @@ class Analytics(Engine):
         for i in range(num_of_region):
             for j in range(num_of_class):
                 #try to create in jupyter
+                #does it need total_per_class
                 pass
         pass
 
