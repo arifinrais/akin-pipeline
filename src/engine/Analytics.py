@@ -224,10 +224,11 @@ class Analytics(Engine):
     
     def _complexity_index_calculation(self, reg_dimenson, cls_dimension, dataframe):
         num_of_region, num_of_class = self._get_matrix_dimension(reg_dimenson,cls_dimension)
-        rca_matrix, diversity_vector, ubiquity_vector = self._create_rca_matrix(dataframe, num_of_region, num_of_class) #rca_cutoff can be added
+        rca_matrix = self._create_rca_matrix(dataframe, num_of_region, num_of_class) #rca_cutoff can be added
+        rca_matrix, diversity_vector, ubiquity_vector, region_index, class_index = self._squeeze_rca_matrix(rca_matrix)
         kci = self._calculate_kci(rca_matrix, diversity_vector, ubiquity_vector)
         ipci = self._calculate_ipci(rca_matrix, diversity_vector, ubiquity_vector)
-        return kci, ipci
+        return kci, ipci, region_index, class_index
 
     def _get_matrix_dimension(self, reg_dimension, cls_dimension):
         num_of_region = self.NUMBER_OF_CITIES if reg_dimension=='city' else self.NUMBER_OF_PROVINCES if reg_dimension=='province'\
@@ -251,7 +252,15 @@ class Analytics(Engine):
             for j in range(num_of_class):
                 if national_class_share[j]==0: continue #class not being produced
                 matrix[i][j]/=total_per_region[i]*national_class_share[j]
-        return np.where(matrix>rca_cutoff,1,0), np.sum(matrix,axis=1), np.sum(matrix,axis=0)
+        return np.where(matrix>rca_cutoff,1,0)
+
+    def _squeeze_rca_matrix(self, rca_matrix):
+        df = pd.DataFrame(rca_matrix)
+        df = df.loc[:,(df != 0).any(axis=0)]
+        df = df.loc[(df != 0).any(axis=1)]
+        rca_matrix, region_index, class_index = df.values, df.index.values.tolist(), df.columns.values.tolist()
+        diversity_vector, ubiquity_vector = np.sum(rca_matrix,axis=1), np.sum(rca_matrix,axis=0)
+        return rca_matrix, diversity_vector, ubiquity_vector, region_index, class_index
 
     def _calculate_kci(self, rca_matrix, diversity_vector, ubiquity_vector, decimal_places=2):
         region_tilde_matrix = np.nan_to_num(rca_matrix.dot(np.nan_to_num(rca_matrix/ubiquity_vector).T)/diversity_vector).T
