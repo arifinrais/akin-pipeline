@@ -194,6 +194,7 @@ class Analytics(Engine):
     def _translate_anl(self, dataframes, dimension, year):
         anl_schemes={"year": year}
         for key in dataframes:
+            anl_schemes[key]={}
             anl_schemes[key]['kci'], anl_schemes[key]['ipci']=self._df_to_object_list(dataframes[key], key, dimension)
         return anl_schemes
 
@@ -207,7 +208,7 @@ class Analytics(Engine):
         i=0
         for row in dataframes['ipci'].values.tolist():
             ip_base, ip_detail = self._get_class_classification(cls_dimension)
-            ip_class = self._decode(class_index[i], 'class', cls_dimension)
+            ip_class = self._decode(class_index[i], 'class', ip_detail)
             ipci_list.append({ip_detail: ip_class, "value": row[0]})
             i+=1
         return kci_list, ipci_list
@@ -217,7 +218,7 @@ class Analytics(Engine):
         for key in dataframes:
             if key!='national':
                 results[key]={}
-                results[key]['kci'], results[key]['pci'], results[key]['reg_idx'], results[key]['cls_idx'] = \
+                results[key]['kci'], results[key]['ipci'], results[key]['reg_idx'], results[key]['cls_idx'] = \
                     self._complexity_index_calculation(key, dimension, dataframes[key])
         anl_schemes = self._translate_anl(results, dimension, year)
         return anl_schemes
