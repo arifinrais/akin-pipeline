@@ -6,8 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"./models"
-	"github.com/faygun/go-rest-api/helper"
+	"github.com/arifinrais/akin-pipeline/src/data-server/models"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
