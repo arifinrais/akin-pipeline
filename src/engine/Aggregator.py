@@ -146,7 +146,7 @@ class Aggregator(Engine):
             class_list=[]
             for ipc in record_list:
                 category = ipc.strip().split()
-                if category[0] not in class_list:
+                if category[0][:-1] not in class_list:
                     class_list.append(category[0][:-1]) #ambil tiga digit awal
         elif dimension==self.settings['DIMENSION_TRADEMARK']:
             class_list=[i['class_no'] for i in class_record]
