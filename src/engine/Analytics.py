@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, time, pandas as pd, numpy as np
+import sys, logging, time, pandas as pd, numpy as np
 from engine.Engine import Engine
 from engine.EngineHelper import GenerateFileName, BytesToLines
 from datetime import datetime
@@ -46,15 +46,12 @@ class Analytics(Engine):
         file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv', temp_folder=self.result_folder)
         try:
             line_list = self._fetch_and_parse(self.previous_bucket, file_name, 'csv')
-
             df_encoded = self._encode(line_list, dimension, self.COLUMNS)
             #_class_base, _class_detail, weight, _city, _province, _island, _dev_main, _dev_econ
             df_sums = self._summarize(df_encoded)
             #region, class_base, class_detail, weight
-
             viz_scheme = self._translate_viz(df_sums, dimension, year)
             self._save_to_mongodb(viz_scheme, dimension, 'viz')
-
             anl_scheme = self._complexity_analysis(df_sums, dimension, year)
             self._save_to_mongodb(anl_scheme, dimension, 'anl')
             return True, None
@@ -219,6 +216,7 @@ class Analytics(Engine):
         results={}
         for key in dataframes:
             if key!='national':
+                results[key]={}
                 results[key]['kci'], results[key]['pci'], results[key]['reg_idx'], results[key]['cls_idx'] = \
                     self._complexity_index_calculation(key, dimension, dataframes[key])
         anl_schemes = self._translate_anl(results, dimension, year)
@@ -234,7 +232,7 @@ class Analytics(Engine):
 
     def _get_matrix_dimension(self, reg_dimension, cls_dimension):
         num_of_region = self.NUMBER_OF_CITIES if reg_dimension=='city' else self.NUMBER_OF_PROVINCES if reg_dimension=='province'\
-            else self.NUMBER_OF_ISLAND if reg_dimension=='island' else self.NUMBER_OF_DEV_ECON if reg_dimension=='dev_main' else\
+            else self.NUMBER_OF_ISLAND if reg_dimension=='island' else self.NUMBER_OF_DEV_ECON if reg_dimension=='dev_econ' else\
                 self.NUMBER_OF_DEV_MAIN if reg_dimension=='dev_main' else 0
         if not num_of_region: raise Exception('403: Regional Dimension Not Recognized')
         num_of_class = self.NUMBER_OF_PATENT_CLASS if cls_dimension==self.settings['DIMENSION_PATENT'] else\
@@ -281,7 +279,7 @@ class Analytics(Engine):
         ipci = np.real(cls_egvec[:,second_highest_idx])
         ipci = (ipci - ipci.mean())/ipci.std()
         ipci = pd.DataFrame(ipci, columns=["ipci"])
-        ipci = self._fix_sign(diversity_vector, ipci)
+        ipci = self._fix_sign(ubiquity_vector, ipci)
         return np.round(ipci*-1, decimal_places)
 
     def _fix_sign(self, diversity_vector, complexity_index):
@@ -299,10 +297,12 @@ class Analytics(Engine):
         self.mongo_collections[collection].insert_one(scheme)
 
     def start(self):
-        self._setup_redis_conn()
-        self._setup_minio_client()
-        self._setup_mongo_client()
-        self._load_encoder_dictionary()
+        setup_redis = self._setup_redis_conn()
+        setup_minio = self._setup_minio_client()
+        setup_mongo = self._setup_mongo_client()
+        setup_encoder = self._load_encoder_dictionary()
+        setup = setup_redis and setup_minio and setup_mongo and setup_encoder
+        logging.info("Preparator Engine Successfully Started") if setup else logging.warning("Problem in Starting Preparator Engine")    
         while True:
             self._analyze()
             time.sleep(self.settings['SLEEP_TIME'])
