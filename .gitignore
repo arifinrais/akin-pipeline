@@ -8,6 +8,7 @@
 
 *.yml
 !docker-compose.yml
+!test.yml
 *.log
 *.pyc
 
