@@ -5,11 +5,8 @@ LABEL affiliation="Institut Teknologi Bandung"
 # os setup
 WORKDIR /app
 
-COPY go.mod .
-COPY go.sum .
+COPY src/data-server .
 RUN go mod download
-
-COPY src/data-server/data_server.go .
 
 RUN go build -o /docker-gs-ping
 
@@ -23,7 +20,7 @@ WORKDIR /
 
 COPY --from=build /docker-gs-ping /docker-gs-ping
 
-EXPOSE 8080
+EXPOSE 5000
 
 USER nonroot:nonroot
 

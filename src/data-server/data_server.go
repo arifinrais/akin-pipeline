@@ -12,11 +12,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-//Connection mongoDB with helper class
 var mongoClient = helper.ConnectDB()
 
 func getVisualization(w http.ResponseWriter, r *http.Request) {
-	// set header
 	w.Header().Set("Content-Type", "application/json")
 
 	var visualization *bson.M
@@ -28,17 +26,14 @@ func getVisualization(w http.ResponseWriter, r *http.Request) {
 	collection := mongoClient.Database("akin").Collection(helper.CollectionName(ipr_dim, "viz"))
 	err := collection.FindOne(context.TODO(), filter).Decode(&visualization)
 
-	defer func() {
-		if err != nil {
-			errorBson := bson.M{"errormsg": err.Error()}
-			json.NewEncoder(w).Encode(errorBson)
-		}
-	}()
+	if err != nil {
+		helper.GetError(err, w)
+		return
+	}
 	json.NewEncoder(w).Encode(visualization)
 }
 
 func getAnalysis(w http.ResponseWriter, r *http.Request) {
-	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
 	var analysis *bson.M
@@ -50,19 +45,14 @@ func getAnalysis(w http.ResponseWriter, r *http.Request) {
 	collection := mongoClient.Database("akin").Collection(helper.CollectionName(ipr_dim, "anl"))
 	err := collection.FindOne(context.TODO(), filter).Decode(&analysis)
 
-	defer func() {
-		if err != nil {
-			errorBson := bson.M{"errormsg": err.Error()}
-			json.NewEncoder(w).Encode(errorBson)
-		}
-	}()
+	if err != nil {
+		helper.GetError(err, w)
+		return
+	}
 	json.NewEncoder(w).Encode(analysis)
 }
 
-// var client *mongo.Client
-
 func main() {
-	//Init Router
 	r := mux.NewRouter()
 
 	r.HandleFunc("/api/visualization", getVisualization).Methods("GET")

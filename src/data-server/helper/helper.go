@@ -41,7 +41,7 @@ func CollectionName(ipr_dimension string, job_type string) string {
 	} else if ipr_dimension == "publication" {
 		collection = job_type + "_pub"
 	} else {
-		log.Fatal("IPR Dimension Not Exist")
+		return "NOT_EXIST"
 	}
 	return collection
 }
@@ -55,8 +55,6 @@ type ErrorResponse struct {
 // GetError : This is helper function to prepare error model.
 // If you want to export your function. You must to start upper case function name. Otherwise you won't see your function when you import that on other class.
 func GetError(err error, w http.ResponseWriter) {
-
-	log.Fatal(err.Error())
 	var response = ErrorResponse{
 		ErrorMessage: err.Error(),
 		StatusCode:   http.StatusInternalServerError,
