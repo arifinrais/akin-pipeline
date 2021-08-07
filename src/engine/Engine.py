@@ -76,7 +76,7 @@ class Engine(object):
                     _job=json.loads(self.redis_conn.jsonget(key, Path('.')))
                     _job['timestamp'] = datetime.utcnow().isoformat()
                     if success:
-                        _job['job'], _job['status'] = self._get_after_job(job), self.settings['STAT_WAIT']
+                        _job['job'], _job['status'] = self._get_after_job(job)
                     else:
                         _job['status'], _job['errormsg'] = self.settings['STAT_ERROR'], errormsg
                     self.redis_conn.jsonset(key, Path.rootPath(), json.dumps(_job))
@@ -176,10 +176,10 @@ class Engine(object):
         if job==self.settings['JOB_ANALYZE']: return self.settings['LOCK_ANALYZE']
     
     def _get_after_job(self, job):
-        if job==self.settings['JOB_INGEST']: return self.settings['JOB_AGGREGATE']
-        if job==self.settings['JOB_AGGREGATE']: return self.settings['JOB_TRANSFORM']
-        if job==self.settings['JOB_TRANSFORM']: return self.settings['JOB_ANALYZE']
-        if job==self.settings['JOB_ANALYZE']: return self.settings['JOB_ANALYZE']
+        if job==self.settings['JOB_INGEST']: return self.settings['JOB_AGGREGATE'], self.settings['STAT_WAIT']
+        if job==self.settings['JOB_AGGREGATE']: return self.settings['JOB_TRANSFORM'], self.settings['STAT_WAIT']
+        if job==self.settings['JOB_TRANSFORM']: return self.settings['JOB_ANALYZE'], self.settings['STAT_WAIT']
+        if job==self.settings['JOB_ANALYZE']: return self.settings['JOB_ANALYZE'], self.settings['STAT_DONE']
 
     def _check_dimension_source(self, source, dimension):
         if source=='PDKI': 
