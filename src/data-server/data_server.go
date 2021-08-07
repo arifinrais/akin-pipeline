@@ -1,4 +1,3 @@
-//handle connection to mongo
 package main
 
 import (
@@ -29,16 +28,16 @@ func getVisualization(w http.ResponseWriter, r *http.Request) {
 	year, ipr_dim, reg_dim := params["year"][0], params["ipr_dim"][0], params["reg_dim"][0]
 
 	// We create filter. If it is unnecessary to sort data for you, you can use bson.M{}
-	filter := bson.M{"year":year}
-	collection := mongoClient.Database("akin").Collection("viz_ptn")
+	filter := bson.M{"year": year}
+	collection := mongoClient.Database("akin").Collection(helper.CollectionName(ipr_dim,"viz"))
 	err := collection.FindOne(context.TODO(), filter).Decode(&visualization)
-	fmt.Println(ipr_dim,year)
+
 	if err != nil {
 		helper.GetError(err, w)
 		return
 	}
 	if reg_dim=="province" {
-		json.NewEncoder(w).Encode(visualization["province"])
+		json.NewEncoder(w).Encode(visualization)
 	}
 }
 
