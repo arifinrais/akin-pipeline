@@ -6,6 +6,7 @@ LABEL affiliation="Institut Teknologi Bandung"
 WORKDIR /app
 
 COPY src/data-server .
+COPY docker/data-server/.env .
 RUN go mod download
 
 RUN go build -o /docker-gs-ping
