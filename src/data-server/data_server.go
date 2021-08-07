@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"fmt"
 	"data-server/helper"
-	"data-server/models"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
@@ -21,14 +20,11 @@ func getVisualization(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var visualization *bson.M
-	// we get params with mux.
 	var params = r.URL.Query()
 
-	fmt.Println(params["year"])
-	year, ipr_dim, reg_dim := params["year"][0], params["ipr_dim"][0], params["reg_dim"][0]
-
-	// We create filter. If it is unnecessary to sort data for you, you can use bson.M{}
-	filter := bson.M{"year": year}
+	year, ipr_dim := params["year"][0], params["ipr_dim"][0]
+	yearInt, _ :=strconv.Atoi(year)
+	filter := bson.M{"year":yearInt}
 	collection := mongoClient.Database("akin").Collection(helper.CollectionName(ipr_dim,"viz"))
 	err := collection.FindOne(context.TODO(), filter).Decode(&visualization)
 
@@ -36,23 +32,19 @@ func getVisualization(w http.ResponseWriter, r *http.Request) {
 		helper.GetError(err, w)
 		return
 	}
-	if reg_dim=="province" {
-		json.NewEncoder(w).Encode(visualization)
-	}
+	json.NewEncoder(w).Encode(visualization)
 }
 
 func getAnalysis(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
-	//query: viz/anl ptn/trd/pub year province/city/.../kci/pci
-	var analysis models.Analysis
-	// we get params with mux.
-	var params = r.URL.Query()
-	fmt.Println(params["year"])
-	year, ipr_dim, reg_dim := params["year"][0], params["ipr_dim"][0], params["reg_dim"][0]
 
-	// We create filter. If it is unnecessary to sort data for you, you can use bson.M{}
-	filter := bson.M{"year": year}
+	var analysis *bson.M
+	var params = r.URL.Query()
+
+	year, ipr_dim := params["year"][0], params["ipr_dim"][0]
+	yearInt, _ :=strconv.Atoi(year)
+	filter := bson.M{"year":yearInt}
 	collection := mongoClient.Database("akin").Collection(helper.CollectionName(ipr_dim,"anl"))
 	err := collection.FindOne(context.TODO(), filter).Decode(&analysis)
 
@@ -60,9 +52,7 @@ func getAnalysis(w http.ResponseWriter, r *http.Request) {
 		helper.GetError(err, w)
 		return
 	}
-	if reg_dim=="province" {
-		json.NewEncoder(w).Encode(analysis.Province)
-	}
+	json.NewEncoder(w).Encode(analysis)
 }
 
 // var client *mongo.Client
