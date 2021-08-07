@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"data-server/helper"
 	"encoding/json"
 	"log"
 	"net/http"
-	"data-server/helper"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -23,15 +23,17 @@ func getVisualization(w http.ResponseWriter, r *http.Request) {
 	var params = r.URL.Query()
 
 	year, ipr_dim := params["year"][0], params["ipr_dim"][0]
-	yearInt, _ :=strconv.Atoi(year)
-	filter := bson.M{"year":yearInt}
-	collection := mongoClient.Database("akin").Collection(helper.CollectionName(ipr_dim,"viz"))
+	yearInt, _ := strconv.Atoi(year)
+	filter := bson.M{"year": yearInt}
+	collection := mongoClient.Database("akin").Collection(helper.CollectionName(ipr_dim, "viz"))
 	err := collection.FindOne(context.TODO(), filter).Decode(&visualization)
 
-	if err != nil {
-		helper.GetError(err, w)
-		return
-	}
+	defer func() {
+		if err != nil {
+			errorBson := bson.M{"errormsg": err.Error()}
+			json.NewEncoder(w).Encode(errorBson)
+		}
+	}()
 	json.NewEncoder(w).Encode(visualization)
 }
 
@@ -43,15 +45,17 @@ func getAnalysis(w http.ResponseWriter, r *http.Request) {
 	var params = r.URL.Query()
 
 	year, ipr_dim := params["year"][0], params["ipr_dim"][0]
-	yearInt, _ :=strconv.Atoi(year)
-	filter := bson.M{"year":yearInt}
-	collection := mongoClient.Database("akin").Collection(helper.CollectionName(ipr_dim,"anl"))
+	yearInt, _ := strconv.Atoi(year)
+	filter := bson.M{"year": yearInt}
+	collection := mongoClient.Database("akin").Collection(helper.CollectionName(ipr_dim, "anl"))
 	err := collection.FindOne(context.TODO(), filter).Decode(&analysis)
 
-	if err != nil {
-		helper.GetError(err, w)
-		return
-	}
+	defer func() {
+		if err != nil {
+			errorBson := bson.M{"errormsg": err.Error()}
+			json.NewEncoder(w).Encode(errorBson)
+		}
+	}()
 	json.NewEncoder(w).Encode(analysis)
 }
 

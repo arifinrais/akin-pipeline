@@ -34,17 +34,17 @@ func ConnectDB() *mongo.Client {
 
 func CollectionName(ipr_dimension string, job_type string) string {
 	var collection = ""
-	if ipr_dimension=="patent"{
-		collection = job_type+"_ptn"
-	} else if ipr_dimension=="trademark" {
-		collection = job_type+"_trd"
-	} else if ipr_dimension=="publication" {
-		collection = job_type+"_pub"
+	if ipr_dimension == "patent" {
+		collection = job_type + "_ptn"
+	} else if ipr_dimension == "trademark" {
+		collection = job_type + "_trd"
+	} else if ipr_dimension == "publication" {
+		collection = job_type + "_pub"
 	} else {
 		log.Fatal("IPR Dimension Not Exist")
 	}
 	return collection
-} 
+}
 
 // ErrorResponse : This is error model.
 type ErrorResponse struct {
