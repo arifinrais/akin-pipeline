@@ -4,6 +4,7 @@ import (
 	"context"
 	"data-server/helper"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -13,6 +14,10 @@ import (
 )
 
 var mongoClient = helper.ConnectDB()
+
+func homePage(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "<h1>%s</h1><div>%s</div>", "AKIN-API", "Data-Server v1.0.0")
+}
 
 func getVisualization(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -55,6 +60,7 @@ func getAnalysis(w http.ResponseWriter, r *http.Request) {
 func main() {
 	r := mux.NewRouter()
 
+	r.HandleFunc("/", homePage).Methods("GET")
 	r.HandleFunc("/api/visualization", getVisualization).Methods("GET")
 	r.HandleFunc("/api/analysis", getAnalysis).Methods("GET")
 
