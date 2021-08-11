@@ -1,0 +1,1443 @@
+[
+    {
+        "city": "Kota Jakarta Selatan",
+        "province": "DKI Jakarta",
+        "university": [
+            "1061",
+            "1083",
+            "525",
+            "1090",
+            "1099",
+            "1094",
+            "1068",
+            "1086",
+            "1101",
+            "1057",
+            "1107",
+            "1106",
+            "1089",
+            "1082",
+            "1102",
+            "1062",
+            "8298",
+            "1114"
+        ],
+        "non_university": [
+            "4490",
+            "443",
+            "8093",
+            "8088",
+            "8092",
+            "8078",
+            "8097",
+            "8076"
+        ]
+    },
+    {
+        "city": "Kota Jakarta Pusat",
+        "province": "DKI Jakarta",
+        "university": [
+            "1074",
+            "4479",
+            "409",
+            "407"
+        ],
+        "non_university": [
+            "4840",
+            "4488",
+            "8080",
+            "4492",
+            "8103",
+            "4496",
+            "8160",
+            "4498",
+            "4823",
+            "4838"
+        ]
+    },
+    {
+        "city": "Kota Bogor",
+        "province": "Jawa Barat",
+        "university": [
+            "1394",
+            "1391",
+            "1408",
+            "428",
+            "1511"
+        ],
+        "non_university": [
+            "8101",
+            "8083"
+        ]
+    },
+    {
+        "city": "Kota Jakarta Timur",
+        "province": "DKI Jakarta",
+        "university": [
+            "435",
+            "1071",
+            "405",
+            "1075",
+            "1104",
+            "1122",
+            "1117",
+            "1138"
+        ],
+        "non_university": [
+            "4491",
+            "8244402",
+            "4328"
+        ]
+    },
+    {
+        "city": "Kota Surabaya",
+        "province": "Jawa Timur",
+        "university": [
+            "2036",
+            "380",
+            "412",
+            "2042",
+            "2037",
+            "408",
+            "3516",
+            "2098",
+            "2041",
+            "2040",
+            "2084",
+            "499",
+            "403",
+            "2106",
+            "2043",
+            "523",
+            "2130",
+            "417",
+            "2102",
+            "8140",
+            "2133",
+            "2132",
+            "4480"
+        ],
+        "non_university": [
+            "2077"
+        ]
+    },
+    {
+        "city": "Kota Pekanbaru",
+        "province": "Riau",
+        "university": [
+            "415",
+            "2896",
+            "3514",
+            "2893",
+            "2905",
+            "2901",
+            "8244249",
+            "2968"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Badung",
+        "province": "Bali",
+        "university": [
+            "433",
+            "2389"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Jakarta Barat",
+        "province": "DKI Jakarta",
+        "university": [
+            "476",
+            "1080",
+            "478",
+            "477",
+            "1066",
+            "1103",
+            "1112"
+        ],
+        "non_university": [
+            "1177"
+        ]
+    },
+    {
+        "city": "Kota Bandung",
+        "province": "Jawa Barat",
+        "university": [
+            "3511",
+            "4508",
+            "1093",
+            "414",
+            "1422",
+            "1397",
+            "1432",
+            "391",
+            "1392",
+            "528",
+            "1393",
+            "1407",
+            "1398",
+            "8359",
+            "1404",
+            "379",
+            "1452",
+            "1476"
+        ],
+        "non_university": [
+            "1440"
+        ]
+    },
+    {
+        "city": "Kota Ambon",
+        "province": "Maluku",
+        "university": [
+            "3309",
+            "492"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Sleman",
+        "province": "DI Yogyakarta",
+        "university": [
+            "384",
+            "381",
+            "422",
+            "382",
+            "1882",
+            "1906",
+            "1881",
+            "1883",
+            "397",
+            "526",
+            "1891"
+        ],
+        "non_university": [
+            "4327"
+        ]
+    },
+    {
+        "city": "Kota Langsa",
+        "province": "Aceh",
+        "university": [
+            "515"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Tangerang Selatan",
+        "province": "Banten",
+        "university": [
+            "388",
+            "1246",
+            "400",
+            "1059",
+            "1077",
+            "1441",
+            "1111",
+            "1176"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Sumedang",
+        "province": "Jawa Barat",
+        "university": [
+            "481",
+            "4329"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Palembang",
+        "province": "Sumatra Selatan",
+        "university": [
+            "440",
+            "851",
+            "856",
+            "832",
+            "1290",
+            "3518",
+            "848"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Surakarta",
+        "province": "Jawa Tengah",
+        "university": [
+            "8",
+            "27",
+            "23",
+            "47",
+            "58",
+            "11"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Banda Aceh",
+        "province": "Aceh",
+        "university": [
+            "442",
+            "3519",
+            "3357",
+            "521",
+            "516"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Banyumas",
+        "province": "Jawa Tengah",
+        "university": [
+            "7",
+            "28",
+            "8327",
+            "184",
+            "228"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Jember",
+        "province": "Jawa Timur",
+        "university": [
+            "406",
+            "2060",
+            "3557",
+            "2124"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Malang",
+        "province": "Jawa Timur",
+        "university": [
+            "404",
+            "2056",
+            "438",
+            "2078",
+            "2101",
+            "3513",
+            "2054",
+            "2058",
+            "2053",
+            "2088",
+            "2121",
+            "2122"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Depok",
+        "province": "Jawa Barat",
+        "university": [
+            "430"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Makassar",
+        "province": "Sulawesi Selatan",
+        "university": [
+            "436",
+            "385",
+            "2528",
+            "2530",
+            "2573",
+            "2569",
+            "2529",
+            "2634"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Medan",
+        "province": "Sumatra Utara",
+        "university": [
+            "441",
+            "586",
+            "620",
+            "584",
+            "600",
+            "581",
+            "587",
+            "3380",
+            "610",
+            "448",
+            "582",
+            "599",
+            "578",
+            "579",
+            "609",
+            "612",
+            "690",
+            "639"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Padang",
+        "province": "Sumatra Barat",
+        "university": [
+            "394",
+            "497",
+            "2900",
+            "2889",
+            "2890",
+            "2898",
+            "3521",
+            "2916",
+            "2919"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Semarang",
+        "province": "Jawa Tengah",
+        "university": [
+            "9",
+            "6",
+            "3",
+            "20",
+            "19",
+            "18",
+            "21",
+            "52",
+            "16",
+            "61",
+            "201",
+            "59"
+        ],
+        "non_university": [
+            "22"
+        ]
+    },
+    {
+        "city": "Kota Bandar Lampung",
+        "province": "Lampung",
+        "university": [
+            "398",
+            "844",
+            "4781",
+            "3528",
+            "841",
+            "861"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Samarinda",
+        "province": "Kalimantan Timur",
+        "university": [
+            "411",
+            "4632",
+            "3554"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Rokan Hulu",
+        "province": "Riau",
+        "university": [
+            "2908"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Bantul",
+        "province": "DI Yogyakarta",
+        "university": [
+            "1878",
+            "1872",
+            "479",
+            "530",
+            "1918"
+        ],
+        "non_university": [
+            "1909"
+        ]
+    },
+    {
+        "city": "Kota Yogyakarta",
+        "province": "DI Yogyakarta",
+        "university": [
+            "386",
+            "1876",
+            "1869",
+            "1880",
+            "1868",
+            "1887",
+            "627"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Batam",
+        "province": "Kepulauan Riau",
+        "university": [
+            "2902",
+            "2906",
+            "486"
+        ],
+        "non_university": [
+            "8244254"
+        ]
+    },
+    {
+        "city": "Kota Kendari",
+        "province": "Sulawesi Tenggara",
+        "university": [
+            "2562",
+            "392",
+            "3533"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Majalengka",
+        "province": "Jawa Barat",
+        "university": [
+            "1431"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Indragiri Hilir",
+        "province": "Riau",
+        "university": [
+            "2904"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Jakarta Utara",
+        "province": "DKI Jakarta",
+        "university": [
+            "1063",
+            "1092"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Jayapura",
+        "province": "Papua",
+        "university": [
+            "489"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Gresik",
+        "province": "Jawa Timur",
+        "university": [
+            "2087",
+            "2050",
+            "2118"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Aceh Besar",
+        "province": "Aceh",
+        "university": [
+            "4790"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Mataram",
+        "province": "Nusa Tenggara Barat",
+        "university": [
+            "399",
+            "3529",
+            "2419",
+            "2373"
+        ],
+        "non_university": [
+            "2397"
+        ]
+    },
+    {
+        "city": "Kota Denpasar",
+        "province": "Bali",
+        "university": [
+            "2372",
+            "2366",
+            "2365",
+            "2369",
+            "531",
+            "2428",
+            "2454"
+        ],
+        "non_university": [
+            "4286"
+        ]
+    },
+    {
+        "city": "Kab. Serang",
+        "province": "Banten",
+        "university": [
+            "3522",
+            "1436",
+            "501"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Bengkulu",
+        "province": "Bengkulu",
+        "university": [
+            "836",
+            "842",
+            "854",
+            "402",
+            "3530"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Banjarmasin",
+        "province": "Kalimantan Selatan",
+        "university": [
+            "439",
+            "3134",
+            "3527"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Tegal",
+        "province": "Jawa Tengah",
+        "university": [
+            "54"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Ponorogo",
+        "province": "Jawa Timur",
+        "university": [
+            "2114",
+            "2072",
+            "3543"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Jambi",
+        "province": "Jambi",
+        "university": [
+            "491",
+            "4500",
+            "2897"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Sidoarjo",
+        "province": "Jawa Timur",
+        "university": [
+            "551"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Bau-Bau",
+        "province": "Sulawesi Tenggara",
+        "university": [
+            "2558"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Labuhanbatu",
+        "province": "Sumatra Utara",
+        "university": [
+            "656"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Pontianak",
+        "province": "Kalimantan Barat",
+        "university": [
+            "475",
+            "3143",
+            "3536",
+            "3154"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Kediri",
+        "province": "Jawa Timur",
+        "university": [
+            "2099",
+            "2067",
+            "2068",
+            "3558"
+        ],
+        "non_university": [
+            "2226"
+        ]
+    },
+    {
+        "city": "Kota Manado",
+        "province": "Sulawesi Utara",
+        "university": [
+            "427",
+            "3538"
+        ],
+        "non_university": [
+            "2555"
+        ]
+    },
+    {
+        "city": "Kab. Aceh Utara",
+        "province": "Aceh",
+        "university": [
+            "507"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Manokwari",
+        "province": "Papua Barat",
+        "university": [
+            "506"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Tangerang",
+        "province": "Banten",
+        "university": [
+            "8339",
+            "1081",
+            "1319",
+            "1105",
+            "1414",
+            "1678"
+        ],
+        "non_university": [
+            "1395"
+        ]
+    },
+    {
+        "city": "Kab. Kampar",
+        "province": "Riau",
+        "university": [
+            "3026"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Kuningan",
+        "province": "Jawa Barat",
+        "university": [
+            "1426"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Magelang",
+        "province": "Jawa Tengah",
+        "university": [
+            "17",
+            "10"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Buleleng",
+        "province": "Bali",
+        "university": [
+            "509"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Tangerang",
+        "province": "Banten",
+        "university": [
+            "1097"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Bekasi",
+        "province": "Jawa Barat",
+        "university": [
+            "1406",
+            "1058",
+            "1069",
+            "936"
+        ],
+        "non_university": [
+            "1127"
+        ]
+    },
+    {
+        "city": "Kota Kupang",
+        "province": "Nusa Tenggara Timur",
+        "university": [
+            "496",
+            "487"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Minahasa",
+        "province": "Sulawesi Utara",
+        "university": [
+            "498"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Purworejo",
+        "province": "Jawa Tengah",
+        "university": [
+            "51"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Deli Serdang",
+        "province": "Sumatra Utara",
+        "university": [
+            "500"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Salatiga",
+        "province": "Jawa Tengah",
+        "university": [
+            "13",
+            "188"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Cirebon",
+        "province": "Jawa Barat",
+        "university": [
+            "1417"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Palu",
+        "province": "Sulawesi Tengah",
+        "university": [
+            "494"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Majene",
+        "province": "Sulawesi Barat",
+        "university": [
+            "517"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Balikpapan",
+        "province": "Kalimantan Timur",
+        "university": [
+            "3137",
+            "536"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Bekasi",
+        "province": "Jawa Barat",
+        "university": [
+            "1429"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Parepare",
+        "province": "Sulawesi Selatan",
+        "university": [
+            "2550",
+            "3542"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Palopo",
+        "province": "Sulawesi Selatan",
+        "university": [
+            "8271",
+            "2564",
+            "3540"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Indramayu",
+        "province": "Jawa Barat",
+        "university": [
+            "1402"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Bangka",
+        "province": "Kep. Bangka Belitung",
+        "university": [
+            "510"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Sorong",
+        "province": "Papua Barat",
+        "university": [
+            "3453",
+            "3559"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Pamekasan",
+        "province": "Jawa Timur",
+        "university": [
+            "2076",
+            "2095",
+            "3541"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Pasuruan",
+        "province": "Jawa Timur",
+        "university": [
+            "2096"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Kudus",
+        "province": "Jawa Tengah",
+        "university": [
+            "210",
+            "26",
+            "185"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Metro",
+        "province": "Lampung",
+        "university": [
+            "835",
+            "3556"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Malang",
+        "province": "Jawa Timur",
+        "university": [
+            "2113"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Gorontalo",
+        "province": "Gorontalo",
+        "university": [
+            "2568",
+            "2557",
+            "3526"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Ternate",
+        "province": "Maluku Utara",
+        "university": [
+            "3311",
+            "505"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Bojonegoro",
+        "province": "Jawa Timur",
+        "university": [
+            "2074"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Merauke",
+        "province": "Papua",
+        "university": [
+            "513"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Tasikmalaya",
+        "province": "Jawa Barat",
+        "university": [
+            "1448"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Tasikmalaya",
+        "province": "Jawa Barat",
+        "university": [
+            "520",
+            "1611"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Madiun",
+        "province": "Jawa Timur",
+        "university": [
+            "2070",
+            "2125"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Padang Sidempuan",
+        "province": "Sumatra Utara",
+        "university": [
+            "591",
+            "3539",
+            "631"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Ciamis",
+        "province": "Jawa Barat",
+        "university": [
+            "1411"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Manggarai",
+        "province": "Nusa Tenggara Timur",
+        "university": [
+            "2423"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Lombok Timur",
+        "province": "Nusa Tenggara Barat",
+        "university": [
+            "2394"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Bandung Barat",
+        "province": "Jawa Barat",
+        "university": [
+            "1401"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Tuban",
+        "province": "Jawa Timur",
+        "university": [
+            "2100"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Jombang",
+        "province": "Jawa Timur",
+        "university": [
+            "2091",
+            "2246"
+        ],
+        "non_university": [
+            "2107"
+        ]
+    },
+    {
+        "city": "Kab. Kolaka",
+        "province": "Sulawesi Tenggara",
+        "university": [
+            "518"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Bangkalan",
+        "province": "Jawa Timur",
+        "university": [
+            "502"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Semarang",
+        "province": "Jawa Tengah",
+        "university": [
+            "1996",
+            "3512",
+            "1917"
+        ],
+        "non_university": [
+            "81"
+        ]
+    },
+    {
+        "city": "Kab. Sumenep",
+        "province": "Jawa Timur",
+        "university": [
+            "2086"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Jepara",
+        "province": "Jawa Tengah",
+        "university": [
+            "1990"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Gorontalo",
+        "province": "Gorontalo",
+        "university": [
+            "508"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Garut",
+        "province": "Jawa Barat",
+        "university": [
+            "1412",
+            "1470",
+            "1487"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Palangka Raya",
+        "province": "Kalimantan Tengah",
+        "university": [
+            "493",
+            "3140"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Sumbawa",
+        "province": "Nusa Tenggara Barat",
+        "university": [
+            "2390"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Tanjungpinang",
+        "province": "Kepulauan Riau",
+        "university": [
+            "514"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Cianjur",
+        "province": "Jawa Barat",
+        "university": [
+            "1418"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Lamongan",
+        "province": "Jawa Timur",
+        "university": [
+            "2093"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Tulungagung",
+        "province": "Jawa Timur",
+        "university": [
+            "3531"
+        ],
+        "non_university": [
+            "2166"
+        ]
+    },
+    {
+        "city": "Kab. Minahasa Utara",
+        "province": "Sulawesi Utara",
+        "university": [
+            "2533"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Situbondo",
+        "province": "Jawa Timur",
+        "university": [
+            "8142"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Cimahi",
+        "province": "Jawa Barat",
+        "university": [
+            "1409",
+            "1477"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Gowa",
+        "province": "Sulawesi Selatan",
+        "university": [
+            "3515"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Wonosobo",
+        "province": "Jawa Tengah",
+        "university": [
+            "24"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Probolinggo",
+        "province": "Jawa Timur",
+        "university": [
+            "4820",
+            "3811"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Sukabumi",
+        "province": "Jawa Barat",
+        "university": [
+            "1659",
+            "1513"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Tarakan",
+        "province": "Kalimantan Utara",
+        "university": [
+            "511"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Sukabumi",
+        "province": "Jawa Barat",
+        "university": [
+            "1428"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Karawang",
+        "province": "Jawa Barat",
+        "university": [
+            "527",
+            "1449"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Sukoharjo",
+        "province": "Jawa Tengah",
+        "university": [
+            "190"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Buru",
+        "province": "Maluku",
+        "university": [
+            "3312"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Cirebon",
+        "province": "Jawa Barat",
+        "university": [
+            "1399",
+            "3524"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Sidenreng Rappang",
+        "province": "Sulawesi Selatan",
+        "university": [
+            "8272"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Timor Tengah Utara",
+        "province": "Nusa Tenggara Timur",
+        "university": [
+            "524"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Polewali Mandar",
+        "province": "Sulawesi Barat",
+        "university": [
+            "2563"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Lampung Selatan",
+        "province": "Lampung",
+        "university": [
+            "537"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Toba",
+        "province": "Sumatra Utara",
+        "university": [
+            "614"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Tanah Datar",
+        "province": "Sumatra Barat",
+        "university": [
+            "3537"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Kerinci",
+        "province": "Jambi",
+        "university": [
+            "3555"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Agam",
+        "province": "Sumatra Barat",
+        "university": [
+            "3544"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Pekalongan",
+        "province": "Jawa Tengah",
+        "university": [
+            "186"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Bireuen",
+        "province": "Aceh",
+        "university": [],
+        "non_university": [
+            "8281"
+        ]
+    },
+    {
+        "city": "Kab. Asahan",
+        "province": "Sumatra Utara",
+        "university": [
+            "700"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Singkawang",
+        "province": "Kalimantan Barat",
+        "university": [
+            "3229"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Pematang Siantar",
+        "province": "Sumatra Utara",
+        "university": [
+            "458"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Pringsewu",
+        "province": "Lampung",
+        "university": [
+            "474"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kota Lubuklinggau",
+        "province": "Sumatra Selatan",
+        "university": [
+            "863"
+        ],
+        "non_university": []
+    },
+    {
+        "city": "Kab. Rejang Lebong",
+        "province": "Bengkulu",
+        "university": [],
+        "non_university": [
+            "3549"
+        ]
+    },
+    {
+        "city": "Kab. Sintang",
+        "province": "Kalimantan Barat",
+        "university": [],
+        "non_university": [
+            "3207"
+        ]
+    },
+    {
+        "city": "Kab. Bogor",
+        "province": "Jawa Barat",
+        "university": [],
+        "non_university": [
+            "8079"
+        ]
+    }
+]

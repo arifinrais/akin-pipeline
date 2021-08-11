@@ -25,8 +25,11 @@ MINIO_BUCKET_TRANSFORMED = 'tfm'
 MINIO_BUCKET_RESOURCES = 'res'
 MINIO_RESULT_FOLDER = 'tmp_mapped' #defaultnya result, tapi sebelum geocoding pake tmp_mapped dulu
 RES_BASE_PATH = 'res/'
-RES_FILES = {'TFM_PTM_STD': 'region_mapping.json',
+RES_FILES = {'ING_HIT_LST': 'sinta_hit_list.json',
+            'TFM_PTM_STD': 'region_mapping.json',
             'TFM_PSM_STD': 'postal_mapping.json',
+            'TFM_DPM_STD': 'departmental_mapping.json',
+            'TFM_ITM_STD': 'institution_mapping.json',
             'ANL_ENC_STD': 'encoder_dictionary.json'}
             #'TFM_DPM_STD': 'departmental_mapping.json'
 
