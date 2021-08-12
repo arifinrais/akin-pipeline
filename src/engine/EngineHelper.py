@@ -22,23 +22,47 @@ def Scrape(req_item, dimension, year, minio_settings, file_id=None):
             secret_key=minio_settings['MINIO_ROOT_PASSWORD'],
             secure=False
         )
-        FILE_NAME=dimension+'/'+str(year)+'/'+BUCKET_NAME+'_'+dimension+'_'+str(year)
-        if file_id:
-            zero_prefix='00' if file_id<10 else '0' if file_id<100 else ''
-            FILE_NAME+='_'+zero_prefix+str(file_id)
-        resp=req.get(req_item['url'])
         num_of_records = 0
         if dimension == 'ptn' or dimension=='trd':
+            FILE_NAME=dimension+'/'+str(year)+'/'+BUCKET_NAME+'_'+dimension+'_'+str(year)
+            if file_id:
+                zero_prefix='00' if file_id<10 else '0' if file_id<100 else ''
+                FILE_NAME+='_'+zero_prefix+str(file_id)
             FILE_NAME+='.json'
-            resp_dict = resp.json()
+            resp_dict=None
+            with req.get(req_item['url']) as resp:
+                resp_dict = resp.json()
             num_of_records = resp_dict['hits']['total']['value']
             content = json.dumps(resp_dict['hits'], ensure_ascii=False, indent=4).encode('utf-8') # convert dict to bytes
             _content_type='application/json'
         elif dimension=='pub':
-            FILE_NAME+='.html'
-            content=resp.text.encode('utf-8') #convert text/html to bytes for reverse conversion use bytes.decode()
-            _content_type='text/html'
-        resp.close()
+            _type=req_item['afil_type']
+            FILE_NAME=dimension+'/'
+            _folder = 'university/' if _type=='uni' else 'non_university/'
+            _dept_id = '_'+req_item['params']['id'] if _type=='uni' else ''
+            _afil_id = req_item['params']['afil'] if _type=='uni' else req_item['params']['id']
+            FILE_NAME+=_folder+BUCKET_NAME+'_'+dimension+'_'+_afil_id+_dept_id+'.csv'
+            _lines=[]
+            with req.get(req_item['url'], params=req_item['params']) as resp:
+                soup = BeautifulSoup(resp.text, features="html.parser") 
+                _titles, _quartiles, _citations, _indexers=[],[],[],[]
+                for record in soup.findAll("a",{"class":"paper-link"}):
+                    _titles.append(str(record).split('>')[1].split('<')[0])
+                soups = soup.findAll("td",{"class":"index-val uk-text-center"})
+                for i in range(0,len(soups),2):
+                    _quartiles.append(str(soups[i]).split('>')[1].split('<')[0])
+                    _citations.append(str(soups[i+1]).split('>')[1].split('<')[0])
+                for record in soup.findAll("dd",{"class":"indexed-by"}):
+                    temp = str(record).split('>')[1].split('<')[0].strip()\
+                        .replace(' |',';').replace('\t',' ').replace('\n', ' ').replace('\r',' ')
+                    _indexers.append(re.sub('\s+',' ',temp))
+                for i in range(len(_titles)):
+                    _lines.append(CreateCSVLine([_titles[i],_indexers[i],_quartiles[i],_citations[i]]))
+            num_of_records=len(_lines)
+            csv_file = StringIO(newline='\n')
+            for line in _lines: csv_file.writelines(line)
+            content = csv_file.getvalue().encode('utf-8')
+            _content_type='application/csv'
         if num_of_records:
             result = MINIO_CLIENT.put_object(BUCKET_NAME, FILE_NAME, BytesIO(content), length=-1, part_size=5*1024*1024, content_type=_content_type) #assuming maximum json filesize 1MB, minimum 5MiB
             return result.object_name
