@@ -2,7 +2,7 @@
 import sys, time
 import logging
 from engine.Engine import Engine
-from engine.EngineHelper import Scrape
+from engine.EngineHelper import Scrape, GetPages
 from redis import Redis
 from rq import Connection, Worker
 from rq.queue import Queue
@@ -62,10 +62,62 @@ class Ingestor(Engine):
                         +"&end_tanggal_dimulai_perlindungan="+date[1]\
                         +"&type="+param_type\
                         +"&order_state=asc&page=1"
-                    req_item['header']= self._generate_header(dimension)
+                    #req_item['header']= self._generate_header(dimension)
                     req_list.append(req_item)
+        elif self._check_dimension_source('SINTA', dimension):
+            ll_hit =  self._fetch_and_parse('res','pub_hit_list.txt',delimiter='_')
+            minio_settings=self._get_minio_settings()
+            job_id = []
+            for line in ll_hit:
+                if len(line)==2:
+                    with Connection():
+                        req_item={'url':'https://sinta.ristekbrin.go.id/departments/detail',
+                            'params': {"afil":line[-1],"id":line[0],"view":"documentsscopus"},
+                            'afil_type': 'uni'}
+                        job = self.queue[dimension].enqueue(GetPages, args=(req_item, dimension, year, minio_settings))
+                        job_id.append(job.id)
+                elif len(line)==1:
+                    with Connection():
+                        req_item={'url':'https://sinta.ristekbrin.go.id/affiliations/detail',
+                            'params': {"id":line[0],"view":"documentsscopus"},
+                            'afil_type': 'non_uni'}
+                        job = self.queue[dimension].enqueue(GetPages, args=(req_item, dimension, year, minio_settings))
+                        job_id.append(job.id)
+            ll_getpages = self._get_pages_result(job_id)
+            for line in ll_getpages:
+                pages=line[-1]
+                for i in range(int(pages)):
+                    req_item={}
+                    if len(line)==3:
+                        req_item={'url':'https://sinta.ristekbrin.go.id/departments/detail',
+                            'params': {"afil":line[-1],"id":line[0],"view":"documentsscopus","pages": str(i+1)},
+                            'afil_type': 'uni'}
+                    elif len(line)==2:
+                        req_item={'url':'https://sinta.ristekbrin.go.id/affiliations/detail',
+                            'params': {"id":line[0],"view":"documentsscopus","pages": str(i+1)},
+                            'afil_type': 'non_uni'}
+                    if req_item:
+                        #req_item['header']=self._generate_header(dimension)
+                        req_list.append(req_item)
         return req_list
-
+    
+    def _get_pages_result(self, job_id):
+        ll_getpages=[]
+        while True:
+            if len(job_id):
+                for id in job_id:
+                    job = Job(id, self.rq_conn)
+                    if job.get_status()=='finished':
+                        if job.result: 
+                            temp=job.result.split('_')
+                            if len(temp)>1:
+                                ll_getpages.append(temp)
+                        job_id.remove(id)
+            else:
+                break
+        #time.sleep(self.settings['SL'])     
+        return ll_getpages
+        
     def _generate_parameters(self, dimension, year):
         if self._check_dimension_source('PDKI', dimension):
             param_type,param_keywords,param_dates='',[],[]

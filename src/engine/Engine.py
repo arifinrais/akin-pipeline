@@ -149,10 +149,10 @@ class Engine(object):
             resp.release_conn() 
             return data_output
 
-    def _fetch_and_parse(self, bucket_name, file_name, extension='csv'):
+    def _fetch_and_parse(self, bucket_name, file_name, extension='csv', delimiter='\t'):
         data_output = self._fetch_file_from_minio(bucket_name, file_name)
         if extension=='csv':
-            file = BytesToLines(data_output, line_list=True) if data_output else None
+            file = BytesToLines(data_output, delimiter, line_list=True) if data_output else None
         elif extension=='json':
             file = json.load(BytesIO(data_output))
         if not file: raise Exception('405: File Not Fetched')

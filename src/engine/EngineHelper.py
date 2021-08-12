@@ -9,6 +9,8 @@ from rejson import Client, Path
 from minio import Minio
 from io import BytesIO, StringIO
 from fuzzywuzzy import fuzz
+from bs4 import BeautifulSoup
+from math import ceil
 
 def Scrape(req_item, dimension, year, minio_settings, file_id=None):
     try:
@@ -42,6 +44,19 @@ def Scrape(req_item, dimension, year, minio_settings, file_id=None):
             return result.object_name
         else:
             return '404: 0 number of records'
+    except:
+        emssg, b, c =sys.exc_info()
+        return emssg
+
+def GetPages(req_item):
+    try:            
+        pages=0
+        with req.get(req_item['url'], params=req_item['params']) as resp:
+            soup = BeautifulSoup(resp.text, features="html.parser")
+            for record in soup.findAll("caption"):
+                pages = ceil(float(str(record).split(':')[1].split('<')[0].strip())/10)
+            _afil_id = '_'+req_item['params']['afil'] if req_item['afil_type']=='uni' else ''
+        return req_item['params']['id']+_afil_id+'_'+str(pages)
     except:
         emssg, b, c =sys.exc_info()
         return emssg
