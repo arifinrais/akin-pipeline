@@ -100,11 +100,10 @@ class Engine(object):
         except:
             return False
 
-    def _empty_failed_queue(self, queue_list=None):
+    def _empty_failed_queue(self, queue_list):
         #CAN BE RAFACTORED TO ACCOMODATE PREPARATOR
         #for key in self.rq_conn.scan_iter("rq:job:*"):
         #    self.rq_conn.delete(key)
-        queue_list=['pub','ptn','trd']
         for q in queue_list:
             qname = "rq:failed:"+q
             while True:

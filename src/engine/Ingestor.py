@@ -26,10 +26,9 @@ class Ingestor(Engine):
 
     def _ingest_records(self, dimension, year):
         try:
-            self._empty_failed_queue()
+            self._empty_failed_queue(self.rq_queue)
             minio_settings=self._get_minio_settings()
             req_list = self._generate_req_list(dimension, year)
-            print('dah lewat')
             job_id = []; file_id = 1
             for req_item in req_list:
                 with Connection():
