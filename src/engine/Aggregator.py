@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, time, json, logging
+import sys, time, json, logging, regex as re
 from engine.Engine import Engine
 from engine.EngineHelper import CreateCSVLine
 from io import BytesIO
@@ -38,13 +38,15 @@ class Aggregator(Engine):
                 parsed_lines, folder = [], dimension+'/'
                 file_list = self._get_object_names(self.previous_bucket,folder+'university/')
                 for file_name in file_list:
-                    lines=self._parse_csv(file_name, dimension, year)
+                    lines=self._parse_csv(file_name, year)
                     if lines is None: 
                         raise Exception('500: Internal Server Error')
                     elif lines: 
                         for line in lines: parsed_lines.append(line)
-                unique_lines=self._uniquify(parsed_lines)
-                self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='university')
+                    else: continue
+                if parsed_lines:
+                    unique_lines=self._uniquify(parsed_lines)
+                    self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='university')
                 parsed_lines=[]
                 file_list = self._get_object_names(self.previous_bucket,folder+'non_university/')
                 for file_name in file_list:
@@ -53,8 +55,10 @@ class Aggregator(Engine):
                         raise Exception('500: Internal Server Error')
                     elif lines:
                         for line in lines: parsed_lines.append(line)
-                unique_lines=self._uniquify(parsed_lines)
-                self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='non_university')
+                    else: continue
+                if parsed_lines:
+                    unique_lines=self._uniquify(parsed_lines)
+                    self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='non_university')
             else:
                 raise Exception('405: Parser Not Found')
             print('done')
@@ -89,7 +93,9 @@ class Aggregator(Engine):
         finally:
             lines=[]
             for line in line_list:
+                if not line: continue
                 _title, _indexer, _quartile, _citations = line
+                _indexer = re.sub(';+',';',_indexer.replace('amp;',''))
                 _idxname, _idxvol, _idxissue, _idxdate, _idxtype = [x.strip() for x in _indexer.split(';')]
                 _year = int(_idxdate.split('-')[0])
                 if year==_year:
@@ -102,6 +108,7 @@ class Aggregator(Engine):
     def _parse_json(self, obj_name, dimension):
         try:
             json_obj = self._fetch_and_parse(self.previous_bucket, obj_name,'json')
+            print(json_obj['hits'])
         except:
             raise Exception('500: Internal Server Error')
         finally:
