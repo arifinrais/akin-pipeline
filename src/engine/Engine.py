@@ -3,7 +3,7 @@ import sys, time, json
 from engine import config
 from engine.EngineHelper import GenerateFileName, BytesToLines
 from datetime import datetime
-from redis import Redis
+from redis import Redis, ResponseError
 from rq.queue import Queue
 from rejson import Client, Path
 from minio import Minio
@@ -99,7 +99,27 @@ class Engine(object):
             return True
         except:
             return False
-  
+
+    def _empty_failed_queue(self, queue_list=None):
+        #CAN BE RAFACTORED TO ACCOMODATE PREPARATOR
+        #for key in self.rq_conn.scan_iter("rq:job:*"):
+        #    self.rq_conn.delete(key)
+        queue_list=['pub','ptn','trd']
+        for q in queue_list:
+            qname = "rq:failed:"+q
+            while True:
+                try:
+                    job_ids = self.rq_conn.zpopmax(qname)    
+                    if not job_ids:
+                        break
+                    for jid in job_ids:
+                        #print("rq:job:" + jid.decode('utf-8'))
+                        self.rq_conn.delete("rq:job:" + jid.decode('utf-8'))
+                except ResponseError:
+                    break
+                #except:
+                #    print(sys.exc_info())    
+            
     def _setup_minio_client(self, bucket_name=None):
         self.minio_client = Minio(
             self.settings['MINIO_HOST']+':'+str(self.settings['MINIO_PORT']),

@@ -26,8 +26,10 @@ class Ingestor(Engine):
 
     def _ingest_records(self, dimension, year):
         try:
+            self._empty_failed_queue()
             minio_settings=self._get_minio_settings()
             req_list = self._generate_req_list(dimension, year)
+            print('dah lewat')
             job_id = []; file_id = 1
             for req_item in req_list:
                 with Connection():
@@ -65,23 +67,25 @@ class Ingestor(Engine):
                     #req_item['header']= self._generate_header(dimension)
                     req_list.append(req_item)
         elif self._check_dimension_source('SINTA', dimension):
+            print('mashuk')
             ll_hit =  self._fetch_and_parse('res','pub_hit_list.txt',delimiter='_')
-            minio_settings=self._get_minio_settings()
+            print(ll_hit[-1])
             job_id = []
             for line in ll_hit:
+                print(line)
                 if len(line)==2:
                     with Connection():
                         req_item={'url':'https://sinta.ristekbrin.go.id/departments/detail',
                             'params': {"afil":line[-1],"id":line[0],"view":"documentsscopus"},
                             'afil_type': 'uni'}
-                        job = self.queue[dimension].enqueue(GetPages, args=(req_item, dimension, year, minio_settings))
+                        job = self.queue[dimension].enqueue(GetPages, req_item)
                         job_id.append(job.id)
                 elif len(line)==1:
                     with Connection():
                         req_item={'url':'https://sinta.ristekbrin.go.id/affiliations/detail',
                             'params': {"id":line[0],"view":"documentsscopus"},
                             'afil_type': 'non_uni'}
-                        job = self.queue[dimension].enqueue(GetPages, args=(req_item, dimension, year, minio_settings))
+                        job = self.queue[dimension].enqueue(GetPages, req_item)
                         job_id.append(job.id)
             ll_getpages = self._get_pages_result(job_id)
             for line in ll_getpages:
