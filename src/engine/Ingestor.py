@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 import sys, time
 import logging
-
-import rq
 from engine.Engine import Engine
 from engine.EngineHelper import Scrape, GetPages
 from redis import Redis
