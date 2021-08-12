@@ -109,12 +109,12 @@ class Engine(object):
             qname = "rq:failed:"+q
             while True:
                 try:
-                    job_ids = self.rq_conn.zpopmax(qname)    
+                    job_ids = self.rq_conn.zpopmax(qname) 
                     if not job_ids:
                         break
                     for jid in job_ids:
-                        #print("rq:job:" + jid.decode('utf-8'))
-                        self.rq_conn.delete("rq:job:" + jid.decode('utf-8'))
+                        _name, _score = jid
+                        self.rq_conn.delete("rq:job:" + _name.decode('utf-8'))
                 except ResponseError:
                     break
                 #except:
