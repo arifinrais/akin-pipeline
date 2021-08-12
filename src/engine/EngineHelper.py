@@ -58,7 +58,7 @@ def Scrape(req_item, dimension, year, minio_settings, file_id=None):
                         _citations.append(str(soups[i+1]).split('>')[1].split('<')[0])
                     for record in soup.findAll("dd",{"class":"indexed-by"}):
                         temp = str(record).split('>')[1].split('<')[0].strip()\
-                            .replace(' |',';').replace('\t',' ').replace('\n', ' ').replace('\r',' ')
+                            .replace(' |',';').replace('\t',', ').replace('\n',', ').replace('\r',', ')
                         _indexers.append(re.sub('\s+',' ',temp))
                     for i in range(len(_titles)):
                         _lines.append(CreateCSVLine([_titles[i],_indexers[i],_quartiles[i],_citations[i]]))

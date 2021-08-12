@@ -22,26 +22,40 @@ class Aggregator(Engine):
     
     def _aggregate_records(self, dimension, year):
         try:
-            folder = dimension+'/'+str(year)+'/'
-            obj_list = self._get_object_names(self.previous_bucket,folder)
-            parsed_lines = []
-            for obj_name in obj_list:
-                if self._check_dimension_source('PDKI', dimension):
+            parsed_lines=[]
+            if self._check_dimension_source('PDKI', dimension):
+                folder = dimension+'/'+str(year)+'/'
+                obj_list = self._get_object_names(self.previous_bucket,folder)
+                for obj_name in obj_list:
                     lines=self._parse_json(obj_name, dimension)
                     if lines is None: 
                         raise Exception('500: Internal Server Error')
                     elif lines:
-                        for line in lines: parsed_lines.append(line) 
-                elif self._check_dimension_source('SINTA', dimension):
-                    lines=self._parse_html(obj_name, dimension)
+                        for line in lines: parsed_lines.append(line)
+                unique_lines=self._uniquify(parsed_lines)
+                self._save_data_to_minio(unique_lines, self.bucket, dimension, year)
+            elif self._check_dimension_source('SINTA', dimension):
+                folder = dimension+'/'
+                obj_list = self._get_object_names(self.previous_bucket,folder+'university/')
+                for obj_name in obj_list:
+                    lines=self._parse_csv(obj_name, dimension, year)
                     if lines is None: 
                         raise Exception('500: Internal Server Error')
                     elif lines: 
                         for line in lines: parsed_lines.append(line)
-                else:
-                    raise Exception('405: Parser Not Found')
-            unique_lines=self._uniquify(parsed_lines)
-            self._save_data_to_minio(unique_lines, self.bucket, dimension, year)
+                unique_lines=self._uniquify(parsed_lines)
+                self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='university')
+                obj_list = self._get_object_names(self.previous_bucket,folder+'non_university/')
+                for obj_name in obj_list:
+                    lines=self._parse_csv(obj_name, dimension, year)
+                    if lines is None: 
+                        raise Exception('500: Internal Server Error')
+                    elif lines:
+                        for line in lines: parsed_lines.append(line)
+                unique_lines=self._uniquify(parsed_lines)
+                self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='non_university')
+            else:
+                raise Exception('405: Parser Not Found')
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
@@ -60,53 +74,49 @@ class Aggregator(Engine):
                 time.sleep(2)
         return object_names
     
-    def _parse_html(self, obj_name):
+    def _parse_csv(self, obj_name, dimension, year):
         #ntar didefine buat SINTA
         pass
 
     def _parse_json(self, obj_name, dimension):
         try:
-            data_output = self._fetch_file_from_minio(self.previous_bucket, obj_name)
-            json_obj = json.load(BytesIO(data_output))
-            lines = self._parse_object(json_obj, dimension)
-            return lines
+            json_obj = self._fetch_and_parse(self.previous_bucket, obj_name,'json')
         except:
-            return None
-
-    def _parse_object(self, obj, dimension):
-        lines = []
-        records = obj['hits']
-        #counter=0 #buat ngecek aja
-        if dimension==self.settings['DIMENSION_PATENT']:
-            for record in records:
-                id_application, id_certificate, status, date_begin, date_end = \
-                    record['_source']['id'], \
-                    record['_source']['nomor_sertifikat'], \
-                    record['_source']['status_permohonan'], \
-                    record['_source']['tanggal_dimulai_perlindungan'], \
-                    record['_source']['tanggal_berakhir_perlindungan']
-                if not id_certificate: continue #filter applied but not listed patent
-                address = self._parse_address(dimension, record['_source']['owner'], record['_source']['inventor'])
-                if not address: continue #patent can't be located or it's not an indonesian patent
-                classes = self._parse_classes(dimension,record['_source']['ipc'])
-                if not classes: continue
-                lines.append(CreateCSVLine([id_application,id_certificate,status, date_begin, date_end, classes, address]))
-                #counter+=1
-        elif dimension==self.settings['DIMENSION_TRADEMARK']:
-            for record in records:
-                id_application, id_certificate, status, date_begin, date_end = \
-                    record['_source']['id'], \
-                    record['_source']['nomor_pendaftaran'], \
-                    record['_source']['status_permohonan'], \
-                    record['_source']['tanggal_dimulai_perlindungan'], \
-                    record['_source']['tanggal_berakhir_perlindungan']
-                if not id_certificate: continue #filter applied but not listed patent
-                address = self._parse_address(dimension, record['_source']['owner'])
-                if not address: continue #patent can't be located or it's not an indonesian patent
-                classes = self._parse_classes(dimension, record['_source']['t_class'])
-                if not classes: continue
-                lines.append(CreateCSVLine([id_application,id_certificate,status, date_begin, date_end, classes, address]))
-        return lines
+            raise Exception('500: Internal Server Error')
+        finally:
+            lines = []
+            records = json_obj['hits']
+            #counter=0 #buat ngecek aja
+            if dimension==self.settings['DIMENSION_PATENT']:
+                for record in records:
+                    id_application, id_certificate, status, date_begin, date_end = \
+                        record['_source']['id'], \
+                        record['_source']['nomor_sertifikat'], \
+                        record['_source']['status_permohonan'], \
+                        record['_source']['tanggal_dimulai_perlindungan'], \
+                        record['_source']['tanggal_berakhir_perlindungan']
+                    if not id_certificate: continue #filter applied but not listed patent
+                    address = self._parse_address(dimension, record['_source']['owner'], record['_source']['inventor'])
+                    if not address: continue #patent can't be located or it's not an indonesian patent
+                    classes = self._parse_classes(dimension,record['_source']['ipc'])
+                    if not classes: continue
+                    lines.append(CreateCSVLine([id_application,id_certificate,status, date_begin, date_end, classes, address]))
+                    #counter+=1
+            elif dimension==self.settings['DIMENSION_TRADEMARK']:
+                for record in records:
+                    id_application, id_certificate, status, date_begin, date_end = \
+                        record['_source']['id'], \
+                        record['_source']['nomor_pendaftaran'], \
+                        record['_source']['status_permohonan'], \
+                        record['_source']['tanggal_dimulai_perlindungan'], \
+                        record['_source']['tanggal_berakhir_perlindungan']
+                    if not id_certificate: continue #filter applied but not listed patent
+                    address = self._parse_address(dimension, record['_source']['owner'])
+                    if not address: continue #patent can't be located or it's not an indonesian patent
+                    classes = self._parse_classes(dimension, record['_source']['t_class'])
+                    if not classes: continue
+                    lines.append(CreateCSVLine([id_application,id_certificate,status, date_begin, date_end, classes, address]))
+            return lines
     
     def _parse_address(self, dimension, owner_record, inventor_record=None):
         owner_address=None;inventor_address=None
@@ -130,9 +140,7 @@ class Aggregator(Engine):
         if address:
             #tar coba dicek kalau \n \r \t aja
             address = address.replace('\n',', ')
-            address = address.replace('\n\r',', ')
             address = address.replace('\r',', ')
-            address = address.replace('\r\n',', ')
             address = address.replace('\t',', ')
         return address
 
