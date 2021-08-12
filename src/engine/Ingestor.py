@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import sys, time
 import logging
+
+import rq
 from engine.Engine import Engine
 from engine.EngineHelper import Scrape, GetPages
 from redis import Redis
@@ -67,42 +69,20 @@ class Ingestor(Engine):
                     #req_item['header']= self._generate_header(dimension)
                     req_list.append(req_item)
         elif self._check_dimension_source('SINTA', dimension):
-            print('mashuk')
             ll_hit =  self._fetch_and_parse('res','pub_hit_list.txt',delimiter='_')
-            print(ll_hit[-1])
-            job_id = []
             for line in ll_hit:
-                print(line)
+                req_item=None
                 if len(line)==2:
-                    with Connection():
-                        req_item={'url':'https://sinta.ristekbrin.go.id/departments/detail',
-                            'params': {"afil":line[-1],"id":line[0],"view":"documentsscopus"},
-                            'afil_type': 'uni'}
-                        job = self.queue[dimension].enqueue(GetPages, req_item)
-                        job_id.append(job.id)
+                    req_item={'url':'https://sinta.ristekbrin.go.id/departments/detail',
+                        'params': {"afil":line[-1],"id":line[0],"view":"documentsscopus"},
+                        'afil_type': 'uni'}           
                 elif len(line)==1:
-                    with Connection():
-                        req_item={'url':'https://sinta.ristekbrin.go.id/affiliations/detail',
-                            'params': {"id":line[0],"view":"documentsscopus"},
-                            'afil_type': 'non_uni'}
-                        job = self.queue[dimension].enqueue(GetPages, req_item)
-                        job_id.append(job.id)
-            ll_getpages = self._get_pages_result(job_id)
-            for line in ll_getpages:
-                pages=line[-1]
-                for i in range(int(pages)):
-                    req_item={}
-                    if len(line)==3:
-                        req_item={'url':'https://sinta.ristekbrin.go.id/departments/detail',
-                            'params': {"afil":line[-1],"id":line[0],"view":"documentsscopus","pages": str(i+1)},
-                            'afil_type': 'uni'}
-                    elif len(line)==2:
-                        req_item={'url':'https://sinta.ristekbrin.go.id/affiliations/detail',
-                            'params': {"id":line[0],"view":"documentsscopus","pages": str(i+1)},
-                            'afil_type': 'non_uni'}
-                    if req_item:
-                        #req_item['header']=self._generate_header(dimension)
-                        req_list.append(req_item)
+                    req_item={'url':'https://sinta.ristekbrin.go.id/affiliations/detail',
+                        'params': {"id":line[0],"view":"documentsscopus"},
+                        'afil_type': 'non_uni'}
+                if req_item:
+                    #req_item['header']=self._generate_header(dimension)
+                    req_list.append(req_item)
         return req_list
     
     def _get_pages_result(self, job_id):

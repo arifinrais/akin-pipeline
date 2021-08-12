@@ -43,22 +43,25 @@ def Scrape(req_item, dimension, year, minio_settings, file_id=None):
             _afil_id = req_item['params']['afil'] if _type=='uni' else req_item['params']['id']
             FILE_NAME+=_folder+BUCKET_NAME+'_'+dimension+'_'+_afil_id+_dept_id+'.csv'
             _lines=[]
-            with req.get(req_item['url'], params=req_item['params']) as resp:
-                soup = BeautifulSoup(resp.text, features="html.parser") 
-                _titles, _quartiles, _citations, _indexers=[],[],[],[]
-                for record in soup.findAll("a",{"class":"paper-link"}):
-                    _titles.append(str(record).split('>')[1].split('<')[0])
-                soups = soup.findAll("td",{"class":"index-val uk-text-center"})
-                for i in range(0,len(soups),2):
-                    _quartiles.append(str(soups[i]).split('>')[1].split('<')[0])
-                    _citations.append(str(soups[i+1]).split('>')[1].split('<')[0])
-                for record in soup.findAll("dd",{"class":"indexed-by"}):
-                    temp = str(record).split('>')[1].split('<')[0].strip()\
-                        .replace(' |',';').replace('\t',' ').replace('\n', ' ').replace('\r',' ')
-                    _indexers.append(re.sub('\s+',' ',temp))
-                for i in range(len(_titles)):
-                    _lines.append(CreateCSVLine([_titles[i],_indexers[i],_quartiles[i],_citations[i]]))
-            num_of_records=len(_lines)
+            pages, num_of_records= GetPages(req_item)
+            for i in range(pages):
+                new_params=req_item['params']
+                new_params['page']=str(i+1)
+                with req.get(req_item['url'], params=new_params) as resp:
+                    soup = BeautifulSoup(resp.text, features="html.parser") 
+                    _titles, _quartiles, _citations, _indexers=[],[],[],[]
+                    for record in soup.findAll("a",{"class":"paper-link"}):
+                        _titles.append(str(record).split('>')[1].split('<')[0])
+                    soups = soup.findAll("td",{"class":"index-val uk-text-center"})
+                    for i in range(0,len(soups),2):
+                        _quartiles.append(str(soups[i]).split('>')[1].split('<')[0])
+                        _citations.append(str(soups[i+1]).split('>')[1].split('<')[0])
+                    for record in soup.findAll("dd",{"class":"indexed-by"}):
+                        temp = str(record).split('>')[1].split('<')[0].strip()\
+                            .replace(' |',';').replace('\t',' ').replace('\n', ' ').replace('\r',' ')
+                        _indexers.append(re.sub('\s+',' ',temp))
+                    for i in range(len(_titles)):
+                        _lines.append(CreateCSVLine([_titles[i],_indexers[i],_quartiles[i],_citations[i]]))
             csv_file = StringIO(newline='\n')
             for line in _lines: csv_file.writelines(line)
             content = csv_file.getvalue().encode('utf-8')
@@ -73,19 +76,13 @@ def Scrape(req_item, dimension, year, minio_settings, file_id=None):
         return emssg
 
 def GetPages(req_item):
-    try:            
-        print('mashuk')
-        pages=0
-        with req.get(req_item['url'], params=req_item['params']) as resp:
-            soup = BeautifulSoup(resp.text, features="html.parser")
-            for record in soup.findAll("caption"):
-                pages = ceil(float(str(record).split(':')[1].split('<')[0].strip())/10)
-            _afil_id = '_'+req_item['params']['afil'] if req_item['afil_type']=='uni' else ''
-        print(req_item['params']['id']+_afil_id+'_'+str(pages))
-        return req_item['params']['id']+_afil_id+'_'+str(pages)
-    except:
-        emssg, b, c =sys.exc_info()
-        return emssg
+    pages,num_of_records=0,0
+    with req.get(req_item['url'], params=req_item['params']) as resp:
+        soup = BeautifulSoup(resp.text, features="html.parser")
+        for record in soup.findAll("caption"):
+            num_of_records=int(str(record).split(':')[1].split('<')[0].strip())
+            pages = ceil(num_of_records/10)
+    return pages, num_of_records
 
 def CleanAddress(line, regexp_list, country_list, col_idx=6):
     for regex_pair in regexp_list:
