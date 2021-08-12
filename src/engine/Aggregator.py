@@ -61,7 +61,6 @@ class Aggregator(Engine):
                     self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='non_university', temp_prefolder=False)
             else:
                 raise Exception('405: Parser Not Found')
-            print('done')
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
@@ -72,9 +71,10 @@ class Aggregator(Engine):
         while not object_names_fetched:
             try:
                 object_names=[]
-                resp = self.minio_client.list_objects(bucket_name, start_after=folder, recursive=True)
+                resp = self.minio_client.list_objects(bucket_name, prefix=folder, recursive=True)
                 if resp: 
-                    for obj in resp: object_names.append(obj.object_name)
+                    for obj in resp:
+                        object_names.append(obj.object_name)
                     object_names_fetched=True
             except:
                 time.sleep(2)
@@ -94,7 +94,11 @@ class Aggregator(Engine):
             lines=[]
             for line in line_list:
                 if not line: continue
-                _title, _indexer, _quartile, _citations = line
+                try:
+                    _title, _indexer, _quartile, _citations = line
+                except ValueError:
+                    if len(line)<4:
+                        _title, _indexer, _quartile, _citations = '-', line[-3], line[-2], line[-1]
                 _indexer = re.sub(';+',';',_indexer.replace('amp;',''))
                 try:
                     _idxname, _idxvol, _idxissue, _idxdate, _idxtype = [x.strip() for x in _indexer.split(';')]
@@ -104,21 +108,21 @@ class Aggregator(Engine):
                         _idxname, _idxdate, _idxtype = '-', temp[-2], temp[-1]
                     else:
                         _idxname, _idxdate, _idxtype = temp[0], temp[-2], temp[-1]
+                #    print(sys.exc_info())
                 #except:
                 #    print(sys.exc_info())
                 #    sys.exit()
                 _year = int(_idxdate.split('-')[0])
                 if year==_year:
                     if _dept_id:
-                        lines.append(CreateCSVLine([_title,_idxtype,_quartile,_idxname,_year, _afil_id, _dept_id]))
+                        lines.append(CreateCSVLine([_title,_idxtype,_quartile,_citations,_idxname,_year, _afil_id, _dept_id]))
                     else:
-                        lines.append(CreateCSVLine([_title,_idxtype,_quartile,_idxname,_year, _afil_id]))
+                        lines.append(CreateCSVLine([_title,_idxtype,_quartile,_citations,_idxname,_year, _afil_id]))
             return lines
 
     def _parse_json(self, obj_name, dimension):
         try:
             json_obj = self._fetch_and_parse(self.previous_bucket, obj_name,'json')
-            print(json_obj['hits'])
         except:
             raise Exception('500: Internal Server Error')
         finally:
