@@ -22,8 +22,8 @@ class Aggregator(Engine):
     
     def _aggregate_records(self, dimension, year):
         try:
-            parsed_lines=[]
             if self._check_dimension_source('PDKI', dimension):
+                parsed_lines=[]
                 folder = dimension+'/'+str(year)+'/'
                 obj_list = self._get_object_names(self.previous_bucket,folder)
                 for obj_name in obj_list:
@@ -35,19 +35,20 @@ class Aggregator(Engine):
                 unique_lines=self._uniquify(parsed_lines)
                 self._save_data_to_minio(unique_lines, self.bucket, dimension, year)
             elif self._check_dimension_source('SINTA', dimension):
-                folder = dimension+'/'
-                obj_list = self._get_object_names(self.previous_bucket,folder+'university/')
-                for obj_name in obj_list:
-                    lines=self._parse_csv(obj_name, dimension, year)
+                parsed_lines, folder = [], dimension+'/'
+                file_list = self._get_object_names(self.previous_bucket,folder+'university/')
+                for file_name in file_list:
+                    lines=self._parse_csv(file_name, dimension, year)
                     if lines is None: 
                         raise Exception('500: Internal Server Error')
                     elif lines: 
                         for line in lines: parsed_lines.append(line)
                 unique_lines=self._uniquify(parsed_lines)
                 self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='university')
-                obj_list = self._get_object_names(self.previous_bucket,folder+'non_university/')
-                for obj_name in obj_list:
-                    lines=self._parse_csv(obj_name, dimension, year)
+                parsed_lines=[]
+                file_list = self._get_object_names(self.previous_bucket,folder+'non_university/')
+                for file_name in file_list:
+                    lines=self._parse_csv(file_name, year)
                     if lines is None: 
                         raise Exception('500: Internal Server Error')
                     elif lines:
@@ -56,6 +57,7 @@ class Aggregator(Engine):
                 self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='non_university')
             else:
                 raise Exception('405: Parser Not Found')
+            print('done')
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
@@ -74,9 +76,28 @@ class Aggregator(Engine):
                 time.sleep(2)
         return object_names
     
-    def _parse_csv(self, obj_name, dimension, year):
-        #ntar didefine buat SINTA
-        pass
+    def _parse_csv(self, file_name, year):
+        try:
+            line_list = self._fetch_and_parse(self.previous_bucket, file_name,'csv')
+            parsed_fname = file_name.strip('.csv').split('_')
+            if len(parsed_fname)==4:
+                _dept_id, _afil_id=parsed_fname[-1], parsed_fname[-2]
+            elif len(parsed_fname)==3:
+                _dept_id, _afil_id=None, parsed_fname[-1]
+        except:
+            raise Exception('500: Internal Server Error')
+        finally:
+            lines=[]
+            for line in line_list:
+                _title, _indexer, _quartile, _citations = line
+                _idxname, _idxvol, _idxissue, _idxdate, _idxtype = [x.strip() for x in _indexer.split(';')]
+                _year = int(_idxdate.split('-')[0])
+                if year==_year:
+                    if _dept_id:
+                        lines.append(CreateCSVLine([_title,_idxtype,_quartile,_idxname,_year, _afil_id, _dept_id]))
+                    else:
+                        lines.append(CreateCSVLine([_title,_idxtype,_quartile,_idxname,_year, _afil_id]))
+            return lines
 
     def _parse_json(self, obj_name, dimension):
         try:
