@@ -168,14 +168,17 @@ def Geocode(line, std_file, api_config, col_idx=6):
         return line, None
     return None, line
 
-def GenerateFileName(bucket_base, dimension, year, extension, file_id=None, temp_folder=None):    
+def GenerateFileName(bucket_base, dimension, year, extension, file_id=None, temp_folder=None, temp_prefolder=True):    
     _temp_folder = temp_folder+'/' if temp_folder else ''
     if file_id:
         zero_prefix= '00' if file_id<10 else '0' if file_id <100 else ''
         _file_id = zero_prefix+str(file_id)
         return dimension+'/'+str(year)+'/'+bucket_base+'_'+dimension+'_'+str(year)+'_'+_file_id+'.'+extension       
     else:
-        return _temp_folder+dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+'.'+extension
+        if temp_prefolder:
+            return _temp_folder+dimension+'/'+bucket_base+'_'+dimension+'_'+str(year)+'.'+extension
+        else:
+            return dimension+'/'+_temp_folder+bucket_base+'_'+dimension+'_'+str(year)+'.'+extension
 
 def CreateCSVLine(fields, delimiter="\t", lineterminator='\n'):
     line = ""

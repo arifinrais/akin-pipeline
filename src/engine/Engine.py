@@ -134,8 +134,8 @@ class Engine(object):
                 return False
         return True
     
-    def _save_data_to_minio(self, data_input, bucket_name, dimension, year, extension='csv', temp_folder=None):
-        file_name=GenerateFileName(bucket_name, dimension, year, extension, temp_folder=temp_folder)
+    def _save_data_to_minio(self, data_input, bucket_name, dimension, year, extension='csv', temp_folder=None, temp_prefolder=True):
+        file_name=GenerateFileName(bucket_name, dimension, year, extension, temp_folder=temp_folder, temp_prefolder=temp_prefolder)
         if extension=='csv':
             csv_file = StringIO(newline='\n')
             for line in data_input: csv_file.writelines(line)

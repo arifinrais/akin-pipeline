@@ -46,7 +46,7 @@ class Aggregator(Engine):
                     else: continue
                 if parsed_lines:
                     unique_lines=self._uniquify(parsed_lines)
-                    self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='university')
+                    self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='university', temp_prefolder=False)
                 parsed_lines=[]
                 file_list = self._get_object_names(self.previous_bucket,folder+'non_university/')
                 for file_name in file_list:
@@ -58,7 +58,7 @@ class Aggregator(Engine):
                     else: continue
                 if parsed_lines:
                     unique_lines=self._uniquify(parsed_lines)
-                    self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='non_university')
+                    self._save_data_to_minio(unique_lines, self.bucket, dimension, year, temp_folder='non_university', temp_prefolder=False)
             else:
                 raise Exception('405: Parser Not Found')
             print('done')
@@ -96,7 +96,17 @@ class Aggregator(Engine):
                 if not line: continue
                 _title, _indexer, _quartile, _citations = line
                 _indexer = re.sub(';+',';',_indexer.replace('amp;',''))
-                _idxname, _idxvol, _idxissue, _idxdate, _idxtype = [x.strip() for x in _indexer.split(';')]
+                try:
+                    _idxname, _idxvol, _idxissue, _idxdate, _idxtype = [x.strip() for x in _indexer.split(';')]
+                except ValueError:
+                    temp = _indexer.split(';')
+                    if len(temp)<5:
+                        _idxname, _idxdate, _idxtype = '-', temp[-2], temp[-1]
+                    else:
+                        _idxname, _idxdate, _idxtype = temp[0], temp[-2], temp[-1]
+                #except:
+                #    print(sys.exc_info())
+                #    sys.exit()
                 _year = int(_idxdate.split('-')[0])
                 if year==_year:
                     if _dept_id:
