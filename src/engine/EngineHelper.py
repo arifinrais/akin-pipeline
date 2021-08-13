@@ -139,6 +139,20 @@ def PatternSplit(line, std_file, col_idx=6, fuzz_offset=88):
             return line, None
     return None, line
 
+def InstitutionMapping(line, std_file, col_idx=6, afil_type='uni'):
+    _afil_key = 'university' if afil_type=='uni' else 'non_university' if afil_type=='non_uni' else ''
+    for record in std_file:
+        if line[col_idx] in record[_afil_key]:
+            line.append(record['city'])
+            line.append(record['province'])
+            return line
+
+def DepartmentMapping(line, std_file, col_idx=7):
+    for record in std_file:
+        if line[col_idx] in record['department']:
+            line.append(record['class'])
+            return line
+
 def Geocode(line, std_file, api_config, col_idx=6):
     #hit api with api_config
     resp='some json file that has to be loaded'

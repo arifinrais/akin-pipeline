@@ -28,8 +28,8 @@ RES_BASE_PATH = 'res/'
 RES_FILES = {'ING_HIT_LST': 'pub_hit_list.txt',
             'TFM_PTM_STD': 'region_mapping.json',
             'TFM_PSM_STD': 'postal_mapping.json',
-            'TFM_DPM_STD': 'departmental_mapping.json',
-            'TFM_ITM_STD': 'institution_mapping.json',
+            'TFM_DPM_STD': 'department_mapping.json',
+            'TFM_INM_STD': 'institution_mapping.json',
             'ANL_ENC_STD': 'encoder_dictionary.json'}
             #'TFM_DPM_STD': 'departmental_mapping.json'
 

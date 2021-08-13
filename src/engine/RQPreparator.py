@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, time, logging, json, regex as re, requests as req
+import sys, time, logging, json, regex as re, requests as req, pandas as pd
 from minio.error import S3Error
 from engine.Engine import Engine
 from engine.EngineHelper import *
@@ -11,8 +11,10 @@ from rq.job import Job
 
 class RQPreparator(Engine):
     ADDR_COL_INDEX=6
+    INST_COL_INDEX=6
+    DEPT_COL_INDEX=7
     TEMP_FOLDERS={'mapped':'tmp_mapped','unmapped':'tmp_unmapped','failed':'failed'}
-    TFM_WORK={'clean':'cln','postal_mapping':'psm','pattern_matching':'ptm','geocode':'gcd'}
+    TFM_WORK={'clean':'cln','postal_mapping':'psm','pattern_matching':'ptm','geocode':'gcd','institution_mapping':'inm','department_mapping':'dpm'}
     TFM_WAIT_TIME=2
 
     def __init__(self):
@@ -26,7 +28,9 @@ class RQPreparator(Engine):
         #misal RES_FILES = [{'id': 'region_standard', 'fname': 'region_standard.json'}] buat bantu loader di engine juga
         self.standard_region = self.settings['RES_FILES']['TFM_PTM_STD']
         self.standard_postal = self.settings['RES_FILES']['TFM_PSM_STD']
-        self.rq_queue = [self.TFM_WORK['clean'],self.TFM_WORK['postal_mapping'],self.TFM_WORK['pattern_matching'],self.TFM_WORK['geocode']]
+        self.standard_institution = self.settings['RES_FILES']['TFM_INM_STD']
+        self.standard_department = self.settings['RES_FILES']['TFM_DPM_STD']
+        self.rq_queue = [self.TFM_WORK['clean'],self.TFM_WORK['postal_mapping'],self.TFM_WORK['pattern_matching'],self.TFM_WORK['geocode'],self.TFM_WORK['institution_mapping'], self.TFM_WORK['department_mapping']]
 
     def _transform(self):
         logging.debug('Acquiring Lock for Transformation Jobs...')
@@ -45,27 +49,49 @@ class RQPreparator(Engine):
         #print(success, errormsg)
 
     def _transform_in_rq(self, dimension, year):
-        file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv')
         try:
-            line_list = self._fetch_and_parse(self.previous_bucket, file_name, 'csv')
-            
-            #cleaning the data
-            ll_cleaned = self._rq_cleaning(line_list, self.ADDR_COL_INDEX)
+            if self._check_dimension_source('PDKI', dimension):
+                file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv')
+                line_list = self._fetch_and_parse(self.previous_bucket, file_name, 'csv')
+                
+                #cleaning the data
+                ll_cleaned = self._rq_cleaning(line_list, self.ADDR_COL_INDEX)
 
-            #splitting the data based on postal code
-            std_file = self._fetch_and_parse(self.resources_bucket, self.standard_postal, 'json')
-            ll_mapped_postal, ll_unmapped = self._rq_split(ll_cleaned, std_file, self.TFM_WORK['postal_mapping'], self.ADDR_COL_INDEX)
-            mapped_lines=LineListToLines(ll_mapped_postal)
-            if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
-            
-            #splitting the data based on pattern matching
-            std_file = self._fetch_and_parse(self.resources_bucket, self.standard_region, 'json')
-            ll_mapped_pattern, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['pattern_matching'],self.ADDR_COL_INDEX)
-            mapped_lines=mapped_lines+LineListToLines(ll_mapped_pattern)
-            if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
-            
-            unmapped_lines=LineListToLines(ll_unmapped)
-            self._save_to_temp_folders(mapped_lines, unmapped_lines, dimension, year)
+                #splitting the data based on postal code
+                std_file = self._fetch_and_parse(self.resources_bucket, self.standard_postal, 'json')
+                ll_mapped_postal, ll_unmapped = self._rq_split(ll_cleaned, std_file, self.TFM_WORK['postal_mapping'], self.ADDR_COL_INDEX)
+                mapped_lines=LineListToLines(ll_mapped_postal)
+                if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
+                
+                #splitting the data based on pattern matching
+                std_file = self._fetch_and_parse(self.resources_bucket, self.standard_region, 'json')
+                ll_mapped_pattern, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['pattern_matching'],self.ADDR_COL_INDEX)
+                mapped_lines=mapped_lines+LineListToLines(ll_mapped_pattern)
+                if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
+                
+                unmapped_lines=LineListToLines(ll_unmapped)
+                self._save_to_temp_folders(mapped_lines, unmapped_lines, dimension, year)
+            elif self._check_dimension_source('SINTA', dimension):
+                file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv', temp_folder='university', temp_prefolder=False)
+                line_list = self._fetch_and_parse(self.previous_bucket, file_name, 'csv')
+
+                #for university dataset, map institution to region and department to class
+                std_file = self._fetch_and_parse(self.resources_bucket, self.standard_institution, 'json')
+                ll_mapped = self._rq_map(line_list, std_file, self.TFM_WORK['institution_mapping'], self.INST_COL_INDEX)
+                std_file = self._fetch_and_parse(self.resources_bucket, self.standard_department, 'json')
+                ll_mapped = self._rq_map(ll_mapped, std_file, self.TFM_WORK['department_mapping'], self.DEPT_COL_INDEX)
+                mapped_lines=LineListToLines(ll_mapped)
+
+                #for non_university dataset, map institution to region and tile/journal to class
+                file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv', temp_folder='non_university', temp_prefolder=False)
+                line_list = self._fetch_and_parse(self.previous_bucket, file_name, 'csv')
+                std_file = self._fetch_and_parse(self.resources_bucket, self.standard_institution, 'json')
+                ll_unmapped = self._rq_map(line_list, std_file, self.TFM_WORK['institution_mapping'], self.INST_COL_INDEX)
+                #need to implement a pattern-matching algorithm using machine learning model to map title/journal to subject
+                unmapped_lines=LineListToLines(ll_unmapped)
+
+                self._save_to_temp_folders(mapped_lines, unmapped_lines, dimension, year)
+                if self._is_all_mapped(mapped_lines, ll_unmapped, dimension, year): return True, True
             return True, None
         except:
             errormsg, b, c = sys.exc_info()
@@ -80,7 +106,8 @@ class RQPreparator(Engine):
     def _save_to_temp_folders(self, mapped_lines, unmapped_lines, dimension, year):
         if mapped_lines:
             self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['mapped'])
-        self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['unmapped'])
+        if unmapped_lines:
+            self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['unmapped'])
 
     def _rq_cleaning(self, line_list, col_idx=6):
         REGEXP_LIST = [
@@ -172,6 +199,32 @@ class RQPreparator(Engine):
                 break
             time.sleep(self.TFM_WAIT_TIME)     
         return ll_mapped, ll_unmapped
+
+    def _rq_map(self, line_list, std_file, tfm_work, col_idx=6, afil_type='uni'):
+        #disort dulu baru dimap pake mapreduce lebih masuk akal, mungkin postal mapping juga(?)
+        job_id = []
+        for line in line_list:
+            with Connection():
+                if tfm_work==self.TFM_WORK['institution_mapping']:
+                    job = self.queue[tfm_work].enqueue(InstitutionMapping, args=(line, std_file, col_idx, afil_type))
+                elif tfm_work==self.TFM_WORK['department_mapping']:
+                    job = self.queue[tfm_work].enqueue(DepartmentMapping, args=(line, std_file, col_idx))
+                job_id.append(job.id)
+        ll_mapped=[]
+        while True:
+            if len(job_id):
+                for id in job_id:
+                    job = Job(id, self.rq_conn)
+                    if job.get_status()=='finished':
+                        if job.result: 
+                            line_mapped = job.result
+                            ll_mapped.append(line_mapped)
+                        job_id.remove(id)
+            else:
+                break
+            time.sleep(self.TFM_WAIT_TIME)     
+        return ll_mapped
+
 
     def _geocoding_in_rq(self, dimension, year):
         #set api config
