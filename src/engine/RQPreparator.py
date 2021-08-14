@@ -11,7 +11,7 @@ from rq.job import Job
 
 class RQPreparator(Engine):
     ADDR_COL_INDEX=6
-    PUB_COLUMNS = ['title','type','quartile','citations','publisher','year','afil_id','dept_id']
+    PUB_COLUMNS = ['title','type','quartile','citations','publisher','year','afil_id','dept_id','city','province','class']
     TEMP_FOLDERS={'mapped':'tmp_mapped','unmapped':'tmp_unmapped','failed':'failed'}
     TFM_WORK={'clean':'cln','postal_mapping':'psm','pattern_matching':'ptm','geocode':'gcd','institution_mapping':'inm','department_mapping':'dpm'}
     TFM_WAIT_TIME=2
@@ -76,16 +76,16 @@ class RQPreparator(Engine):
 
                 #for university dataset, map institution to region and department to class
                 std_file = self._fetch_and_parse(self.resources_bucket, self.standard_institution, 'json')
-                ll_mapped = self._rq_map(line_list, std_file, self.TFM_WORK['institution_mapping'], self.PUB_COLUMNS, 'afil_id')
+                ll_mapped = self._rq_map(line_list, std_file, self.TFM_WORK['institution_mapping'], self.PUB_COLUMNS[:-3], 'afil_id')
                 std_file = self._fetch_and_parse(self.resources_bucket, self.standard_department, 'json')
-                ll_mapped = self._rq_map(ll_mapped, std_file, self.TFM_WORK['department_mapping'], self.PUB_COLUMNS, 'dept_id')
+                ll_mapped = self._rq_map(ll_mapped, std_file, self.TFM_WORK['department_mapping'], self.PUB_COLUMNS[:-1], 'dept_id')
                 mapped_lines=LineListToLines(ll_mapped)
 
                 #for non_university dataset, map institution to region and tile/journal to class
                 file_name=GenerateFileName(self.previous_bucket, dimension, year, 'csv', temp_folder='non_university', temp_prefolder=False)
                 line_list = self._fetch_and_parse(self.previous_bucket, file_name, 'csv')
                 std_file = self._fetch_and_parse(self.resources_bucket, self.standard_institution, 'json')
-                ll_unmapped = self._rq_map(line_list, std_file, self.TFM_WORK['institution_mapping'], self.PUB_COLUMNS[:-1], 'afil_id')
+                ll_unmapped = self._rq_map(line_list, std_file, self.TFM_WORK['institution_mapping'], self.PUB_COLUMNS[:-4], 'afil_id')
                 #need to implement a pattern-matching algorithm using machine learning model to map title/journal to subject
                 unmapped_lines=LineListToLines(ll_unmapped)
 

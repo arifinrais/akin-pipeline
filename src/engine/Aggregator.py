@@ -84,9 +84,9 @@ class Aggregator(Engine):
         try:
             line_list = self._fetch_and_parse(self.previous_bucket, file_name,'csv')
             parsed_fname = file_name.strip('.csv').split('_')
-            if len(parsed_fname)==4:
+            if parsed_fname[-2]!='pub':
                 _dept_id, _afil_id=parsed_fname[-1], parsed_fname[-2]
-            elif len(parsed_fname)==3:
+            else:
                 _dept_id, _afil_id=None, parsed_fname[-1]
         except:
             raise Exception('500: Internal Server Error')

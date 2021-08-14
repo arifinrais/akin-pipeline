@@ -141,7 +141,7 @@ def PatternSplit(line, std_file, col_idx=6, fuzz_offset=88):
 
 def InstitutionMapping(line_list, std_file, columns, map_col):
     _afil_type = 'uni' if len(columns)==8 else 'non_uni' if len(columns)==7 else None
-    _used, _dropped = 'university','non_university' if _afil_type=='uni' else 'non_university','university'
+    _used, _dropped = ('university','non_university') if _afil_type=='uni' else ('non_university','university')
     df_lines = pd.DataFrame(line_list, columns=columns).sort_values(map_col, axis=0)
     df_std = pd.json_normalize(std_file).drop(_dropped, axis=1).explode(_used).reset_index(drop=True).dropna().sort_values(_used,axis=0)
     res = df_lines.join(df_std.set_index(_used), on=[map_col])
