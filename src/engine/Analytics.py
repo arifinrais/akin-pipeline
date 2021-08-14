@@ -70,7 +70,6 @@ class Analytics(Engine):
                 classes, city, province = line[5], line[7], line[8]
             elif self._check_dimension_source('SINTA', dimension):
                 classes, city, province = line[-1], line[-3], line[-2]
-            #print(classes, city, province)
             _city, _province, _island, _dev_main, _dev_econ = self._encode_region(city, province)
             _classes = classes.split(class_delimiter)
             if _island!=-1 and _dev_main!=-1:
@@ -253,7 +252,8 @@ class Analytics(Engine):
                 self.NUMBER_OF_DEV_MAIN if reg_dimension=='dev_main' else 0
         if not num_of_region: raise Exception('403: Regional Dimension Not Recognized')
         num_of_class = self.NUMBER_OF_PATENT_CLASS if cls_dimension==self.settings['DIMENSION_PATENT'] else\
-            self.NUMBER_OF_TRADEMARK_CLASS if cls_dimension==self.settings['DIMENSION_TRADEMARK'] else 0 #tar tambahin SINTA
+            self.NUMBER_OF_TRADEMARK_CLASS if cls_dimension==self.settings['DIMENSION_TRADEMARK'] else\
+                self.NUMBER_OF_PUBLICATION_CLASS if cls_dimension==self.settings['DIMENSION_PUBLICATION'] else 0
         if not num_of_class: raise Exception('403: Class Dimension Not Recognized')
         return num_of_region, num_of_class
 
