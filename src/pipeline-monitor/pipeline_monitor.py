@@ -1,5 +1,5 @@
 import sys
-import localsettings as config
+import config
 import json
 import traceback
 import time
