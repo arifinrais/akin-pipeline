@@ -4,7 +4,6 @@ import json
 import traceback
 import time
 from rejson import Client, Path
-from kafka import KafkaConsumer
 from jsonschema import validate
 from datetime import datetime
 

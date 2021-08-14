@@ -2,7 +2,7 @@
 # to override please use a custom localsettings.py file
 
 # Job-Mntr redis host information
-JOB_REDIS_HOST = 'localhost'
+JOB_REDIS_HOST = 'job-enqueuer'
 JOB_REDIS_PORT = 6379
 JOB_REDIS_DB = 0
 JOB_REDIS_PASSWORD = None

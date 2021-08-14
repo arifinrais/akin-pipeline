@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/pipeline-monitor /usr/src/app
 
 # override settings via localsettings.py
-COPY src/pipeline-monitor/config.py /usr/src/app/config.py
+COPY docker/pipeline-monitor/config.py /usr/src/app/config.py
 
 # copy testing script into container
 # COPY docker/run_docker_tests.sh /usr/src/app/run_docker_tests.sh
