@@ -2,7 +2,7 @@ version: '2'
 
 services:
   analytics-engine:
-    image: arifinrais/akin-pipeline:engine-sinta-dev
+    image: arifinrais/akin-pipeline:engine-dev
     container_name: analytics
     build:
       context: .
@@ -14,7 +14,7 @@ services:
     command: python main.py analyze
     restart: unless-stopped
   preparator-engine:
-    image: arifinrais/akin-pipeline:engine-sinta-dev
+    image: arifinrais/akin-pipeline:engine-dev
     container_name: preparator
     build:
       context: .
@@ -26,7 +26,7 @@ services:
     command: python main.py transform
     restart: unless-stopped
   aggregator-engine:
-    image: arifinrais/akin-pipeline:engine-sinta-dev
+    image: arifinrais/akin-pipeline:engine-dev
     container_name: aggregator
     build:
       context: .
@@ -37,7 +37,7 @@ services:
     command: python main.py aggregate
     restart: unless-stopped
   ingestor-engine:
-    image: arifinrais/akin-pipeline:engine-sinta-dev
+    image: arifinrais/akin-pipeline:engine-dev
     container_name: ingestor
     build:
       context: .
@@ -87,7 +87,7 @@ services:
       - "6389:6389"
     restart: always
   rq-scraper:
-    image: arifinrais/akin-pipeline:engine-sinta-dev
+    image: arifinrais/akin-pipeline:engine-dev
     build:
       context: .
       dockerfile: docker/engine/Dockerfile.py3
@@ -98,7 +98,7 @@ services:
     command: python main.py scrape
     restart: unless-stopped
   rq-transform:
-    image: arifinrais/akin-pipeline:engine-sinta-dev
+    image: arifinrais/akin-pipeline:engine-dev
     build:
       context: .
       dockerfile: docker/engine/Dockerfile.py3
