@@ -32,7 +32,7 @@ class Analytics(Engine):
         self.NUMBER_OF_DEV_MAIN = len(self.encoder_dictionary['dev_main'])
         self.NUMBER_OF_PATENT_CLASS = len(self.encoder_dictionary['ipc_class2'])
         self.NUMBER_OF_TRADEMARK_CLASS = len(self.encoder_dictionary['ncl_class1'])
-        #self.NUMBER_OF_PUBLICATION_CLASS = len(self.encoder_dictionary['cip_class2'])
+        self.NUMBER_OF_PUBLICATION_CLASS = len(self.encoder_dictionary['kri_class2'])
         return True
 
     def _analyze(self):
@@ -66,7 +66,11 @@ class Analytics(Engine):
     def _encode(self, line_list, dimension, columns, class_delimiter=';', decimal_places=2):
         ll_encoded = []
         for line in line_list:
-            classes, city, province = line[5], line[7], line[8]
+            if self._check_dimension_source('PDKI', dimension):
+                classes, city, province = line[5], line[7], line[8]
+            elif self._check_dimension_source('SINTA', dimension):
+                classes, city, province = line[-1], line[-3], line[-2]
+            #print(classes, city, province)
             _city, _province, _island, _dev_main, _dev_econ = self._encode_region(city, province)
             _classes = classes.split(class_delimiter)
             if _island!=-1 and _dev_main!=-1:
@@ -114,7 +118,15 @@ class Analytics(Engine):
                     _class_base=rec['parent_id']
                     break
         elif dimension==self.settings['DIMENSION_PUBLICATION']:
-            None #tar define buat SINTA
+            for rec in self.encoder_dictionary['kri_class2']:
+                if _class==rec['class']:
+                    _class_detail=rec['id']
+                    _class_middle=rec['parent_id']
+                    break
+            for rec in self.encoder_dictionary['kri_class1']:
+                if _class_middle==rec['id']:
+                    _class_base=rec['parent_id']
+                    break
         return _class_base, _class_detail
 
     def _decode(self, code, enc_type, enc_dimension):
@@ -183,7 +195,7 @@ class Analytics(Engine):
     def _get_class_classification(self, dimension):
         if dimension==self.settings['DIMENSION_PATENT']: return 'ipc_base', 'ipc_class2'
         if dimension==self.settings['DIMENSION_TRADEMARK']: return 'ncl_base', 'ncl_class1'
-        if dimension==self.settings['DIMENSION_PUBLICATION']: return 'cip_base', 'cip_class2'
+        if dimension==self.settings['DIMENSION_PUBLICATION']: return 'kri_base', 'kri_class2'
 
     def _translate_viz(self, dataframes, dimension, year):
         viz_schemes={"year": year}
