@@ -17,20 +17,6 @@ JOB_REDIS_DB = 0
 JOB_REDIS_PASSWORD = None
 JOB_REDIS_SOCKET_TIMEOUT = 10
 
-# Kafka server information
-KAFKA_HOST = 'localhost'
-KAFKA_PORT = 9092
-KAFKA_INCOMING_TOPIC = 'job_stat' #ingestion
-KAFKA_GROUP = 'akin-pipeline' #akin
-KAFKA_FEED_TIMEOUT = 10
-KAFKA_CONSUMER_AUTO_OFFSET_RESET = 'earliest'
-KAFKA_CONSUMER_TIMEOUT = 50
-KAFKA_CONSUMER_COMMIT_INTERVAL_MS = 5000
-KAFKA_CONSUMER_AUTO_COMMIT_ENABLE = True
-KAFKA_CONSUMER_FETCH_MESSAGE_MAX_BYTES = 10 * 1024 * 1024  # 10MB
-KAFKA_PRODUCER_BATCH_LINGER_MS = 25  # 25 ms before flush
-KAFKA_PRODUCER_BUFFER_BYTES = 4 * 1024 * 1024  # 4MB before blocking
-
 # logging setup
 LOGGER_NAME = 'kafka-monitor'
 LOG_DIR = 'logs'
@@ -59,10 +45,17 @@ JOB_INGEST = 'ing'
 JOB_AGGREGATE = 'agg'
 JOB_TRANSFORM = 'tfm'
 JOB_ANALYZE = 'anl'
+LOCK_INGEST = 'ingest_lock'
+LOCK_AGGREGATE = 'aggregate_lock'
+LOCK_TRANSFORM = 'transform_lock'
+LOCK_ANALYZE = 'analyze_lock'
 STAT_WAIT = 'wait'
 STAT_WIP = 'wip'
 STAT_DONE = 'done'
 STAT_ERROR = 'err'
+DIMENSION_PATENT = 'ptn'
+DIMENSION_TRADEMARK = 'trd'
+DIMENSION_PUBLICATION = 'pub'
 
 # main thread sleep time
 SLEEP_TIME = 0.01

@@ -9,9 +9,6 @@ from jsonschema import validate
 from datetime import datetime
 
 class PipelineMonitor:
-    # KafkaConsumer instance
-    consumer = None
-
     def __init__(self):
         # Load settings from local config.py file
         try:
@@ -19,6 +16,7 @@ class PipelineMonitor:
             self.settings={}
             for item in configs:
                 self.settings[item]=getattr(config, item)
+            self.all_locks=[self.settings['LOCK_INGEST'],self.settings['LOCK_AGGREGATE'],self.settings['LOCK_ANALYZE']]
             self.schemas={}
             self.schemas['FEED'] = {
                 "type": "object",
@@ -91,42 +89,48 @@ class PipelineMonitor:
         _object = {}
         _object['dimension'] = self._get_dimension(feed_obj['dimension'])
         _object['year'] = feed_obj['year']
-        _object['job'] = self.settings['JOB_INGEST']
+        _object['job'] = self.settings['JOB_INGEST'] if not self._is_pub_exist() else self.settings['JOB_AGGREGATE']
         _object['status'] = self.settings['STAT_WAIT']
         _object['timestamp'] = datetime.utcnow().isoformat()
         _object['errormsg'] = ''
         _key = self._get_dimension(feed_obj['dimension']) + '_' + str(feed_obj['year'])
         self.redis_conn.jsonset(_key, Path.rootPath(), json.dumps(_object))
-        
-    def run(self):
-        self.consumer = self._setup_consumer()
-        self._main_loop()
+    
+    def _is_pub_exist(self):
+        return True if self.redis_conn.keys('pub_[0-9][0-9][0-9][0-9]') else False
 
-    def close(self):
-        # Properly exiting the application
-        if self.consumer is not None:
-            self.consumer.close()
+    def run(self):
+        self._setup_redis_conn()
+        while True:
+            job_stats = self._read_job_stats()
+            print(job_stats)
+            time.sleep(10)#self.settings['SLEEP_TIME'])
+
+    def _read_job_stats(self):
+        job_stats={}
+        job_stats['timestamp']=datetime.utcnow().isoformat()
+        job_stats['patent']=[];job_stats['trademark']=[];job_stats['publication']=[]
+        for _key in self.redis_conn.scan_iter(match='[pt][rtu][bdn]_[0-9][0-9][0-9][0-9]',count=100): #match="[pt][rtu][bdn]_[0-9][0-9][0-9][0-9]"
+            if _key in self.all_locks: continue
+            try: #ini bingung kadang kalau gapake json.loads gakebaca, tapi kalau gaada kadang TypeError
+                _job=json.loads(self.redis_conn.jsonget(_key, Path('.')))
+            except TypeError:
+                _job=self.redis_conn.jsonget(_key, Path('.'))
+            job_stat = {}
+            job_stat['year']=_job['year']
+            job_stat['job']=_job['job']
+            job_stat['status']=_job['status']
+            job_stat['timestamp']=_job['timestamp']
+            job_stat['errormsg']=_job['errormsg']
+            if _job['dimension']==self.settings['DIMENSION_PATENT']: job_stats['patent'].append(job_stat)
+            if _job['dimension']==self.settings['DIMENSION_PUBLICATION']: job_stats['publication'].append(job_stat)
+            if _job['dimension']==self.settings['DIMENSION_TRADEMARK']: job_stats['trademark'].append(job_stat)
+        return job_stats
 
     def _get_dimension(self, dimension):
         if dimension == 'ptn' or dimension == 'patent': return 'ptn'
         if dimension == 'trd' or dimension == 'trademark': return 'trd'
         if dimension == 'pub' or dimension == 'publication': return 'pub'
-
-    def _setup_consumer(self):
-        try:
-            broker = self.settings['KAFKA_HOST']+':'+str(self.settings['KAFKA_PORT'])
-            return KafkaConsumer(
-                self.settings['KAFKA_INCOMING_TOPIC'],
-                group_id=self.settings['KAFKA_GROUP'],
-                bootstrap_servers=broker,
-                value_deserializer=lambda m: m.decode('utf-8'),
-                consumer_timeout_ms=self.settings['KAFKA_CONSUMER_TIMEOUT'],
-                auto_offset_reset=self.settings['KAFKA_CONSUMER_AUTO_OFFSET_RESET'],
-                auto_commit_interval_ms=self.settings['KAFKA_CONSUMER_COMMIT_INTERVAL_MS'],
-                enable_auto_commit=self.settings['KAFKA_CONSUMER_AUTO_COMMIT_ENABLE'],
-                max_partition_fetch_bytes=self.settings['KAFKA_CONSUMER_FETCH_MESSAGE_MAX_BYTES'])
-        except:
-            PipelineMonitor.error_handler(sys.exc_info())
 
     def _setup_redis_conn(self):
         self.redis_conn = Client(host=self.settings['JOB_REDIS_HOST'], 
@@ -136,11 +140,6 @@ class PipelineMonitor:
                             decode_responses=True,
                             socket_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'],
                             socket_connect_timeout=self.settings['JOB_REDIS_SOCKET_TIMEOUT'])
-    
-    def _main_loop(self):
-        while True:
-            # read all job_stat from Kafka
-            time.sleep(10)#self.settings['SLEEP_TIME'])
     
     @staticmethod
     def error_handler(err):
@@ -170,7 +169,7 @@ def main():
             raise ValueError
     except KeyboardInterrupt:
         print("Closing Ingestion Monitor...")
-        pipeline_monitor.close()
+        #pipeline_monitor.close()
     except:
         PipelineMonitor.error_handler(sys.exc_info())
 
