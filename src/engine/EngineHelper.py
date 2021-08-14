@@ -139,19 +139,19 @@ def PatternSplit(line, std_file, col_idx=6, fuzz_offset=88):
             return line, None
     return None, line
 
-def InstitutionMapping(line, std_file, col_idx=6, afil_type='uni'):
-    _afil_key = 'university' if afil_type=='uni' else 'non_university' if afil_type=='non_uni' else ''
-    for record in std_file:
-        if line[col_idx] in record[_afil_key]:
-            line.append(record['city'])
-            line.append(record['province'])
-            return line
+def InstitutionMapping(line_list, std_file, columns, map_col):
+    _afil_type = 'uni' if len(columns)==8 else 'non_uni' if len(columns)==7 else None
+    _used, _dropped = 'university','non_university' if _afil_type=='uni' else 'non_university','university'
+    df_lines = pd.DataFrame(line_list, columns=columns).sort_values(map_col, axis=0)
+    df_std = pd.json_normalize(std_file).drop(_dropped, axis=1).explode(_used).reset_index(drop=True).dropna().sort_values(_used,axis=0)
+    res = df_lines.join(df_std.set_index(_used), on=[map_col])
+    return res.values.tolist()
 
-def DepartmentMapping(line, std_file, col_idx=7):
-    for record in std_file:
-        if line[col_idx] in record['department']:
-            line.append(record['class'])
-            return line
+def DepartmentMapping(line_list, std_file, columns, map_col):
+    df_lines = pd.DataFrame(line_list, columns=columns).sort_values(map_col, axis=0)
+    df_std = pd.json_normalize(std_file).explode('department').reset_index(drop=True).dropna().sort_values('department',axis=0)
+    res = df_lines.join(df_std.set_index('department'), on=[map_col])
+    return res.values.tolist()
 
 def Geocode(line, std_file, api_config, col_idx=6):
     #hit api with api_config
