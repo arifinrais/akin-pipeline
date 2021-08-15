@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, jsonify
+from jsonschema.validators import validate
+from jsonschema import ValidationError
 import config, json
 from datetime import datetime
 from rejson import Client, Path
@@ -18,8 +20,15 @@ def load_configs():
                     decode_responses=True,
                     socket_timeout=settings['JOB_REDIS_SOCKET_TIMEOUT'],
                     socket_connect_timeout=settings['JOB_REDIS_SOCKET_TIMEOUT'])
-    return settings, all_locks, redis_conn
-settings, all_locks, redis_conn = load_configs()
+    feed_schema = {
+                "type": "object",
+                "properties": {
+                    "dimension": {"type": "string", "pattern": "^ptn|pub|trd|patent|publication|trademark$"},
+                    "year": {"type": "integer", "minimum": settings['MIN_SCRAPE_YEAR'], "maximum": settings['MAX_SCRAPE_YEAR']}
+                }
+            }
+    return settings, all_locks, redis_conn, feed_schema
+settings, all_locks, redis_conn, feed_schema = load_configs()
 def _read_job_stats():
     job_stats={}
     job_stats['timestamp']=datetime.utcnow().isoformat()
@@ -54,3 +63,33 @@ def getVal():
     temp = _read_job_stats()
     print(temp)
     return jsonify(temp)
+
+def _feed(feed_obj):
+    _object = {}
+    _object['dimension'] = feed_obj['dimension']
+    _object['year'] = feed_obj['year']
+    _object['job'] = settings['JOB_INGEST'] if not _is_pub_exist() else settings['JOB_AGGREGATE']
+    _object['status'] = settings['STAT_WAIT']
+    _object['timestamp'] = datetime.utcnow().isoformat()
+    _object['errormsg'] = ''
+    _key = feed_obj['dimension'] + '_' + str(feed_obj['year'])
+    if not _is_key_exist(_key):
+        redis_conn.jsonset(_key, Path.rootPath(), json.dumps(_object))
+
+def _is_pub_exist():
+    return True if redis_conn.keys('pub_[0-9][0-9][0-9][0-9]') else False
+
+def _is_key_exist(_key):
+    return True if redis_conn.keys(_key) else False
+
+@app.route("/feed_job", methods=["POST"])
+def feedJob():
+    data = json.loads(request.get_data().decode('utf-8'))
+    data = {'dimension':data['dimension'], 'year':int(data['year'])}
+    try:
+        validate(data, feed_schema)
+        _feed(data)
+        return jsonify({'status': 200, "errormsg": ""})
+    except ValidationError:
+        return jsonify({'status': 400, "errormsg": "Bad Request: Validation Error"})
+    
