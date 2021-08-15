@@ -45,9 +45,9 @@ def _read_job_stats():
 def home():
     #print(request.form)
     #print(request.form.get("account"))
-    return render_template("form.html")
+    return render_template("index.html")
 
-@app.route("/get_values", methods=["GET"])
+@app.route("/get_status", methods=["GET"])
 def getVal():
     #print(request.form)
     #print(request.form.get("account"))
