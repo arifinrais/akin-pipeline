@@ -46,7 +46,7 @@ class PipelineMonitor:
                             "type": "object",
                             "properties": {
                                 "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']},
-                                "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
+                                "job": {"type": "string", "pattern": "^ing|agg|tfm|anl$"},
                                 "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
                                 "timestamp": {"type": "date-time"},
                                 "errormsg": {"type": "string"}
@@ -59,7 +59,7 @@ class PipelineMonitor:
                             "type": "object",
                             "properties": {
                                 "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']},
-                                "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
+                                "job": {"type": "string", "pattern": "^ing|agg|tfm|anl$"},
                                 "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
                                 "timestamp": {"type": "date-time"},
                                 "errormsg": {"type": "string"}
@@ -72,7 +72,7 @@ class PipelineMonitor:
                             "type": "object",
                             "properties": {
                                 "year": {"type": "integer", "minimum": self.settings['MIN_SCRAPE_YEAR'], "maximum": self.settings['MAX_SCRAPE_YEAR']},
-                                "job": {"type": "string", "pattern": "^agg|tfm|anl$"},
+                                "job": {"type": "string", "pattern": "^ing|agg|tfm|anl$"},
                                 "status": {"type": "string", "pattern": "^wait|wip|done|err$"},
                                 "timestamp": {"type": "date-time"},
                                 "errormsg": {"type": "string"}
