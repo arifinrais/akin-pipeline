@@ -1,6 +1,17 @@
 version: '2'
 
 services:
+  pipeline-monitor:
+    image: arifinrais/akin-pipeline:pipeline-monitor-dev
+    container_name: pipeline-monitor
+    build:
+      context: .
+      dockerfile: docker/pipeline-monitor/Dockerfile.py3
+    ports:
+      - "5050:5050"
+    depends_on:
+      - job-enqueuer
+    restart: unless-stopped
   analytics-engine:
     image: arifinrais/akin-pipeline:engine-dev
     container_name: analytics

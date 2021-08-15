@@ -13,11 +13,12 @@ COPY src/pipeline-monitor/requirements.txt /usr/src/app/
 RUN pip install --no-cache-dir -r requirements.txt
 #RUN rm -rf /usr/src/utils
 
+ENV FLASK_RUN_PORT=5050
 # move codebase over
 COPY src/pipeline-monitor /usr/src/app
 
 # override settings via localsettings.py
-COPY src/pipeline-monitor/config.py /usr/src/app/config.py
+COPY docker/pipeline-monitor/config.py /usr/src/app/config.py
 
 # copy testing script into container
 # COPY docker/run_docker_tests.sh /usr/src/app/run_docker_tests.sh
@@ -25,4 +26,4 @@ COPY src/pipeline-monitor/config.py /usr/src/app/config.py
 # set up environment variables
 
 # run command
-CMD ["python", "pipeline_monitor.py", "run"]
+CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0"]
