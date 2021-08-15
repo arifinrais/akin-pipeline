@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    
+    <title>Pipeline Monitor</title>
+    <style>
+      .plus {
+        display:inline-block;
+        width:10px;
+        height:10px;
+        
+        background:
+          linear-gradient(#000,#000),
+          linear-gradient(#000,#000);
+        background-position:center;
+        background-size: 100% 2px,2px 100%; /*thickness = 2px, length = 50% (25px)*/
+        background-repeat:no-repeat;
+      }
+    </style>
+  </head>
+  <body>
+    
+    <nav class="navbar navbar-light bg-light">
+      <div class="container-fluid justify-content-center">
+        <span class="navbar-brand mb-0 h1">Pipeline Monitor</span>
+        <button type="button" class="btn btn-default" data-bs-toggle="modal" data-bs-target="#addJob">
+          <span class="plus"></span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="modal fade" id="addJob" tabindex="-1" aria-labelledby="addJobLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="addJobLabel">Add Job</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="jobForm">
+              <select id="dimension" name="dimension" class="form-select" aria-label="Default select example">
+                <option selected>Choose IPR Dimension</option>
+                <option value="ptn">Patent</option>
+                <option value="trd">Trademark</option>
+                <option value="pub">Publication</option>
+              </select>
+              <p> </p>
+              <select id="year" name="year" class="form-select" aria-label="Default select example">
+                <option selected>Choose Year</option>
+                <option value="2000">2000</option>
+                <option value="2001">2001</option>
+                <option value="2002">2002</option>
+                <option value="2003">2003</option>
+                <option value="2004">2004</option>
+                <option value="2005">2005</option>
+                <option value="2006">2006</option>
+                <option value="2007">2007</option>
+                <option value="2008">2008</option>
+                <option value="2009">2009</option>
+                <option value="2010">2010</option>
+                <option value="2011">2011</option>
+                <option value="2012">2012</option>
+                <option value="2013">2013</option>
+                <option value="2014">2014</option>
+                <option value="2015">2015</option>
+                <option value="2016">2016</option>
+                <option value="2017">2017</option>
+                <option value="2018">2018</option>
+              </select>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary" form="jobForm">Add Job</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ul class="nav nav-tabs nav-fill" id="myTab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="patent-tab" data-bs-toggle="tab" data-bs-target="#patent" type="button" role="tab" aria-controls="patent" aria-selected="true">Patent</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="trademark-tab" data-bs-toggle="tab" data-bs-target="#trademark" type="button" role="tab" aria-controls="trademark" aria-selected="false">Trademark</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="publication-tab" data-bs-toggle="tab" data-bs-target="#publication" type="button" role="tab" aria-controls="publication" aria-selected="false">Publication</button>
+      </li>
+    </ul>
+    <div class="tab-content" id="myTabContent">
+      <div class="tab-pane fade show active" id="patent" role="tabpanel" aria-labelledby="patent-tab">
+          <div class="table-responsive">
+              <table class="table">
+                  <thead>
+                      <tr>
+                          <th style="width: 20%">Year</th>
+                          <th style="width: 20%">Ingestion</th>
+                          <th style="width: 20%">Aggregation</th>
+                          <th style="width: 20%">Transformation</th>
+                          <th style="width: 20%">Analysis</th>
+                      </tr>
+                  </thead>
+                  <tbody id="result-patent">
+                
+                  </tbody>
+              </table>
+          </div>
+      </div>
+      <div class="tab-pane fade" id="publication" role="tabpanel" aria-labelledby="publication-tab">
+          <div class="table-responsive">
+              <table class="table">
+                  <thead>
+                      <tr>
+                        <th style="width: 20%">Year</th>
+                        <th style="width: 20%">Ingestion</th>
+                        <th style="width: 20%">Aggregation</th>
+                        <th style="width: 20%">Transformation</th>
+                        <th style="width: 20%">Analysis</th>
+                      </tr>
+                  </thead>
+                  <tbody id="result-publication">
+                
+                  </tbody>
+              </table>
+          </div>
+      </div>
+      <div class="tab-pane fade" id="trademark" role="tabpanel" aria-labelledby="trademark-tab">
+          <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                  <thead>
+                      <tr>
+                        <th style="width: 20%">Year</th>
+                        <th style="width: 20%">Ingestion</th>
+                        <th style="width: 20%">Aggregation</th>
+                        <th style="width: 20%">Transformation</th>
+                        <th style="width: 20%">Analysis</th>
+                      </tr>
+                  </thead>
+                  <tbody id="result-trademark">
+                
+                  </tbody>
+              </table>
+          </div>
+      </div>
+    </div>
+    
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+    
+    <script>
+      $SCRIPT_ROOT = {{ request.script_root|tojson }};
+    </script>
+    <script type=text/javascript>
+      function getStatus(obj_list) {
+
+        var temp = [];
+        obj_list.forEach((element) => {
+          temp_string = "<tr><td>"+element.year+"</td><td>"
+          if (element.job=='ing') {
+            temp.push(temp_string+element.status+"</td><td>-</td><td>-</td><td>-</td></tr>")
+            } else if (element.job=='agg') {
+              temp.push(temp_string+"done</td><td>"+element.status+"</td><td>-</td><td>-</td></tr>")
+            } else if (element.job=='tfm') {
+              temp.push(temp_string+"done</td><td>done</td><td>"+element.status+"</td><td>-</td></tr>")
+            } else if (element.job=='anl') {
+              temp.push(temp_string+"done</td><td>done</td><td>done</td><td>"+element.status+"</td></tr>")
+            }
+        });
+        return temp
+      }
+      function resetTable(element_id) {
+        var myNode = document.getElementById(element_id);
+        while (myNode.firstChild) {
+          myNode.removeChild(myNode.lastChild);
+        }
+      }
+      function getStatuses(obj_list, element_id) {
+        var list_data = getStatus(obj_list);
+        resetTable(element_id);
+        list_data.forEach((element) => {
+          $("#"+element_id).append(element)
+        });
+      }
+
+      function defaultStatus(element_id) {
+        var default_string = "<tr><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>"
+        resetTable(element_id);
+        $("#"+element_id).append(default_string)
+      }
+
+      function loadStatus(data) {
+        if (data.patent.length!=0) {
+          getStatuses(data.patent, 'result-patent')
+        } else {
+          defaultStatus('result-patent')
+        }
+        if (data.publication.length!=0) {
+          getStatuses(data.publication, 'result-publication')
+        } else {
+          defaultStatus('result-publication')
+        }
+        
+        if (data.trademark.length!=0) {
+          getStatuses(data.trademark, 'result-trademark')
+        } else {
+          defaultStatus('result-trademark')
+        }
+      }
+
+      function showStatus() {
+        $.getJSON(                            
+                $SCRIPT_ROOT + '/get_status',      
+                {},                                
+                function(data)                     
+                {
+                  loadStatus(data);
+                });
+      }
+      showStatus();
+      var addJobModal = document.getElementById('addJob');
+      addJobModal.addEventListener('show.bs.modal', function(){});
+      //$('#addJob').addEventListener('show.bs.modal')
+      var jobForm = document.getElementById('jobForm')
+      jobForm.addEventListener('submit', (e)=> {
+        e.preventDefault();
+        var unindexed_array = $('#jobForm').serializeArray();
+        var indexed_array = {};
+
+        $.map(unindexed_array, function(n, i){
+            indexed_array[n['name']] = n['value'];
+        });
+        $.post(
+          $SCRIPT_ROOT + '/feed_job',
+          JSON.stringify(indexed_array),
+          function () {
+            
+          }
+        )
+        
+      })
+      setInterval(showStatus, 60000);
+    </script>
+  </body>
+</html>
