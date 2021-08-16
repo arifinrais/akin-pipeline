@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from jsonschema.validators import validate
 from jsonschema import ValidationError
-import config, json
+import config, json, os
 from datetime import datetime
 from rejson import Client, Path
 
@@ -13,13 +13,14 @@ def load_configs():
     for item in configs:
         settings[item]=getattr(config, item)
     all_locks=[settings['LOCK_INGEST'],settings['LOCK_AGGREGATE'],settings['LOCK_ANALYZE']]
-    redis_conn = Client(host=settings['JOB_REDIS_HOST'], 
-                    port=settings['JOB_REDIS_PORT'], 
-                    password=settings['JOB_REDIS_PASSWORD'],
-                    db=settings['JOB_REDIS_DB'],
+
+    redis_conn = Client(host=os.getenv('JOB_REDIS_HOST'), 
+                    port=os.getenv('JOB_REDIS_PORT'), 
+                    password=os.getenv('JOB_REDIS_PASSWORD'),
+                    db=os.getenv('JOB_REDIS_DB'),
                     decode_responses=True,
-                    socket_timeout=settings['JOB_REDIS_SOCKET_TIMEOUT'],
-                    socket_connect_timeout=settings['JOB_REDIS_SOCKET_TIMEOUT'])
+                    socket_timeout=int(os.getenv('JOB_REDIS_SOCKET_TIMEOUT')),
+                    socket_connect_timeout=int(os.getenv('JOB_REDIS_SOCKET_TIMEOUT')))
     feed_schema = {
                 "type": "object",
                 "properties": {
