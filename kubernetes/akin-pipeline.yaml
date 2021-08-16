@@ -1,38 +1,4 @@
 apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: pipeline-monitor
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: pipeline-monitor
-  template:
-    metadata:
-      name: pipeline-monitor
-      labels:
-        name: pipeline-monitor
-    spec:
-      containers:
-        - name: pipeline-monitor
-          image: arifinrais/akin-pipeline:pipeline-monitor-k8
-          ports:
-            - containerPort: 5050
-          env:
-            - name: JOB_REDIS_HOST
-              value: job-enqueuer-service
-            - name: JOB_REDIS_PORT
-              value: "6379"
-            - name: JOB_REDIS_DB
-              value: "0"
-            - name: JOB_REDIS_PASSWORD
-              value: null
-            - name: JOB_REDIS_SOCKET_TIMEOUT
-              value: "10"
-
----
-
-apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
   name: job-enqueuer
@@ -65,6 +31,40 @@ spec:
   ports:
     - port: 6379
       targetPort: 6379
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pipeline-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: pipeline-monitor
+  template:
+    metadata:
+      name: pipeline-monitor
+      labels:
+        name: pipeline-monitor
+    spec:
+      containers:
+        - name: pipeline-monitor
+          image: arifinrais/akin-pipeline:pipeline-monitor-k8
+          ports:
+            - containerPort: 5050
+          env:
+            - name: JOB_REDIS_HOST
+              value: job-enqueuer-service.default
+            - name: JOB_REDIS_PORT
+              value: "6379"
+            - name: JOB_REDIS_DB
+              value: "0"
+            - name: JOB_REDIS_PASSWORD
+              value: null
+            - name: JOB_REDIS_SOCKET_TIMEOUT
+              value: "10"
 
 ---
 
