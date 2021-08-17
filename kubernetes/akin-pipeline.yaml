@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
   name: job-enqueuer
+  labels:
+    name: job-enqueuer
 spec:
   replicas: 1
   selector:
@@ -38,6 +40,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: pipeline-monitor
+  labels:
+    name: pipeline-monitor
 spec:
   replicas: 1
   selector:
@@ -56,7 +60,7 @@ spec:
             - containerPort: 5050
           env:
             - name: JOB_REDIS_HOST
-              value: job-enqueuer-service.default
+              value: job-enqueuer-service.default.svc.cluster.local
             - name: JOB_REDIS_PORT
               value: "6379"
             - name: JOB_REDIS_DB
