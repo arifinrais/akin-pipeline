@@ -1,9 +1,10 @@
 apiVersion: apps/v1
-kind: ReplicaSet
+kind: Deployment
 metadata:
   name: job-enqueuer
   labels:
     name: job-enqueuer
+  namespace: default
 spec:
   replicas: 1
   selector:
@@ -27,12 +28,16 @@ apiVersion: v1
 kind: Service
 metadata:
   name: job-enqueuer-service
+  namespace: default
 spec:
+  type: ClusterIP
   selector:
     name: job-enqueuer
   ports:
-    - port: 6379
+    - name: job-enqueuer
+      port: 6379
       targetPort: 6379
+      protocol: TCP
 
 ---
 
@@ -42,6 +47,7 @@ metadata:
   name: pipeline-monitor
   labels:
     name: pipeline-monitor
+  namespace: default
 spec:
   replicas: 1
   selector:
@@ -76,12 +82,15 @@ apiVersion: v1
 kind: Service
 metadata:
   name: pipeline-monitor-service
+  namespace: default
 spec:
   type: NodePort
   selector:
     name: pipeline-monitor
   ports:
-    - port: 5050
+    - name: pipeline-monitor
+      protocol: TCP
+      port: 5050
       targetPort: 5050
       nodePort: 30001
 

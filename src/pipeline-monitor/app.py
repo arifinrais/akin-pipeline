@@ -7,6 +7,9 @@ from rejson import Client, Path
 
 app = Flask(__name__)
 
+def get_env_settings(cfg, settings):
+    return os.getenv(cfg) if os.getenv(cfg) else settings[cfg]
+
 def load_configs():
     configs=[item for item in dir(config) if not item.startswith("__")]
     settings={}
@@ -14,13 +17,13 @@ def load_configs():
         settings[item]=getattr(config, item)
     all_locks=[settings['LOCK_INGEST'],settings['LOCK_AGGREGATE'],settings['LOCK_ANALYZE']]
 
-    redis_conn = Client(host=os.getenv('JOB_REDIS_HOST'), 
-                    port=os.getenv('JOB_REDIS_PORT'), 
-                    password=os.getenv('JOB_REDIS_PASSWORD'),
-                    db=os.getenv('JOB_REDIS_DB'),
+    redis_conn = Client(host=get_env_settings('JOB_REDIS_HOST', settings), 
+                    port=get_env_settings('JOB_REDIS_PORT', settings),
+                    password=get_env_settings('JOB_REDIS_PASSWORD', settings),
+                    db=get_env_settings('JOB_REDIS_DB', settings),
                     decode_responses=True,
-                    socket_timeout=int(os.getenv('JOB_REDIS_SOCKET_TIMEOUT')),
-                    socket_connect_timeout=int(os.getenv('JOB_REDIS_SOCKET_TIMEOUT')))
+                    socket_timeout=int(get_env_settings('JOB_REDIS_SOCKET_TIMEOUT', settings)),
+                    socket_connect_timeout=int(get_env_settings('JOB_REDIS_SOCKET_TIMEOUT', settings)))
     feed_schema = {
                 "type": "object",
                 "properties": {
@@ -61,6 +64,7 @@ def home():
 def getVal():
     #print(request.form)
     #print(request.form.get("account"))
+    print('mashuk')
     temp = _read_job_stats()
     print(temp)
     return jsonify(temp)
