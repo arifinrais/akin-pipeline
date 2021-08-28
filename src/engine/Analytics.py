@@ -311,6 +311,7 @@ class Analytics(Engine):
             if dimension==self.settings['DIMENSION_TRADEMARK'] else 'PUBLICATION'\
             if dimension==self.settings['DIMENSION_PUBLICATION'] else ''
         if not collection: raise Exception('403: Load Purpose and/or Dimension Not Recognized')
+        self.mongo_collections[collection].delete_many({"year": scheme['year']})
         self.mongo_collections[collection].insert_one(scheme)
 
     def start(self):
