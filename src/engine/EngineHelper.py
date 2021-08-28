@@ -153,18 +153,17 @@ def DepartmentMapping(line_list, std_file, columns, map_col):
     res = df_lines.join(df_std.set_index('department'), on=[map_col])
     return res.values.tolist()
 
-def Geocode(line, std_file, api_config, col_idx=6):
-    #hit api with api_config
-    resp='some json file that has to be loaded'
-
-    #parse response
-    #if response > 1 loop parse until get a city
-    resp_city='some city'
-    #if theres also province attribute, get the province
-    resp_province='some province'
-    
-    #if there's no city, failed geocode
-    if not resp_city: return None, line
+def Geocode(line, std_file, std_postal, col_idx=6, fuzz_offset=88, api_config=None):
+    addresses = GetAddresses(line[col_idx].split())
+    resp_city, resp_province, postal_mapped = GeocodeOSM(addresses, std_postal)
+    if postal_mapped:
+        line.append(resp_city)
+        line.append(resp_province)
+        return line, None
+    if not resp_city:
+        if not api_config: return None, line
+        #Geocode other API if needed using API config
+        return None, line
 
     fuzz_calc=lambda x,y: (fuzz.ratio(x,y)+fuzz.partial_ratio(x,y)+fuzz.token_sort_ratio(x,y)+fuzz.token_set_ratio(x,y))/4
     max_rating, max_city, max_province = 0, None, None
@@ -176,11 +175,49 @@ def Geocode(line, std_file, api_config, col_idx=6):
         if rating>max_rating:
             max_city = region['city']
             max_province = region['province']
-    if max_rating>50:
+    if max_rating>fuzz_offset:
         line.append(max_city)
         line.append(max_province)
         return line, None
     return None, line
+
+def GeocodeOSM(addresses, std_postal):
+    GEOCODE_API = "https://nominatim.openstreetmap.org/search"
+    resp_city, resp_province = None, None
+    for addr in addresses:
+        params={"q":addr,"format":"json","country":"Indonesia"}
+        with req.get(GEOCODE_API, params=params) as resp:
+            records=json.loads(resp.text)
+            try:
+                for rec in records:
+                    _addr=rec['display_name'].split(', ')
+                    _lat, _lon = float(rec['lat']), float(rec['lon'])
+                    if CheckBorders(_lat, _lon) or _addr[-1].lower()!='indonesia': continue
+                    if len(_addr)>=3:
+                        _postal=_addr[-2]
+                        if re.match('\d{1,12}', _postal):
+                            if re.match('\d{5}', _postal):
+                                for region in std_postal:
+                                    if _postal in region['postal_codes']: return region['city'], region['province'], True
+                            resp_city, resp_province = _addr[-4], _addr[-3]
+                        else:
+                            resp_city, resp_province = _addr[-3], _addr[-2]
+                        if rec['type'] in ['administrative', 'city', 'town']: return resp_city, resp_province, False
+            except IndexError: continue
+    return resp_city, resp_province, False
+
+def GetAddresses(addr_list, num_of_params=5):
+    addresses, n_iter = [], num_of_params if len(addr_list)>=num_of_params else num_of_params
+    for i in range(1, n_iter+1):
+        addr=''
+        for j in range(i):
+            addr=addr_list[-j-1].strip()+' '+addr
+        addresses.append(addr)
+    return addresses.reverse()
+
+def CheckBorders(lat, lon):
+    NORTH_BORDER, SOUTH_BORDER, WEST_BORDER, EAST_BORDER = 6.09, -11.16, 95.46, 141.06
+    return lat>NORTH_BORDER or lat<SOUTH_BORDER or lon<WEST_BORDER or lon>EAST_BORDER
 
 def GenerateFileName(bucket_base, dimension, year, extension, file_id=None, temp_folder=None, temp_prefolder=True):    
     _temp_folder = temp_folder+'/' if temp_folder else ''
