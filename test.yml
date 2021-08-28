@@ -87,6 +87,8 @@ services:
   job-enqueuer:
     image: redislabs/rejson:1.0.7 #latest in dev is 1.0.7
     container_name: job-enqueuer
+    volumes:
+      - redis-data:/data
     ports:
       - "6379:6379"
     restart: always
@@ -134,3 +136,4 @@ services:
 volumes:
   minio-data: # used for minio
   mongo-data: 
+  redis-data:
