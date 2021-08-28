@@ -203,7 +203,7 @@ def GeocodeOSM(addresses, std_postal):
                             resp_city, resp_province = _addr[-4], _addr[-3]
                         else:
                             resp_city, resp_province = _addr[-3], _addr[-2]
-                        if rec['type'] in ['administrative', 'city', 'town']: return resp_city, resp_province, False
+                        if rec['type'] in ['administrative', 'city', 'town'] and resp_city: return resp_city, resp_province, False
             except IndexError: continue
     return resp_city, resp_province, False
 
