@@ -23,13 +23,13 @@ MINIO_BUCKET_INGESTED = 'raw'
 MINIO_BUCKET_AGGREGATED = 'agg'
 MINIO_BUCKET_TRANSFORMED = 'tfm'
 MINIO_BUCKET_RESOURCES = 'res'
-MINIO_RESULT_FOLDER = 'tmp_mapped' #defaultnya result, tapi sebelum geocoding pake tmp_mapped dulu
+MINIO_RESULT_FOLDER = 'result' #defaultnya result, tapi sebelum geocoding pake tmp_mapped dulu
 RES_BASE_PATH = '/Users/arifinrais/Workspace/akin/akin-pipeline/src/engine/res/'
 RES_FILES = {'ING_HIT_LST': 'pub_hit_list.txt',
             'TFM_PTM_STD': 'region_mapping.json',
             'TFM_PSM_STD': 'postal_mapping.json',
             'TFM_DPM_STD': 'department_mapping.json',
-            'TFM_ITM_STD': 'institution_mapping.json',
+            'TFM_INM_STD': 'institution_mapping.json',
             'ANL_ENC_STD': 'encoder_dictionary.json'}
             #'TFM_DPM_STD': 'departmental_mapping.json'
             #'ANL_IPC_STD': 'ipc_mapping.json'

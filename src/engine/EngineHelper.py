@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-import json, sys, json, traceback, requests as req, pandas as pd, regex as re #, time, csv, os, logging
+import json, sys, json, traceback, requests as req, pandas as pd, regex as re
+from numpy import add #, time, csv, os, logging
 from urllib.parse import quote
 #import requests as req
 from minio import Minio
@@ -153,7 +154,7 @@ def DepartmentMapping(line_list, std_file, columns, map_col):
     res = df_lines.join(df_std.set_index('department'), on=[map_col])
     return res.values.tolist()
 
-def Geocode(line, std_file, std_postal, col_idx=6, fuzz_offset=88, api_config=None):
+def Geocode(line, std_file, std_postal, api_config=None, col_idx=6, fuzz_offset=88):
     addresses = GetAddresses(line[col_idx].split())
     resp_city, resp_province, postal_mapped = GeocodeOSM(addresses, std_postal)
     if postal_mapped:
@@ -207,13 +208,13 @@ def GeocodeOSM(addresses, std_postal):
     return resp_city, resp_province, False
 
 def GetAddresses(addr_list, num_of_params=5):
-    addresses, n_iter = [], num_of_params if len(addr_list)>=num_of_params else num_of_params
+    addresses, n_iter = [], num_of_params if len(addr_list)>=num_of_params else len(addr_list)
     for i in range(1, n_iter+1):
         addr=''
         for j in range(i):
-            addr=addr_list[-j-1].strip()+' '+addr
-        addresses.append(addr)
-    return addresses.reverse()
+            addr=addr_list[-j-1]+' '+addr
+        addresses.append(addr.strip())
+    return addresses[::-1]
 
 def CheckBorders(lat, lon):
     NORTH_BORDER, SOUTH_BORDER, WEST_BORDER, EAST_BORDER = 6.09, -11.16, 95.46, 141.06
