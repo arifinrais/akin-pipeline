@@ -278,7 +278,6 @@ class Preparator(Engine):
         return df_mapped, df_unmapped
 
     def _geocoding(self, dimension, year):
-        mapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.mapped_folder)
         try:
             #open unmapped dataset
             unmapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.unmapped_folder)
