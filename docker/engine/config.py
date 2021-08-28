@@ -23,7 +23,7 @@ MINIO_BUCKET_INGESTED = 'raw'
 MINIO_BUCKET_AGGREGATED = 'agg'
 MINIO_BUCKET_TRANSFORMED = 'tfm'
 MINIO_BUCKET_RESOURCES = 'res'
-MINIO_RESULT_FOLDER = 'tmp_mapped' #defaultnya result, tapi sebelum geocoding pake tmp_mapped dulu
+MINIO_RESULT_FOLDER = 'result' #defaultnya result, tapi sebelum geocoding pake tmp_mapped dulu
 RES_BASE_PATH = 'res/'
 RES_FILES = {'ING_HIT_LST': 'pub_hit_list.txt',
             'TFM_PTM_STD': 'region_mapping.json',

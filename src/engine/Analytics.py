@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, logging, time, pandas as pd, numpy as np
+import sys, logging, time, pandas as pd, numpy as np, warnings
 from engine.Engine import Engine
 from engine.EngineHelper import GenerateFileName, BytesToLines
 from datetime import datetime
@@ -42,7 +42,7 @@ class Analytics(Engine):
         success, errormsg = self._analyze_file(dimension, year)
         logging.debug('Updating Job Status...')
         self._redis_update_stat_after(key, self.job, success, errormsg)
-        #success, errormsg = self._analyze_file('ptn', 2018)
+        #success, errormsg = self._analyze_file('ptn', 2006)
         #print(success, errormsg)
         #sys.exit()
    
@@ -242,7 +242,10 @@ class Analytics(Engine):
         num_of_region, num_of_class = self._get_matrix_dimension(reg_dimenson,cls_dimension)
         rca_matrix = self._create_rca_matrix(dataframe, num_of_region, num_of_class) #rca_cutoff can be added
         rca_matrix, diversity_vector, ubiquity_vector, region_index, class_index = self._squeeze_rca_matrix(rca_matrix)
-        kci = self._calculate_kci(rca_matrix, diversity_vector, ubiquity_vector)
+        if len(region_index)==1:
+            kci = pd.DataFrame([[0.0]], columns=['kci'])
+        else:
+            kci = self._calculate_kci(rca_matrix, diversity_vector, ubiquity_vector)
         ipci = self._calculate_ipci(rca_matrix, diversity_vector, ubiquity_vector)
         return kci, ipci, region_index, class_index
 
@@ -300,7 +303,15 @@ class Analytics(Engine):
         return np.round(ipci*-1, decimal_places)
 
     def _fix_sign(self, diversity_vector, complexity_index):
-        corr = np.corrcoef(diversity_vector, complexity_index.iloc[:,0])[0,1]
+        with warnings.catch_warnings():
+            warnings.filterwarnings('error')
+            try:
+                corr = np.corrcoef(diversity_vector, complexity_index.iloc[:,0])[0,1]
+            except RuntimeWarning:
+                diversity_vector = diversity_vector.astype(float)
+                tiny=1e-15
+                diversity_vector[-1]+=tiny
+                corr = np.corrcoef(diversity_vector, complexity_index.iloc[:,0])[0,1]
         corr_sign = np.sign(corr)
         complexity_index *= corr_sign
         return complexity_index
@@ -311,6 +322,7 @@ class Analytics(Engine):
             if dimension==self.settings['DIMENSION_TRADEMARK'] else 'PUBLICATION'\
             if dimension==self.settings['DIMENSION_PUBLICATION'] else ''
         if not collection: raise Exception('403: Load Purpose and/or Dimension Not Recognized')
+        self.mongo_collections[collection].delete_many({"year": scheme['year']})
         self.mongo_collections[collection].insert_one(scheme)
 
     def start(self):

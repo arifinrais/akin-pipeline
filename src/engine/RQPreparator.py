@@ -36,15 +36,14 @@ class RQPreparator(Engine):
         key, dimension, year = self._redis_update_stat_before(self.job)
         logging.debug('Transforming Records...')
         success, errormsg = self._transform_in_rq(dimension, year)
-        #TO BE IMPLEMENTED
-        #logging.debug('Do Geocoding...')
-        #if success and not errormsg:
-        #    success, errormsg = self._geocoding_in_rq(dimension, year)
+        if success and not errormsg:
+            logging.debug('Do Geocoding...')
+            success, errormsg = self._geocoding_in_rq(dimension, year)
         logging.debug('Updating Job Status...')
         self._redis_update_stat_after(key, self.job, success, errormsg)
         #FOR DEBUGGING
         #success, errormsg = self._transform_in_rq('ptn', 2018) #for debugging
-        #success, errormsg = self._geocoding('ptn', 2018) #for debugging
+        #success, errormsg = self._geocoding_in_rq('ptn', 2018) #for debugging
         #print(success, errormsg)
 
     def _transform_in_rq(self, dimension, year):
@@ -173,7 +172,7 @@ class RQPreparator(Engine):
             time.sleep(self.TFM_WAIT_TIME)     
         return ll_cleaned
 
-    def _rq_split(self, line_list, std_file, tfm_work, col_idx=6, api_config=None):
+    def _rq_split(self, line_list, std_file, tfm_work, col_idx=6, std_file2=None, api_config=None):
         job_id = []
         for line in line_list:
             with Connection():
@@ -182,7 +181,7 @@ class RQPreparator(Engine):
                 elif tfm_work==self.TFM_WORK['pattern_matching']:
                     job = self.queue[tfm_work].enqueue(PatternSplit, args=(line, std_file, col_idx))
                 elif tfm_work==self.TFM_WORK['geocode']:
-                    job = self.queue[tfm_work].enqueue(Geocode, args=(line, std_file, api_config, col_idx))
+                    job = self.queue[tfm_work].enqueue(Geocode, args=(line, std_file, std_file2, api_config, col_idx))
                 job_id.append(job.id)
         ll_mapped=[];ll_unmapped=[]
         while True:
@@ -219,22 +218,19 @@ class RQPreparator(Engine):
 
     def _geocoding_in_rq(self, dimension, year):
         #set api config
-        API_CONFIG={}
-        mapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.TEMP_FOLDERS['mapped'])
-        unmapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.TEMP_FOLDERS['unmapped'])
+        api_config={}
         try:
-            data_output = self._fetch_file_from_minio(self.bucket, unmapped_fname)
-            ll_unmapped = BytesToLines(data_output, line_list=True) if data_output else None
-            if not ll_unmapped: raise Exception('405: File Not Fetched')
-            data_output = self._fetch_file_from_minio(self.resources_bucket, self.standard_region)
-            std_file = json.load(BytesIO(data_output))
+            unmapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.TEMP_FOLDERS['unmapped'])
+            ll_unmapped = self._fetch_and_parse(self.bucket, unmapped_fname, 'csv')
+            std_file = self._fetch_and_parse(self.resources_bucket, self.standard_region, 'json')
+            std_postal = self._fetch_and_parse(self.resources_bucket, self.standard_postal, 'json')
 
             #geocoding and mapping data in spark
-            ll_geomapped, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['geocode'], self.ADDR_COL_INDEX, API_CONFIG)
+            ll_geomapped, ll_unmapped = self._rq_split(ll_unmapped, std_file, self.TFM_WORK['geocode'], self.ADDR_COL_INDEX, std_postal, api_config)
 
             #open previously mapped dataset
-            data_output = self._fetch_file_from_minio(self.bucket, mapped_fname)
-            ll_mapped = BytesToLines(data_output, self.column_names) if data_output else None
+            mapped_fname=GenerateFileName(self.bucket, dimension, year, 'csv', temp_folder=self.TEMP_FOLDERS['mapped'])
+            ll_mapped = self._fetch_and_parse(self.bucket, mapped_fname, 'csv')
 
             #saving joined mapped dataset and failed to transform dataset
             mapped_lines=[]
