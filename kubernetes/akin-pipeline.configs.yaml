@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata: 
+  name: pipeline-monitor-configmap
+data:
+  JOB_REDIS_HOST: job-enqueuer-service.default.svc.cluster.local
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata: 
+  name: engine-configmap
+data:
+  JOB_REDIS_HOST: job-enqueuer-service.default.svc.cluster.local
+  RQ_REDIS_HOST: rq-server-service.default.svc.cluster.local
+  MINIO_HOST: minio-service.default.svc.cluster.local
+  MONGO_URI: mongodb://root:mongo123@mongo-service.default.svc.cluster.local/?authSource=admin&readPreference=primary&appname=Engine%&ssl=false

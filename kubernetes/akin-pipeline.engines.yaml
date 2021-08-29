@@ -1,0 +1,172 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: job-enqueuer
+  labels:
+    name: job-enqueuer
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: job-enqueuer
+  template:
+    metadata:
+      name: job-enqueuer
+      labels:
+        name: job-enqueuer
+    spec:
+      containers:
+        - name: job-enqueuer
+          image: redislabs/rejson:1.0.7
+          ports:
+            - containerPort: 6379
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: job-enqueuer-service
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    name: job-enqueuer
+  ports:
+    - name: job-enqueuer
+      port: 6379
+      targetPort: 6379
+      protocol: TCP
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pipeline-monitor
+  labels:
+    name: pipeline-monitor
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: pipeline-monitor
+  template:
+    metadata:
+      name: pipeline-monitor
+      labels:
+        name: pipeline-monitor
+    spec:
+      containers:
+        - name: pipeline-monitor
+          image: arifinrais/akin-pipeline:pipeline-monitor-k8
+          ports:
+            - containerPort: 5050
+          envFrom:
+            - configMapRef:
+                name: pipeline-monitor-configmap
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: pipeline-monitor-service
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    name: pipeline-monitor
+  ports:
+    - name: pipeline-monitor
+      protocol: TCP
+      port: 5050
+      targetPort: 5050
+      nodePort: 30001
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingestor-engine
+  labels:
+    name: ingestor-engine
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: ingestor-engine
+  template:
+    metadata:
+      name: ingestor-engine
+      labels:
+        name: ingestor-engine
+    spec:
+      containers:
+        - name: ingestor-engine
+          image: arifinrais/akin-pipeline:engine-k8
+          command: ["python", "main.py", "ingest"]
+          envFrom:
+            - configMapRef:
+                name: engine-configmap
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aggregator-engine
+  labels:
+    name: aggregator-engine
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: aggregator-engine
+  template:
+    metadata:
+      name: aggregator-engine
+      labels:
+        name: aggregator-engine
+    spec:
+      containers:
+        - name: aggregator-engine
+          image: arifinrais/akin-pipeline:engine-k8
+          command: ["python", "main.py", "aggregate"]
+          envFrom:
+            - configMapRef:
+                name: engine-configmap
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: preparator-engine
+  labels:
+    name: preparator-engine
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: preparator-engine
+  template:
+    metadata:
+      name: preparator-engine
+      labels:
+        name: preparator-engine
+    spec:
+      containers:
+        - name: preparator-engine
+          image: arifinrais/akin-pipeline:engine-k8
+          command: ["python", "main.py", "transform"]
+          envFrom:
+            - configMapRef:
+                name: engine-configmap
+              

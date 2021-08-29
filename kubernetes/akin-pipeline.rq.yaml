@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rq-server
+  labels:
+    name: rq-server
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: rq-server
+  template:
+    metadata:
+      name: rq-server
+      labels:
+        name: rq-server
+    spec:
+      containers:
+        - name: rq-server
+          image: redis:alpine
+          ports:
+            - containerPort: 6389
+          command: ["redis-server", "--port", "6389"]
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: rq-server-service
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    name: rq-server
+  ports:
+    - name: rq-server
+      port: 6389
+      targetPort: 6389
+      protocol: TCP
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rq-scraper
+  labels:
+    name: rq-scraper
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      name: rq-scraper
+  template:
+    metadata:
+      name: rq-scraper
+      labels:
+        name: rq-scraper
+    spec:
+      containers:
+        - name: rq-scraper
+          image: arifinrais/akin-pipeline:engine-k8
+          command: ["python", "main.py", "scrape"]
+          envFrom:
+            - configMapRef:
+                name: engine-configmap
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rq-transform
+  labels:
+    name: rq-transform
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      name: rq-transform
+  template:
+    metadata:
+      name: rq-transform
+      labels:
+        name: rq-transform
+    spec:
+      containers:
+        - name: rq-transform
+          image: arifinrais/akin-pipeline:engine-k8
+          command: ["python", "main.py", "prepare"]
+          envFrom:
+            - configMapRef:
+                name: engine-configmap
