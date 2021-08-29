@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, time, json
+import sys, time, json, os
 from engine import config
 from engine.EngineHelper import GenerateFileName, BytesToLines
 from datetime import datetime
@@ -18,7 +18,7 @@ class Engine(object):
             configs=[item for item in dir(config) if not item.startswith("__")]
             self.settings={}
             for item in configs:
-                self.settings[item]=getattr(config, item)
+                self.settings[item]=os.getenv(item) if os.getenv(item) else getattr(config, item)
             self.job_schema={
                 "type": "object",
                 "properties": {
@@ -32,7 +32,7 @@ class Engine(object):
             }
         except:
             self.error_handler(sys.exc_info())
-    
+
     def _setup_redis_conn(self):
         try:
             self.redis_conn = Client(host=self.settings['JOB_REDIS_HOST'], 
