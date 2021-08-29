@@ -94,4 +94,3 @@ spec:
       targetPort: 5050
       nodePort: 30001
 
-  
