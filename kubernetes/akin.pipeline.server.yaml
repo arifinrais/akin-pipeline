@@ -67,11 +67,10 @@ spec:
           image: arifinrais/akin-pipeline:data-server-k8
           ports:
             - containerPort: 5000
-          env:
-            - name: PORT
-              value: :5000
-            - name: CONNECTION_STRING
-              value: mongodb://root:mongo123@mongo-service.default.svc.cluster.local/?authSource=admin&readPreference=primary&appname=DataServer%&ssl=false
+          envFrom:
+            - configMapRef:
+                name: data-server-configmap
+
 ---
 
 apiVersion: v1
