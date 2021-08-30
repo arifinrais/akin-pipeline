@@ -1,19 +1,9 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # resources
-/utils
-/previous
-/src/engine/res
-/src/data-server/.env
-
 *.yml
 !docker-compose.yml
-!test.yml
 *.log
 *.pyc
 
 __pycache__
-
-# examples
-/pipeline-monitor/distributed_scheduler_EXAMPLE.py
-/pipeline-monitor/kafka_monitor.py
