@@ -82,7 +82,7 @@ services:
     environment:
       MINIO_ROOT_USER: minio
       MINIO_ROOT_PASSWORD: minio123
-    command: server /export --console-address ":9001"
+    command: server /data --console-address ":9001"
     restart: always
   job-enqueuer:
     image: redislabs/rejson:1.0.7 #latest in dev is 1.0.7
