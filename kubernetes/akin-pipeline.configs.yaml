@@ -15,7 +15,7 @@ data:
   JOB_REDIS_HOST: job-enqueuer-service.default.svc.cluster.local
   RQ_REDIS_HOST: rq-server-service.default.svc.cluster.local
   MINIO_HOST: minio-service.default.svc.cluster.local
-  MONGO_URI: mongodb://root:mongo123@mongo-service.default.svc.cluster.local:27017/?authSource=admin&readPreference=primary&appname=Engine%&ssl=false
+  MONGO_URI: mongodb://root:mongo123@mongo-service.default.svc.cluster.local:27017/?authSource=admin&readPreference=primary&appname=Engine&ssl=false
 
 ---
 
