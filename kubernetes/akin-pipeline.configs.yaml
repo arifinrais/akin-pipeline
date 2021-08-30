@@ -25,4 +25,4 @@ metadata:
   name: data-server-configmap
 data:
   PORT: :5000
-  CONNECTION_STRING: mongodb://root:mongo123@mongo-service.default.svc.cluster.local:27017/?authSource=admin&readPreference=primary&appname=DataServer%&ssl=false
+  CONNECTION_STRING: mongodb://root:mongo123@mongo-service.default.svc.cluster.local:27017/?authSource=admin&readPreference=primary&appname=DataServer&ssl=false
