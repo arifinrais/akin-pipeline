@@ -16,3 +16,13 @@ data:
   RQ_REDIS_HOST: rq-server-service.default.svc.cluster.local
   MINIO_HOST: minio-service.default.svc.cluster.local
   MONGO_URI: mongodb://root:mongo123@mongo-service.default.svc.cluster.local/?authSource=admin&readPreference=primary&appname=Engine%&ssl=false
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata: 
+  name: data-server-configmap
+data:
+  PORT: data-server:5000
+  CONNECTION_STRING: mongodb://root:mongo123@mongo-service.default.svc.cluster.local/?authSource=admin&readPreference=primary&appname=Engine%&ssl=false

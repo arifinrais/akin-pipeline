@@ -20,10 +20,10 @@ spec:
         ports:
           - containerPort: 27017
         env:
-            - name: MONGO_INITDB_ROOT_USERNAME
-              value: root
-            - name: MONGO_INITDB_ROOT_PASSWORD
-              value: mongo123 
+          - name: MONGO_INITDB_ROOT_USERNAME
+            value: root
+          - name: MONGO_INITDB_ROOT_PASSWORD
+            value: mongo123 
 
 ---
 
@@ -67,7 +67,11 @@ spec:
           image: arifinrais/akin-pipeline:data-server-k8
           ports:
             - containerPort: 5000
-
+          env:
+            - name: PORT
+              value: :5000
+            - name: CONNECTION_STRING
+              value: mongodb://root:mongo123@mongo-service.default.svc.cluster.local/?authSource=admin&readPreference=primary&appname=DataServer%&ssl=false
 ---
 
 apiVersion: v1
