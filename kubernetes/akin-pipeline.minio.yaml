@@ -50,7 +50,7 @@ spec:
           value: minio
         - name: MINIO_ROOT_PASSWORD
           value: minio123
-        command: ["server", "/data", "--console-address", "\":9001\""]
+        command: ["minio", "server", "/data", "--console-address", "\":9001\""]
         resources:
           requests:
             cpu: '500m'
