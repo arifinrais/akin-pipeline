@@ -169,4 +169,32 @@ spec:
           envFrom:
             - configMapRef:
                 name: engine-configmap
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-engine
+  labels:
+    name: analytics-engine
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: analytics-engine
+  template:
+    metadata:
+      name: analytics-engine
+      labels:
+        name: analytics-engine
+    spec:
+      containers:
+        - name: analytics-engine
+          image: arifinrais/akin-pipeline:engine-k8
+          command: ["python", "main.py", "analyze"]
+          envFrom:
+            - configMapRef:
+                name: engine-configmap
               
