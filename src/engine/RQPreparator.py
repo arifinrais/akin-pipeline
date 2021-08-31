@@ -102,10 +102,16 @@ class RQPreparator(Engine):
         return False
 
     def _save_to_temp_folders(self, mapped_lines, unmapped_lines, dimension, year):
-        if mapped_lines:
-            self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['mapped'])
-        if unmapped_lines:
-            self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['unmapped'])
+        if dimension==self.settings['DIMENSION_PUBLICATION']:
+            if mapped_lines:
+                self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['result'])
+            if unmapped_lines:
+                self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['failed'])
+        else:
+            if mapped_lines:
+                self._save_data_to_minio(mapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['mapped'])
+            if unmapped_lines:
+                self._save_data_to_minio(unmapped_lines, self.bucket, dimension, year, temp_folder=self.TEMP_FOLDERS['unmapped'])
 
     def _rq_cleaning(self, line_list, col_idx=6):
         REGEXP_LIST = [
