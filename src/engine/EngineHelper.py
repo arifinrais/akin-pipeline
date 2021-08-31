@@ -155,20 +155,21 @@ def DepartmentMapping(line_list, std_file, columns, map_col):
     return res.values.tolist()
 
 def Geocode(line, std_file, std_postal, api_config=None, col_idx=6, fuzz_offset=88):
-    try: 
-        addresses = GetAddresses(line[col_idx].split())
+    lines=[]
+    try:
+        lines = line[col_idx].split()
     except IndexError:
         return None, line
-    finally:
-        resp_city, resp_province, postal_mapped = GeocodeOSM(addresses, std_postal)
-        if postal_mapped:
-            line.append(resp_city)
-            line.append(resp_province)
-            return line, None
-        if not resp_city:
-            if not api_config: return None, line
-            #Geocode other API if needed using API config
-            return None, line
+    addresses=GetAddresses(lines)
+    resp_city, resp_province, postal_mapped = GeocodeOSM(addresses, std_postal)
+    if postal_mapped:
+        line.append(resp_city)
+        line.append(resp_province)
+        return line, None
+    if not resp_city:
+        if not api_config: return None, line
+        #Geocode other API if needed using API config
+        return None, line
 
     fuzz_calc=lambda x,y: (fuzz.ratio(x,y)+fuzz.partial_ratio(x,y)+fuzz.token_sort_ratio(x,y)+fuzz.token_set_ratio(x,y))/4
     max_rating, max_city, max_province = 0, None, None
