@@ -36,7 +36,7 @@ class RQPreparator(Engine):
         key, dimension, year = self._redis_update_stat_before(self.job)
         logging.debug('Transforming Records...')
         success, errormsg = self._transform_in_rq(dimension, year)
-        if success and not errormsg:
+        if success and not errormsg and dimension != self.settings['DIMENSION_PUBLICATION']:
             logging.debug('Do Geocoding...')
             success, errormsg = self._geocoding_in_rq(dimension, year)
         logging.debug('Updating Job Status...')
