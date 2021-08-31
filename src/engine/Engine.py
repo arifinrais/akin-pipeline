@@ -162,14 +162,11 @@ class Engine(object):
         try:
             resp = self.minio_client.get_object(bucket_name, file_name)
             data_output = resp.data #deepcopy(resp.data)
+            resp.close()
+            resp.release_conn() 
         except S3Error: raise S3Error
         finally:
-            try:
-                resp.close()
-                resp.release_conn() 
-                return data_output
-            except UnboundLocalError:
-                raise S3Error
+            return data_output
 
     def _fetch_and_parse(self, bucket_name, file_name, extension='csv', delimiter='\t'):
         data_output = self._fetch_file_from_minio(bucket_name, file_name)
